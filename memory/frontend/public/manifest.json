@@ -1,0 +1,47 @@
+{
+  "name": "Claude Brain",
+  "short_name": "Claude Brain",
+  "description": "Advanced Memory Service - Give AI the gift of perfect recall",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#8B5CF6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/brain.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities", "development"],
+  "shortcuts": [
+    {
+      "name": "Search Memories",
+      "short_name": "Search",
+      "description": "Search your memory database",
+      "url": "/search",
+      "icons": [
+        {
+          "src": "/brain.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Add Memory",
+      "short_name": "Add",
+      "description": "Store a new memory",
+      "url": "/add",
+      "icons": [
+        {
+          "src": "/brain.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
