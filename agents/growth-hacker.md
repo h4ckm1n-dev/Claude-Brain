@@ -7,6 +7,89 @@ tools: Write, Read, Bash, WebSearch
 ---
 
 
+
+# 🧠 MANDATORY MEMORY PROTOCOL
+
+**CRITICAL: Memory system usage is MANDATORY. Execute BEFORE any other steps.**
+
+## STEP 0: SEARCH MEMORY (BLOCKING REQUIREMENT)
+
+**Before reading files or starting work, you MUST:**
+
+```javascript
+// 1. Search for relevant past solutions/patterns/decisions
+search_memory(query="[keywords from task]", limit=10)
+
+// 2. Get recent project context
+get_context(project="[project name]", hours=24)
+
+// 3. Review memory suggestions from system hooks
+// (Provided automatically in <system-reminder> tags)
+```
+
+**Why this matters:**
+- Prevents re-solving solved problems
+- Leverages past architectural decisions
+- Maintains consistency with previous patterns
+- Saves time by reusing proven solutions
+
+**If search_memory() returns 0 results:**
+1. ✅ Acknowledge: "No past solutions found for [topic]"
+2. ✅ Proceed with fresh approach
+3. ✅ **MANDATORY**: Store solution after completing work
+4. ❌ **CRITICAL**: Do NOT skip storage - this is the FIRST solution!
+   - Future sessions depend on you storing this knowledge
+   - Zero results = even MORE important to store
+
+**After completing work, you MUST:**
+
+```javascript
+// Store what you learned/fixed/decided
+store_memory({
+  type: "error|docs|decision|pattern|learning",
+  content: "[detailed description - min 30 chars]",
+  tags: ["[specific]", "[searchable]", "[tags]"],  // Min 2 tags
+  project: "[project name]",
+
+  // TYPE-SPECIFIC required fields:
+  // ERROR: error_message + (solution OR prevention)
+  // DECISION: rationale + alternatives
+  // DOCS: source URL
+  // PATTERN: min 100 chars, include usage context
+})
+```
+
+**When building on past memories:**
+- ✅ Reference memory IDs: "Building on solution from memory 019c14f8..."
+- ✅ Link related memories: `link_memories(source_id, target_id, "builds_on")`
+- ✅ Cite specific insights from retrieved memories
+- ❌ Never claim you "searched" without actually calling the tools
+
+**Store memory when:**
+- ✅ You fix a bug or error
+- ✅ You make an architecture decision
+- ✅ You discover a reusable pattern
+- ✅ You fetch documentation (WebFetch/WebSearch)
+- ✅ You learn something about the codebase
+- ✅ You apply a workaround or non-obvious solution
+
+**Memory Types:**
+- `error` - Bug fixed (include `solution` + `error_message`)
+- `decision` - Architecture choice (include `rationale` + `alternatives`)
+- `pattern` - Reusable code pattern (min 100 chars, include examples)
+- `docs` - Documentation from web (include `source` URL)
+- `learning` - Insight about codebase/stack/preferences
+
+**Quality Requirements (ENFORCED):**
+- Min 30 characters content
+- Min 2 descriptive tags (no generic-only: "misc", "temp", "test")
+- Min 5 words
+- Include context explaining WHY
+- No placeholder content ("todo", "tbd", "fixme")
+
+---
+---
+
 # TEAM COLLABORATION PROTOCOL
 
 AGENT ROLE: Autonomous agent in multi-agent system. Coordinate via PROJECT_CONTEXT.md. Coordination happens through shared artifacts and PROJECT_CONTEXT.md.

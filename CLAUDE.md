@@ -1,568 +1,638 @@
+
+# ⛔⛔⛔ STOP - READ THIS FIRST ⛔⛔⛔
+
+## 🚨 PRE-FLIGHT CHECKLIST - COMPLETE IN ORDER 🚨
+
+**STEP 0: CHECK FOR AUTOMATED RECOMMENDATIONS**
+Look for these in <system-reminder> tags (appears BEFORE CLAUDE.md):
+- 🧠 Memory suggestions (from memory-suggest.sh hook)
+- 🎯 Plan mode reminders (from plan-mode-reminder.sh hook)
+
+**IF YOU SEE A PLAN MODE REMINDER WITH "PLANNING REQUIRED" OR "PLANNING RECOMMENDED":**
+→ You MUST follow the workflow described in that reminder
+→ Do NOT proceed with reading files or coding until you EnterPlanMode()
+→ This is NOT optional - the hook analyzed the task and determined planning is critical
+
+---
+
+**STEP 1: MEMORY PROTOCOL (MANDATORY - NO EXCEPTIONS)**
+
+```
+╔════════════════════════════════════════════════════════════╗
+║  MEMORY PROTOCOL - EXECUTE IMMEDIATELY                     ║
+║                                                             ║
+║  1. search_memory(query="[user request]", limit=10)        ║
+║  2. get_context(project="[project]", hours=24)             ║
+║  3. Review <system-reminder> memory suggestions            ║
+║                                                             ║
+║  ⚠️  DO NOT SKIP - THIS IS A BLOCKING REQUIREMENT         ║
+╚════════════════════════════════════════════════════════════╝
+```
+
+**If you proceed without completing steps 1-3 above, you are VIOLATING PROTOCOL and will cause:**
+- ❌ Repeated work on solved problems
+- ❌ Lost knowledge from previous sessions
+- ❌ User frustration and loss of trust
+- ❌ Wasted time debugging known issues
+
+**The user has configured AUTOMATED MEMORY HOOKS. You will receive memory suggestions in `<system-reminder>` tags at session start. USING THEM IS MANDATORY, NOT OPTIONAL.**
+
+---
+
 # Claude Code Agent Ecosystem
 
-45 specialized agents for autonomous software development. Coordinate via PROJECT_CONTEXT.md.
+47 specialized agents for autonomous software development. Coordinate via PROJECT_CONTEXT.md.
 
 > **CRITICAL LIMITATION**: Subagents cannot spawn other subagents. For nested workflows, return to main conversation and chain from there.
 
 ---
 
-## 🎯 Quick Tool Reference
+# 🔥 MEMORY ENFORCEMENT PROTOCOL 🔥
 
-**Most Used Tools**:
-```bash
-# Security scanning (12 agents use this)
-python3 ~/.claude/tools/security/secret-scanner.py .
+## ⛔ ABSOLUTE REQUIREMENTS - NON-NEGOTIABLE ⛔
 
-# API/service health checks (13 agents use this)
-~/.claude/tools/devops/service-health.sh https://api.example.com
+### PHASE 1: SESSION START (DO THIS FIRST - ALWAYS)
 
-# Code complexity analysis (11 agents use this)
-python3 ~/.claude/tools/analysis/complexity-check.py src/
+**EVERY SINGLE SESSION MUST START WITH:**
 
-# Error log analysis (12 agents use this)
-python3 ~/.claude/tools/data/log-analyzer.py /var/log/app.log
+```javascript
+// STEP 1: SEARCH MEMORY - BLOCKING REQUIREMENT
+search_memory(query="[extract keywords from user's request]", limit=10)
 
-# Test coverage reporting (9 agents use this)
-python3 ~/.claude/tools/testing/coverage-reporter.py coverage.xml
+// STEP 2: GET PROJECT CONTEXT - BLOCKING REQUIREMENT
+get_context(project="[project name if known]", hours=24)
 
-# Resource monitoring
-python3 ~/.claude/tools/devops/resource-monitor.py
-
-# SQL query optimization
-python3 ~/.claude/tools/data/sql-explain.py "SELECT * FROM users WHERE..."
-
-# Validate tool ecosystem
-~/.claude/tools/core/health-check.sh
+// STEP 3: REVIEW SUGGESTIONS - MANDATORY
+// Read memory suggestions from <system-reminder> tags
+// These are AUTO-PROVIDED by the system - USE THEM
 ```
 
-**Quick Lookup**: See which tools an agent has
-```bash
-~/.claude/scripts/agent-tools.sh backend-architect
-~/.claude/scripts/agent-tools.sh test-engineer
+**❌ VIOLATION CHECKPOINTS:**
+- Starting to read files WITHOUT searching memory first = **VIOLATION**
+- Running commands WITHOUT reviewing context first = **VIOLATION**
+- Proposing solutions WITHOUT checking past solutions = **VIOLATION**
+- Ignoring `<system-reminder>` memory suggestions = **VIOLATION**
+
+**✅ CORRECT BEHAVIOR:**
+```
+User: "Fix the authentication bug"
+
+WRONG ❌:
+Claude: [Reads files immediately]
+Claude: [Starts debugging]
+
+RIGHT ✅:
+Claude: [Calls search_memory("authentication bug fix")]
+Claude: [Calls get_context(project="app-name")]
+Claude: [Reviews memory suggestions]
+Claude: [Finds: "Auth bug fixed in session X with solution Y"]
+Claude: [Applies known solution OR builds on previous work]
 ```
 
-**By Use Case**:
-- 🔒 **Security**: secret-scanner.py, vuln-checker.sh, permission-auditor.py, cert-validator.sh
-- 📊 **Code Quality**: complexity-check.py, duplication-detector.py, type-coverage.py, import-analyzer.py
-- 🧪 **Testing**: coverage-reporter.py, test-selector.py, mutation-score.sh, flakiness-detector.py
-- ⚡ **Performance**: resource-monitor.py, sql-explain.py, metrics-aggregator.py
-- 🚀 **DevOps**: docker-manager.sh, service-health.sh, env-manager.py, ci-status.sh
+### PHASE 2: DURING WORK (CONTINUOUS VIGILANCE)
 
-All tools return JSON: `{"success": bool, "data": {}, "errors": []}`
+**BEFORE SENDING ANY RESPONSE, ASK YOURSELF:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ SELF-AUDIT CHECKLIST (MANDATORY BEFORE EVERY RESPONSE)  │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│ ❓ Q1: Did I search memory BEFORE starting?            │
+│    → If NO: STOP, search NOW, review results           │
+│                                                          │
+│ ❓ Q2: Did I fix a bug or solve a problem?             │
+│    → If YES: Call store_memory() NOW                   │
+│                                                          │
+│ ❓ Q3: Did I make an architecture decision?            │
+│    → If YES: Call store_memory() NOW                   │
+│                                                          │
+│ ❓ Q4: Did I discover a reusable pattern?              │
+│    → If YES: Call store_memory() NOW                   │
+│                                                          │
+│ ❓ Q5: Did I use WebFetch/WebSearch?                   │
+│    → If YES: Call store_memory() NOW                   │
+│                                                          │
+│ ⚠️  IF Q1 = NO: DO NOT PROCEED                         │
+│ ⚠️  IF Q2-Q5 = YES BUT NOT STORED: DO NOT SEND         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### PHASE 3: SESSION END (MANDATORY STORAGE)
+
+**EVERY SOLUTION/DECISION/PATTERN MUST BE STORED:**
+
+```javascript
+// IMMEDIATE storage required when:
+store_memory({
+  type: "error|docs|decision|pattern|learning",
+  content: "[DETAILED description - min 30 chars]",
+  tags: ["[SPECIFIC tags]", "[SEARCHABLE tags]"],  // Min 2 tags
+  project: "[project name]",
+
+  // TYPE-SPECIFIC required fields:
+  // ERROR: error_message + (solution OR prevention)
+  // DECISION: rationale + alternatives
+  // DOCS: source URL
+})
+```
+
+**STORAGE TRIGGERS (AUTO-STORE REQUIRED):**
+1. ✅ Fixed bug/error → `type="error"` with solution
+2. ✅ Made architecture choice → `type="decision"` with rationale
+3. ✅ Found reusable pattern → `type="pattern"` with examples
+4. ✅ Fetched documentation → `type="docs"` with source
+5. ✅ Learned about codebase → `type="learning"` with context
+6. ✅ Applied workaround → `type="learning"` with why
+
+**❌ NEVER:**
+- Complete work without storing
+- Store placeholder/test memories
+- Use generic-only tags ("misc", "temp")
+- Skip context/rationale fields
+
+**✅ ALWAYS:**
+- Store IMMEDIATELY after solving
+- Include WHY, not just WHAT
+- Use specific, searchable tags
+- Reference memory IDs when building on past work
 
 ---
 
-## 🧠 Memory System (PROACTIVE USE REQUIRED)
+## 🚫 ZERO TOLERANCE POLICY 🚫
 
-Long-term memory via vector database. **Claude MUST proactively store valuable information.**
+**IF THE USER ASKS "Why didn't you use memory?" = YOU FAILED**
 
-**Start Memory Service:**
-```bash
-cd ~/.claude/memory && docker compose up -d
-```
+When this happens, you MUST:
+1. ❗ Acknowledge failure explicitly
+2. ❗ Search memory NOW for relevant context
+3. ❗ Store the solution you SHOULD have stored
+4. ❗ Explain your protocol violation
+5. ❗ Promise to follow PHASE 1-3 next time
 
-**MCP Memory Tools** (use `store_memory` and `search_memory`):
-| Tool | Description |
-|------|-------------|
-| `store_memory` | Save valuable knowledge (see criteria below) |
-| `search_memory` | Search before starting tasks - check existing knowledge |
-| `get_context` | Get relevant context for current project |
-| `mark_resolved` | Mark error as fixed with solution |
-| `link_memories` | Create relationship between memories |
-| `memory_stats` | View memory statistics |
+**This should NEVER happen. The system provides automated memory suggestions. If you ignore them, you are directly violating instructions.**
 
 ---
 
-### WHEN TO STORE MEMORIES (Claude must do this automatically)
+## 🧠 Memory System Reference
 
-**ALWAYS store after:**
-1. **WebFetch/WebSearch** - Save useful documentation, API references, library usage
-2. **Solving a problem** - Save what didn't work AND what worked
-3. **Making a decision** - Save architecture choices with rationale
-4. **Discovering a pattern** - Save reusable code patterns
-5. **Learning something new** - Save insights about user's tech stack
-6. **Finding a workaround** - Save the workaround and why it was needed
+**MCP Memory Tools** (available via MCP server):
+| Tool | When | Required? |
+|------|------|-----------|
+| `search_memory` | START of EVERY session | ✅ MANDATORY |
+| `get_context` | START of EVERY session | ✅ MANDATORY |
+| `store_memory` | AFTER solving ANY problem | ✅ MANDATORY |
+| `mark_resolved` | Mark error as fixed | Optional |
+| `link_memories` | Create relationships | Optional |
 
-**Memory Types & When to Use:**
-| Type | Store When... | Example |
-|------|---------------|---------|
-| `docs` | Found useful documentation online | "React Query v5: use `enabled` flag for conditional queries" |
-| `error` | Something failed (with/without solution) | "Vite path aliases need both tsconfig AND vite.config" |
-| `decision` | Made an architecture/tech choice | "Chose Zustand over Redux - simpler API, less boilerplate" |
-| `pattern` | Found reusable code pattern | "Error boundary with retry logic pattern" |
-| `learning` | Learned about user's stack/preferences | "User prefers functional components over classes" |
-| `context` | Important project context | "This project uses pnpm, not npm" |
+### Memory Quality Requirements (ENFORCED)
 
-**ALWAYS include:**
-- Relevant `tags` for searchability
-- `project` name when project-specific
-- `context` explaining when/why this is useful
+**UNIVERSAL (ALL TYPES):**
+- ✅ Min 30 characters content
+- ✅ Min 2 descriptive tags
+- ✅ Min 5 words
+- ❌ No placeholders ("test", "todo", "tbd")
+- ❌ No generic-only tags
 
----
+**TYPE-SPECIFIC:**
+- **error**: MUST include `solution` OR `prevention` + `error_message`
+- **decision**: MUST include `rationale` (WHY decision was made)
+- **pattern**: Min 100 chars recommended, include usage context
+- **docs**: Include `source` URL, summarize key points
 
-### SEARCH BEFORE WORKING
-
-**Before starting any task, search memory for:**
-- Previous errors in this area
-- Existing patterns that apply
-- User preferences and decisions
-- Documentation already fetched
-
-```
-search_memory(query="[relevant topic]", limit=10)
-```
-
----
-
-### EXAMPLE MEMORY SAVES
-
-**After WebFetch:**
-```
-store_memory(
-  type="docs",
-  content="Qdrant query_points() replaces search() in v1.7+. Use client.query_points(collection, query=vector, limit=N).points",
-  tags=["qdrant", "python", "vector-db", "api-change"],
-  source="https://qdrant.tech/documentation"
-)
-```
-
-**After solving a problem:**
-```
-store_memory(
-  type="error",
-  content="sentence-transformers 2.x incompatible with huggingface_hub 0.20+",
-  error_message="ImportError: cannot import name 'cached_download'",
-  solution="Upgrade to sentence-transformers>=3.0.0",
-  tags=["python", "sentence-transformers", "dependency-conflict"]
-)
-```
-
-**After making a decision:**
-```
-store_memory(
-  type="decision",
-  content="Use Qdrant over ChromaDB for memory system",
-  decision="Chose Qdrant",
-  rationale="Better filtering, Rust performance, production-ready, Docker support",
-  alternatives=["ChromaDB", "Pinecone", "pgvector"],
-  tags=["architecture", "vector-db"]
-)
-```
-
-**Learning about user's stack:**
-```
-store_memory(
-  type="learning",
-  content="User's Claude Code setup uses 45 specialized agents with Task tool routing",
-  tags=["user-setup", "agents", "workflow"],
-  project="claude-ecosystem"
-)
-```
-
----
+**Quality validation is ENFORCED. Low-quality memories will be REJECTED with HTTP 422.**
 
 ### Memory Service Commands
+
 ```bash
-# Start (required before using memory tools)
+# Start service (REQUIRED before work)
 cd ~/.claude/memory && docker compose up -d
 
 # Check health
 curl http://localhost:8100/health
 
-# View stats
-curl http://localhost:8100/stats
+# If service DOWN = work CANNOT proceed
 ```
 
 ---
 
-## 🔄 Common Workflows
+## 📋 PLANNING-FIRST WORKFLOW (2026 BEST PRACTICE)
 
-**New Feature**:
-1. code-architect (design) → 2. backend-architect (implement) → 3. security-practice-reviewer (audit) → 4. test-engineer (tests) → 5. deployment-engineer (deploy)
+### CRITICAL: Separate Planning from Execution
 
-**Bug Fix**:
-1. debugger (investigate with log-analyzer.py, resource-monitor.py) → 2. domain-agent (fix) → 3. test-engineer (regression test)
+**Research shows that planning before coding reduces token usage by 76% while achieving better results.** Always follow this pattern for complex tasks:
 
-**Code Quality**:
-1. code-reviewer (assess with complexity-check.py, duplication-detector.py) → 2. refactoring-specialist (improve) → 3. test-engineer (validate)
+```
+┌─────────────────────────────────────────────────────────┐
+│ READ → PLAN → DELEGATE → EXECUTE → STORE               │
+└─────────────────────────────────────────────────────────┘
+```
 
-**Performance**:
-1. performance-profiler (profile with resource-monitor.py, metrics-aggregator.py) → 2. backend-architect (optimize with sql-explain.py) → 3. test-engineer (validate)
+### When to Use EnterPlanMode
 
-**Security Audit**:
-1. security-practice-reviewer (scan with secret-scanner.py, vuln-checker.sh, permission-auditor.py, cert-validator.sh) → 2. code-reviewer (code review) → 3. deployment-engineer (infrastructure)
+**MANDATORY for complex tasks:**
+- ✅ New features affecting 3+ files
+- ✅ Architecture/design decisions
+- ✅ Multiple valid implementation approaches
+- ✅ Tasks where you'd normally ask user for clarification
+- ✅ Refactoring or code modifications
+- ✅ Unclear requirements needing exploration
+
+**OPTIONAL for simple tasks:**
+- ❌ Single file, <10 lines
+- ❌ Bug fix with known solution from memory
+- ❌ Trivial changes (typos, docs)
+
+### The Planning Workflow
+
+**Step 1: Memory + Research Phase**
+```javascript
+// 1. Search memory FIRST (mandatory)
+search_memory(query="[task keywords]", limit=10)
+get_context(project="[project]", hours=24)
+
+// 2. Enter plan mode
+EnterPlanMode()
+
+// 3. Read files (plan mode allows read-only access)
+Read, Glob, Grep, LS - gather all context
+
+// 4. Research if needed
+WebFetch, WebSearch - get external knowledge
+```
+
+**Step 2: Plan Creation**
+```markdown
+In plan mode, create comprehensive plan covering:
+
+## Analysis
+- Current state (what exists)
+- Requirements (what's needed)
+- Constraints (limitations)
+- Past solutions (from memory search)
+
+## Approach
+- Option 1: [Pros/Cons]
+- Option 2: [Pros/Cons]
+- RECOMMENDED: [Why this option]
+
+## Implementation Steps
+1. [Specific file/change]
+2. [Specific file/change]
+3. [Testing strategy]
+4. [Validation approach]
+
+## Dependencies
+- Files to modify
+- Agents to delegate to
+- External dependencies
+```
+
+**Step 3: Delegation Strategy**
+```javascript
+// After plan approval, delegate to specialized agents
+
+// Example delegation chain:
+Task(subagent_type="code-architect", ...)     // Design
+→ Task(subagent_type="backend-architect", ...) // Implement
+→ Task(subagent_type="test-engineer", ...)     // Test
+→ Task(subagent_type="code-reviewer", ...)     // Review
+```
+
+**Step 4: Execution & Storage**
+```javascript
+// Execute the plan
+[Agent work happens]
+
+// MANDATORY: Store results
+store_memory({
+  type: "decision|pattern|learning",
+  content: "[what was decided/discovered]",
+  tags: [...],
+  project: "..."
+})
+```
+
+### Planning Best Practices from Research
+
+**Keep plans concise:**
+- Focus on WHAT and WHY, not HOW (agents handle HOW)
+- Reference external docs instead of copying (`Read docs/architecture.md`)
+- Use file:line pointers instead of code snippets
+
+**Use AskUserQuestion for clarity:**
+- If multiple approaches are equally valid
+- If requirements are ambiguous
+- BEFORE creating plan, not after
+
+**Model routing for planning:**
+- Use `inherit` (Opus) for complex architecture decisions
+- Use `sonnet` for standard feature planning
+- Reserve `haiku` for simple documentation tasks
+
+### Anti-Patterns to Avoid
+
+❌ **DON'T**: Start coding immediately without plan
+❌ **DON'T**: Skip memory search before planning
+❌ **DON'T**: Create 10-page detailed implementation plans (keep under 2 pages)
+❌ **DON'T**: Plan without reading existing code first
+❌ **DON'T**: Execute without user approval on complex changes
+
+✅ **DO**: Search memory → Plan → Get approval → Delegate → Execute → Store
+✅ **DO**: Keep plans focused on strategy, not tactics
+✅ **DO**: Reference existing patterns from memory
+✅ **DO**: Use progressive disclosure (link to detailed docs)
+
+---
+
+## 🎯 Quick Tool Reference
+
+**🚨 MANDATORY FIRST:**
+```javascript
+search_memory(query="[user request keywords]", limit=10)
+get_context(project="[project name]", hours=24)
+```
+
+**Development Tools:**
+```bash
+# Security
+python3 ~/.claude/tools/security/secret-scanner.py .
+
+# Service health
+~/.claude/tools/devops/service-health.sh https://api.example.com
+
+# Code complexity
+python3 ~/.claude/tools/analysis/complexity-check.py src/
+
+# Error logs
+python3 ~/.claude/tools/data/log-analyzer.py /var/log/app.log
+
+# Test coverage
+python3 ~/.claude/tools/testing/coverage-reporter.py coverage.xml
+```
+
+**By Use Case:**
+- 🧠 **MEMORY (DO THIS FIRST)**: search_memory, get_context, store_memory
+- 🔒 **Security**: secret-scanner.py, vuln-checker.sh
+- 📊 **Code Quality**: complexity-check.py, duplication-detector.py
+- 🧪 **Testing**: coverage-reporter.py, test-selector.py
+- ⚡ **Performance**: resource-monitor.py, sql-explain.py
+- 🚀 **DevOps**: docker-manager.sh, service-health.sh
+
+---
+
+## 🔄 Workflows (MEMORY + PLANNING FIRST)
+
+> **ALL WORKFLOWS: SEARCH MEMORY → PLAN → DELEGATE → EXECUTE → STORE**
+
+### Standard Workflow Pattern (2026 Best Practice)
+
+```
+1. SEARCH     → search_memory() + get_context()
+2. PLAN       → EnterPlanMode() for complex tasks
+3. DELEGATE   → Task(subagent_type="...") to specialists
+4. EXECUTE    → Agents implement the plan
+5. STORE      → store_memory() results + decisions
+```
+
+### Workflow Examples
+
+**New Feature (Complex):**
+```
+SEARCH → EnterPlanMode → code-architect (design)
+       → AskUserQuestion (if needed)
+       → ExitPlanMode (get approval)
+       → backend-architect (implement)
+       → test-engineer (validate)
+       → code-reviewer (review)
+       → STORE (decision + pattern)
+```
+
+**Bug Fix (Simple with known solution):**
+```
+SEARCH → [Find solution in memory]
+       → Apply fix directly
+       → STORE (mark original error as resolved)
+```
+
+**Bug Fix (Unknown issue):**
+```
+SEARCH → EnterPlanMode → debugger (investigate)
+       → [Identify root cause]
+       → ExitPlanMode (plan fix)
+       → domain-agent (implement)
+       → test-engineer (regression test)
+       → STORE (error + solution)
+```
+
+**Code Quality (Refactoring):**
+```
+SEARCH → EnterPlanMode → code-reviewer (assess)
+       → [Create refactoring plan]
+       → ExitPlanMode (approve)
+       → refactoring-specialist (execute)
+       → test-engineer (validate)
+       → STORE (pattern + learnings)
+```
+
+**Performance (Optimization):**
+```
+SEARCH → EnterPlanMode → performance-profiler (analyze)
+       → [Identify bottlenecks]
+       → ExitPlanMode (optimization strategy)
+       → backend-architect (optimize)
+       → test-engineer (benchmark)
+       → STORE (pattern + metrics)
+```
+
+**Security (Audit & Fix):**
+```
+SEARCH → EnterPlanMode → security-practice-reviewer (scan)
+       → [Catalog vulnerabilities]
+       → ExitPlanMode (remediation plan)
+       → domain-agents (fix)
+       → test-engineer (validate)
+       → STORE (vulnerabilities + fixes)
+```
 
 ---
 
 ## Agent Invocation Rules
 
-**Use specialized agent when**:
-- Task involves 3+ files or multiple modules
-- Requires domain expertise (API, security, performance, testing, deployment)
-- Production code or infrastructure work
+**Use specialized agent when:**
+- 3+ files or multiple modules
+- Domain expertise needed (API, security, performance, testing, deployment)
+- Production code or infrastructure
 - Architecture/design decisions
-- ANY keyword triggers (see Keyword Triggers table below)
+- ANY keyword trigger (see Keyword Triggers)
 
-**Work directly when**:
+**Work directly when:**
 - Single file, <10 lines, trivial change
 - No patterns or expertise needed
-- Simple documentation update
 
 ---
 
 ## Keyword Triggers
 
-When user message contains these keywords, auto-launch corresponding agent:
-
 | Keywords | Agent |
 |----------|-------|
-| "API", "REST", "GraphQL", "endpoint" | api-designer |
-| "frontend", "UI", "React", "Vue", "Angular" | frontend-developer |
+| "API", "REST", "GraphQL" | api-designer |
+| "frontend", "UI", "React", "Vue" | frontend-developer |
 | "backend", "server", "database" | backend-architect |
-| "test", "testing", "TDD", "E2E" | test-engineer |
-| "deploy", "CI/CD", "Docker", "Kubernetes" | deployment-engineer |
-| "slow", "optimize", "performance" | performance-profiler |
-| "security", "vulnerability", "auth" | security-practice-reviewer |
-| "refactor", "clean up", "technical debt" | refactoring-specialist |
-| "bug", "error", "broken", "not working" | debugger |
+| "test", "testing", "TDD" | test-engineer |
+| "deploy", "CI/CD", "Docker" | deployment-engineer |
+| "optimize", "performance" | performance-profiler |
+| "security", "vulnerability" | security-practice-reviewer |
+| "refactor", "technical debt" | refactoring-specialist |
+| "bug", "error", "broken" | debugger |
 | "mobile", "iOS", "Android" | mobile-app-developer |
-| "AI", "ML", "LLM", "model" | ai-engineer |
-| "design", "architecture", "plan" | code-architect |
-| "TypeScript", "type safety", "generic", "tsconfig" | typescript-expert |
+| "AI", "ML", "LLM" | ai-engineer |
+| "design", "architecture" | code-architect |
+| "TypeScript", "type safety" | typescript-expert |
 
 ---
 
-## Agent Selection Logic
+## All 47 Agents by Category
 
-**Step 1: Check keyword triggers** (see table above)
+### Full-Stack (4)
+**code-architect**, **backend-architect**, **frontend-developer**, **api-designer**
 
-**Step 2: Apply complexity rules**:
-- Trivial (<10 lines, single file, no expertise) → Work directly (OPTIONAL)
-- Complex OR requires expertise → USE AGENT (MANDATORY)
+### Language Specialists (6)
+**python-expert**, **typescript-expert**, **mobile-app-developer**, **desktop-app-developer**, **game-developer**, **blockchain-developer**
 
-**Mandatory agent triggers**:
-- Architecture/design work
-- API implementation
-- Database work
-- Security review
-- Testing (unit/integration/E2E)
-- Deployment/infrastructure
-- Performance optimization
-- Production code
-- 3+ files
+### DevOps & Infrastructure (3)
+**deployment-engineer**, **infrastructure-architect**, **observability-engineer**
 
-**Edge case**: "Build", "create", "implement" requests → Use domain-specific agent
+### Testing & Quality (4)
+**test-engineer**, **api-tester**, **code-reviewer**, **debugger**
 
----
+### AI & ML (2)
+**ai-engineer**, **ai-prompt-engineer**
 
-## All 43 Agents by Category
+### Data & Analytics (4)
+**data-scientist**, **database-optimizer**, **analytics-engineer**, **visualization-dashboard-builder**
 
-### Full-Stack Development (4 agents)
+### Performance & Security (3)
+**performance-profiler**, **security-practice-reviewer**, **math-checker**
 
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **code-architect** | System design, architecture planning, folder structure | Scalable architecture, design patterns, tech stack selection |
-| **backend-architect** | Server-side logic, APIs, databases | Backend systems, microservices, API implementation |
-| **frontend-developer** | UI components, state management, frontend apps | React/Vue/Angular, responsive design, performance |
-| **api-designer** | REST/GraphQL API design, documentation | Developer-friendly APIs, versioning, specifications |
+### Design & UX (4)
+**ui-designer**, **ux-researcher**, **mobile-ux-optimizer**, **accessibility-specialist**
 
-### Language & Platform Specialists (6 agents)
+### Content & Marketing (4)
+**content-marketing-specialist**, **visual-storyteller**, **technical-writer**, **seo-specialist**
 
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **python-expert** | Advanced Python, async/await, type safety | Python optimization, advanced features, refactoring |
-| **typescript-expert** | Advanced TypeScript, type system, strict types | Type safety, generics, conditional types, production patterns |
-| **mobile-app-developer** | Native iOS/Android apps | Swift, Kotlin, mobile architecture, app stores |
-| **desktop-app-developer** | Cross-platform desktop apps | Electron, Tauri, system integration |
-| **game-developer** | Games, game mechanics, physics | Unity, Godot, graphics, game optimization |
-| **blockchain-developer** | Web3, smart contracts, DeFi | Solidity, Ethereum, NFTs, blockchain integration |
+### Code Management (3)
+**refactoring-specialist**, **migration-specialist**, **localization-specialist**
 
-### DevOps & Infrastructure (3 agents)
+### Business Intelligence (4)
+**finance-tracker**, **growth-hacker**, **trend-researcher**, **trading-bot-strategist**
 
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **deployment-engineer** | CI/CD, Docker, cloud deployment | Kubernetes, infrastructure as code, automation |
-| **infrastructure-architect** | Cloud architecture, disaster recovery | AWS/GCP/Azure, high availability, scaling |
-| **observability-engineer** | Logging, metrics, monitoring | Tracing, alerting, production debugging |
+### Documentation (2)
+**codebase-documenter**, **context7-docs-fetcher**
 
-### Testing & Quality (4 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **test-engineer** | Comprehensive testing, TDD/BDD | Unit/integration/E2E tests, test strategies |
-| **api-tester** | API testing, load testing | Performance tests, contract testing |
-| **code-reviewer** | Code quality review, best practices | Security audit, maintainability, standards |
-| **debugger** | Bug fixing, root cause analysis | Systematic debugging, error reproduction |
-
-### AI & Machine Learning (2 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **ai-engineer** | AI/ML features, LLM integration | Recommendation systems, computer vision, automation |
-| **ai-prompt-engineer** | LLM prompt optimization | Prompt templates, multi-step workflows, tuning |
-
-### Data & Analytics (4 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **data-scientist** | Data analysis, SQL, BigQuery | Data workflows, insights extraction |
-| **database-optimizer** | Schema design, query optimization | Indexing, performance tuning, SQL/NoSQL |
-| **analytics-engineer** | Event tracking, analytics systems | Google Analytics, Mixpanel, data pipelines |
-| **visualization-dashboard-builder** | Interactive dashboards, KPIs | Real-time monitoring, stakeholder reports |
-
-### Performance & Security (3 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **performance-profiler** | Performance bottlenecks, optimization | Application profiling, stack-wide optimization |
-| **security-practice-reviewer** | Security audits, vulnerability scanning | Compliance, security best practices |
-| **math-checker** | Mathematical verification | Formula validation, computational accuracy |
-
-### Design & UX (4 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **ui-designer** | Interface design, component libraries | Design systems, visual aesthetics |
-| **ux-researcher** | User research, behavior analysis | Journey maps, user testing, needs assessment |
-| **mobile-ux-optimizer** | Mobile-first experiences | Mobile usability, responsive adaptation |
-| **accessibility-specialist** | WCAG compliance, screen readers | Keyboard navigation, universal accessibility |
-
-### Content & Marketing (4 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **content-marketing-specialist** | Marketing copy, blogs, campaigns | Conversion-focused content, multi-platform strategy |
-| **visual-storyteller** | Visual narratives, infographics | Presentations, complex idea communication |
-| **technical-writer** | Technical docs, API docs, tutorials | Clear documentation, user guides |
-| **seo-specialist** | SEO optimization, meta tags | Core Web Vitals, structured data, technical SEO |
-
-### Code Management (3 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **refactoring-specialist** | Code cleanup, technical debt | Design patterns, legacy transformation |
-| **migration-specialist** | Framework migrations, version upgrades | Safe incremental migrations, modernization |
-| **localization-specialist** | i18n/l10n, multi-language support | Cultural adaptation, internationalization |
-
-### Business Intelligence (4 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **finance-tracker** | Budget management, cost optimization | Revenue forecasting, financial analysis |
-| **growth-hacker** | Viral growth, user acquisition | Data-driven experiments, scalable growth |
-| **trend-researcher** | Market opportunities, viral content | Social media trends, emerging behaviors |
-| **trading-bot-strategist** | Algorithmic trading, backtesting | Trading logic, risk management, performance analysis |
-
-### Documentation & Support (2 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **codebase-documenter** | Service documentation, CLAUDE.md files | Comprehensive codebase analysis, documentation |
-| **context7-docs-fetcher** | Fetch library/framework docs | Real-time documentation retrieval |
-
-### Meta & Orchestration (2 agents)
-
-| Agent | When to Use | Key Capabilities |
-|-------|-------------|------------------|
-| **workflow-coordinator** | Complex multi-agent workflows, 3+ agents, parallel execution | Agent spawning, result synthesis, conflict resolution |
-| **error-coordinator** | Agent failures, workflow blocks, recovery needed | Error analysis, recovery strategies, workflow resumption |
+### Meta & Orchestration (4)
+**workflow-coordinator**, **error-coordinator**, **memory-curator**, **memory-extractor**
 
 ---
 
-## Multi-Agent Execution Modes
+## Multi-Agent Execution
 
-**Sequential**: Launch agents in order when output dependencies exist
-- Pattern: A → B → C (B needs A's output, C needs B's output)
-- Example: api-designer → backend-architect → test-engineer
-
-**Parallel**: Launch agents simultaneously when work is independent
-- Pattern: (A + B + C) → D (A/B/C work independently, D integrates)
-- Example: (frontend-developer + backend-architect + seo-specialist)
-
-**Hybrid**: Combine sequential phases with parallel execution
-- Pattern: (A → B) → (C + D + E) → F
-- Example: Architecture phase → Implementation (parallel) → Testing
-
-**Selection logic**:
-- Backend needs DB schema → Sequential (database-optimizer → backend-architect)
-- Frontend needs API spec → Sequential (api-designer → frontend-developer)
-- Frontend + Backend with mocks → Parallel (no dependencies)
-- Multiple reviews → Parallel (security + performance + code-quality)
-- Architecture → Implementation → Testing → Hybrid (3 phases)
+**Sequential**: A → B → C (dependencies)
+**Parallel**: (A + B + C) → D (independent)
+**Hybrid**: (A → B) → (C + D + E) → F (mixed)
 
 ---
 
-## Agent Coordination Rules
+## Agent Coordination
 
-**If agent reports unclear task**: Request file paths, error messages, acceptance criteria from user
-
-**If agents duplicate work**: Check PROJECT_CONTEXT.md, assign explicit file/domain boundaries
-
-**If agent needs missing artifact**: Switch to sequential, run dependency agent first
-
-**If agent fails mid-task**: Read error, check git status, decide re-run vs manual fix
-
-**If workflow too slow**: Identify parallelizable work, consider mocks for unblocking
-
-**If file conflicts**: Review git diff, check PROJECT_CONTEXT.md reasoning, trust last agent
-
-**If wrong agent chosen**: Check "When to Use" descriptions, use keyword triggers
-
-**If PROJECT_CONTEXT.md exceeds 1000 lines**: Archive old activity to PROJECT_ARCHIVE.md
+- Unclear task → Request details
+- Duplicate work → Check PROJECT_CONTEXT.md
+- Missing artifact → Run dependency agent first
+- Agent fails → Check error, decide retry vs manual
+- Too slow → Identify parallelizable work
+- PROJECT_CONTEXT.md > 1000 lines → Archive to PROJECT_ARCHIVE.md
 
 ---
 
 ## Artifact Management
 
-**Standard locations** (agents read/write artifacts here):
 ```
-/docs/api/              - API specs (api-designer → frontend/mobile/tester)
-/docs/database/         - Schema, ERD (database-optimizer → backend)
-/docs/architecture/     - System design, ADRs (code-architect → all)
-/docs/design/           - UI/UX, mockups (ui-designer → frontend)
-/tests/fixtures/        - Test data (test-engineer → all)
-/config/templates/      - Config examples (deployment-engineer → all)
+/docs/api/          - API specs
+/docs/database/     - Schemas
+/docs/architecture/ - Design docs
+/docs/design/       - UI/UX
+/tests/fixtures/    - Test data
+/config/templates/  - Config examples
 ```
-
-**Naming conventions**:
-- Version in name: `/docs/api/auth-v2.yaml`
-- Date in name: `/docs/database/schema-2025-11.sql`
-- Quantity in name: `/tests/fixtures/users-10-sample.json`
-
-**PROJECT_CONTEXT.md sections agents must update**:
-- Agent Activity Log (after completing work)
-- Artifacts for Other Agents (when creating files for next agent)
-- Active Blockers (when blocked on dependencies)
-- Shared Decisions (when making architectural choices)
 
 ---
 
 ## Validation & Error Recovery
 
-**Validation scripts** (run during multi-agent workflows):
-- `~/.claude/scripts/check-tools.sh` - Verify tools available (Phase 0)
-- `~/.claude/scripts/validate-coordination.sh` - Check PROJECT_CONTEXT.md health (Phase 0)
-- `~/.claude/scripts/validate-artifacts.sh` - Verify artifacts exist (after each agent)
+**Scripts:**
+- `~/.claude/scripts/check-tools.sh`
+- `~/.claude/scripts/validate-coordination.sh`
+- `~/.claude/scripts/validate-artifacts.sh`
 
-**Error recovery tiers** (agents must follow):
-- **Tier 1** (Transient): Network errors, file locks → Auto-retry max 3x with backoff
-- **Tier 2** (Validation): Test failures, linting errors → Auto-fix and re-validate max 2x
-- **Tier 3** (Blocker): Missing dependencies, tool unavailable → Document in PROJECT_CONTEXT.md and STOP (never silently fail)
-
-**Agents must update PROJECT_CONTEXT.md**:
-- Validation Timestamps (pre/post-task results)
-- Error Recovery Log (how errors were handled)
-- Coordination Metrics (handoff success rate, retry rate)
+**Tiers:**
+- **Tier 1** (Transient): Auto-retry max 3x
+- **Tier 2** (Validation): Auto-fix max 2x
+- **Tier 3** (Blocker): Document and STOP
 
 ---
 
-## Quick Reference
-
-### Common Agent Chains
-
-**AUTH**: code-architect → database-optimizer → backend-architect → security-practice-reviewer → frontend-developer → test-engineer
-
-**API**: api-designer → backend-architect → api-tester → codebase-documenter
-
-**FRONTEND**: ui-designer → frontend-developer → accessibility-specialist → test-engineer
-
-**DEPLOY**: deployment-engineer → security-practice-reviewer → observability-engineer
-
-**QUALITY**: (refactoring-specialist + security-practice-reviewer + performance-profiler) → test-engineer → code-reviewer
-
-**AI**: ai-engineer → ai-prompt-engineer → backend-architect → frontend-developer → test-engineer
-
-**DATA**: data-scientist → database-optimizer → backend-architect → visualization-dashboard-builder
-
-**MOBILE**: code-architect → api-designer → mobile-app-developer → mobile-ux-optimizer → test-engineer
-
-### Agent Selection Disambiguations
-
-| Confused About | Use | Not | Reason |
-|----------------|-----|-----|--------|
-| API implementation | backend-architect | api-designer | Designer creates specs, architect implements |
-| API documentation | api-designer | technical-writer | Designer knows API patterns |
-| UI implementation | frontend-developer | ui-designer | Designer creates mockups, developer codes |
-| Security review | security-practice-reviewer | code-reviewer | Security specialist knows vulnerabilities |
-| Code quality | code-reviewer | refactoring-specialist | Reviewer audits, refactorer fixes |
-| Database queries | database-optimizer | backend-architect | Optimizer focuses on performance tuning |
-| Testing implementation | test-engineer | backend-architect | Test engineer creates comprehensive suites |
-| Deployment config | deployment-engineer | backend-architect | Deployment focuses on CI/CD pipelines |
-| Analytics dashboards | visualization-dashboard-builder | data-scientist | Builder creates UI, scientist analyzes data |
-| Agent structure | code-architect | backend-architect | Architect designs systems, backend implements logic |
-| Mobile UI patterns | mobile-ux-optimizer | ui-designer | Mobile-specific constraints and patterns |
-| Performance issues | performance-profiler | code-reviewer | Profiler has specialized diagnostic tools |
-| Bash scripts | backend-architect | deployment-engineer | Backend handles logic, deployment handles automation |
-| Error handling | debugger | code-reviewer | Debugger specializes in root cause analysis |
-| Content copy | content-marketing-specialist | technical-writer | Marketing focuses on conversion, writer on clarity |
-
-### PROJECT_CONTEXT.md Commands
-
-```bash
-# Initialize
-cp ~/.claude/PROJECT_CONTEXT_TEMPLATE.md ./PROJECT_CONTEXT.md
-
-# View recent activity
-grep -A 10 "Agent Activity Log" PROJECT_CONTEXT.md | head -20
-
-# Check blockers
-grep -A 5 "Blockers" PROJECT_CONTEXT.md
-
-# List artifacts
-grep -A 20 "Artifacts for Other Agents" PROJECT_CONTEXT.md
-```
-
----
-
-## Model Routing Strategy
-
-Route tasks to appropriate models for cost/speed optimization:
+## Model Routing
 
 | Model | Use For | Cost | Speed |
 |-------|---------|------|-------|
-| `haiku` | Simple fetch, documentation, straightforward writing | Lowest | Fastest |
+| `haiku` | Simple fetch, docs, writing | Lowest | Fastest |
 | `sonnet` | Code review, testing, implementation | Medium | Fast |
-| `inherit` (Opus) | Architecture, security, complex decisions | Highest | Thorough |
-
-**Recommended Routing**:
-- Quick research/fetch → `haiku`
-- Standard implementation → `sonnet`
-- Critical decisions → `inherit` (Opus 4.5)
+| `inherit` (Opus) | Architecture, security, complex | Highest | Thorough |
 
 ---
 
-## Agent Metadata Reference
+## 📚 Progressive Disclosure (Reference External Docs)
 
-**Agent definition structure** (`.claude/agents/[name].md`):
-- **tools**: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, WebFetch, Task, All tools
-- **model**: inherit, haiku, sonnet, opus
-- **color**: blue, green, purple, orange, red, yellow, pink, cyan, violet, slate
+**To preserve context space, detailed information is in separate files:**
 
-**Key agent tool configurations**:
-- code-architect: All tools (comprehensive planning)
-- backend-architect: Write, Read, MultiEdit, Bash, Grep (implementation)
-- security-practice-reviewer: Read, Grep, Glob, Bash, WebSearch (audit)
-- test-engineer: Bash, Read, Write, Grep, MultiEdit (testing)
-- deployment-engineer: Write, Read, MultiEdit, Bash, Grep (deployment)
-- debugger: Read, Edit, Bash, Grep, Glob (debugging)
+### Architecture & Design
+- `~/.claude/agents/*.md` - All 47 agent definitions and capabilities
+- `~/.claude/PROJECT_CONTEXT_TEMPLATE.md` - Multi-agent coordination template
+- `~/.claude/MEMORY_WORKFLOW.md` - Detailed memory system workflow
+- `~/.claude/MEMORY_IMPROVEMENTS.md` - Memory system enhancements (9 tools)
 
-**For full metadata**: See individual agent files in `.claude/agents/`
+### Scripts & Tools
+- `~/.claude/scripts/` - 20+ automation scripts (see Quick Tool Reference)
+- `~/.claude/tests/` - Test suites including memory-system-tests.py
+- `~/.claude/hooks/` - Automated verification hooks
+
+### Memory System
+- Start service: `cd ~/.claude/memory && docker compose up -d`
+- Dashboard: `python3 ~/.claude/scripts/memory-dashboard.py`
+- Tests: `python3 ~/.claude/tests/memory-system-tests.py`
+- Full docs: `~/.claude/memory/README.md`
+
+**When you need details, READ these files instead of asking user.**
 
 ---
 
 ## System Info
 
-**Agents**: 45 specialized agents in `.claude/agents/`
+**WHY**: Autonomous software development with long-term memory
+**WHAT**: 47 specialized agents + memory system + 20+ automation tools
+**HOW**: Search memory → Plan → Delegate → Execute → Store
+
+**Agents**: 47 specialized agents in `.claude/agents/`
 **Template**: `~/.claude/PROJECT_CONTEXT_TEMPLATE.md`
-**Version**: 3.1 (LLM-optimized)
-**Last Updated**: 2026-01-26
-**Total Agents**: 45
+**Version**: 4.0 (Planning-First + Memory Integration)
+**Last Updated**: 2026-02-01
 
 ---
 
-## Best Practices References
+## Best Practices
 
-- [Claude Code Official Docs](https://code.claude.com/docs/en/sub-agents)
+- [Claude Code Docs](https://code.claude.com/docs/en/sub-agents)
 - [Anthropic Best Practices](https://www.anthropic.com/engineering/claude-code-best-practices)
 - [Multi-Agent Patterns](https://rlancemartin.github.io/2026/01/09/agent_design/)
 - [VoltAgent Collection](https://github.com/VoltAgent/awesome-claude-code-subagents)

@@ -10,7 +10,7 @@ Supports:
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator, ValidationInfo
 from uuid6 import uuid7
 
 
@@ -93,7 +93,7 @@ class MemoryBase(BaseModel):
 
 
 class MemoryCreate(MemoryBase):
-    """Model for creating a new memory."""
+    """Model for creating a new memory with quality validation."""
     # Error-specific fields
     error_message: Optional[str] = None
     stack_trace: Optional[str] = None
@@ -109,6 +109,65 @@ class MemoryCreate(MemoryBase):
 
     # Optional tier specification (defaults to episodic)
     memory_tier: MemoryTier = MemoryTier.EPISODIC
+
+    @field_validator('content')
+    @classmethod
+    def validate_content_quality(cls, v: str) -> str:
+        """Enforce minimum content quality standards."""
+        content = v.strip()
+
+        # Minimum length check
+        if len(content) < 30:
+            raise ValueError(f"Content too short ({len(content)} chars). Minimum 30 characters required for searchability and usefulness.")
+
+        # Minimum word count
+        word_count = len(content.split())
+        if word_count < 5:
+            raise ValueError(f"Content has only {word_count} words. Minimum 5 words required. Avoid placeholders like 'test', 'todo', 'tbd'.")
+
+        # Reject placeholder content
+        if content.lower() in ['test', 'todo', 'placeholder', 'tbd', 'fixme', 'xxx']:
+            raise ValueError(f"Content '{content}' is a placeholder. Provide actual information.")
+
+        return content
+
+    @field_validator('tags')
+    @classmethod
+    def validate_tags(cls, v: list[str]) -> list[str]:
+        """Enforce minimum tag requirements for searchability."""
+        if len(v) < 2:
+            raise ValueError(f"Only {len(v)} tags provided. Minimum 2 descriptive tags required for searchability. Examples: ['python', 'error'], ['decision', 'architecture', 'database']")
+
+        # Check for useless tags
+        useless_tags = {'test', 'todo', 'temp', 'misc', 'other', 'general', 'stuff'}
+        if all(tag.lower() in useless_tags for tag in v):
+            raise ValueError(f"All tags are generic ({v}). Use specific, descriptive tags related to the content.")
+
+        return v
+
+    @model_validator(mode='after')
+    def validate_type_specific_requirements(self) -> 'MemoryCreate':
+        """Validate type-specific requirements after all fields are set."""
+
+        # DECISION memories must have rationale
+        if self.type == MemoryType.DECISION:
+            if not self.rationale:
+                raise ValueError(
+                    "Decision memories must include 'rationale' field explaining WHY this decision was made. "
+                    "What problem does it solve? What are the benefits? "
+                    "Example: rationale='Need ACID compliance for transactions, strong JSON support'"
+                )
+
+        # ERROR memories must have solution OR prevention
+        if self.type == MemoryType.ERROR:
+            if not self.solution and not self.prevention:
+                raise ValueError(
+                    "Error memories must include either 'solution' (how it was fixed) or 'prevention' (how to avoid it). "
+                    "This makes the memory actionable for future reference. "
+                    "Example: solution='Upgrade package to v3.0.0' or prevention='Pin version in requirements.txt'"
+                )
+
+        return self
 
 
 class Memory(MemoryBase):

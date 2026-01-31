@@ -26,6 +26,8 @@ from .embeddings import embed_text, get_embedding_dim, is_sparse_enabled
 from . import notifications as notif_module
 from . import suggestions as suggestions_module
 from . import documents
+from .quality import validate_memory_quality, QualityValidationError, get_quality_suggestions
+from .enhancements import check_duplicate_before_store, suggest_tags_from_similar, get_template_hints
 
 # Configure logging
 logging.basicConfig(
@@ -305,6 +307,92 @@ async def clear_cache():
     return {"status": "cleared", "entries_removed": cleared}
 
 
+# ============================================================================
+# Memory Enhancement Endpoints
+# ============================================================================
+
+@app.post("/memories/draft")
+async def create_memory_draft(data: MemoryCreate):
+    """
+    Preview memory quality and get enhancement suggestions before storing.
+
+    This endpoint validates memory quality and provides actionable suggestions
+    without actually storing the memory. Useful for:
+    - Pre-flight validation in UI
+    - Getting tag suggestions
+    - Detecting potential duplicates
+    - Seeing quality score before committing
+
+    Returns:
+        - quality_score: 0-100 score
+        - warnings: List of quality issues
+        - suggested_tags: Additional tags from similar memories
+        - duplicate_warning: Info about similar existing memories
+        - template_example: Example of high-quality memory for this type
+        - recommendation: "ready" | "needs_improvement" | "blocked"
+    """
+    try:
+        # Check for duplicates
+        duplicate_info = check_duplicate_before_store(data)
+
+        # Get tag suggestions
+        suggested_tags = suggest_tags_from_similar(
+            content=data.content,
+            existing_tags=data.tags or [],
+            limit=5  # More suggestions in draft mode
+        )
+
+        # Calculate quality score
+        from .quality import calculate_quality_score
+        score, warnings = calculate_quality_score(data)
+
+        # Get template hints
+        template_hints = get_template_hints(data.type)
+
+        # Determine recommendation
+        from .quality import MIN_QUALITY_SCORE
+        if score >= MIN_QUALITY_SCORE:
+            recommendation = "ready"
+        elif score >= MIN_QUALITY_SCORE - 10:
+            recommendation = "needs_improvement"
+        else:
+            recommendation = "blocked"
+
+        response = {
+            "quality_score": score,
+            "warnings": warnings,
+            "suggested_tags": suggested_tags,
+            "recommendation": recommendation,
+            "min_required_score": MIN_QUALITY_SCORE,
+        }
+
+        # Add duplicate warning if found
+        if duplicate_info:
+            response["duplicate_warning"] = {
+                "message": duplicate_info["message"],
+                "existing_id": duplicate_info["existing_id"],
+                "existing_content": duplicate_info["existing_content"],
+                "similarity": duplicate_info["similarity_score"],
+                "suggestion": duplicate_info["suggestion"]
+            }
+
+        # Add template example and structure if available
+        if template_hints:
+            if "example" in template_hints:
+                response["template_example"] = template_hints["example"]
+            if "suggested_structure" in template_hints:
+                response["template_structure"] = template_hints["suggested_structure"]
+
+        # Add quality tips
+        response["quality_tips"] = get_quality_suggestions(data.type)
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Draft creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Embedding Endpoint
 
 @app.post("/embed", response_model=EmbedResponse)
@@ -322,14 +410,69 @@ async def generate_embedding(request: EmbedRequest):
 
 @app.post("/memories", response_model=Memory)
 async def create_memory(data: MemoryCreate):
-    """Store a new memory."""
+    """Store a new memory with quality validation and enhancement suggestions."""
     try:
-        # QUALITY FILTER: Reject low-quality memories
-        content = data.content.strip()
+        # ===== ENHANCEMENT 1: SEMANTIC DEDUPLICATION =====
+        duplicate_info = check_duplicate_before_store(data)
+        if duplicate_info:
+            logger.warning(
+                f"Duplicate detected: {duplicate_info['message']} "
+                f"(existing: {duplicate_info['existing_id']}, similarity: {duplicate_info['similarity_score']})"
+            )
+            # Note: We warn but don't block - user may want to store anyway
+            # Future: Could add strict mode to reject duplicates
 
-        # Minimum length check
-        if len(content) < 20:
-            raise HTTPException(status_code=400, detail="Memory content too short (min 20 chars)")
+        # ===== ENHANCEMENT 2: TAG SUGGESTIONS =====
+        suggested_tags = suggest_tags_from_similar(
+            content=data.content,
+            existing_tags=data.tags or [],
+            limit=3
+        )
+        if suggested_tags:
+            logger.info(f"Tag suggestions for new memory: {suggested_tags}")
+
+        # QUALITY VALIDATION
+        try:
+            is_valid, score, warnings = validate_memory_quality(data)
+
+            # Add quality metadata to response headers
+            if warnings:
+                logger.info(f"Memory quality: {score}/100 with {len(warnings)} warnings")
+
+        except QualityValidationError as e:
+            # Quality enforcement is strict and memory failed validation
+            suggestions = get_quality_suggestions(data.type)
+            template_hints = get_template_hints(data.type)
+
+            # Build enhanced error response
+            error_detail = {
+                "error": "Memory quality too low",
+                "score": e.score,
+                "issues": e.warnings,
+                "suggestions": suggestions
+            }
+
+            # Add template example if available
+            if template_hints and "example" in template_hints:
+                error_detail["example"] = template_hints["example"]
+                error_detail["structure"] = template_hints.get("suggested_structure", "")
+
+            # Add tag suggestions if available
+            if suggested_tags:
+                error_detail["suggested_tags"] = suggested_tags
+
+            # Add duplicate warning if found
+            if duplicate_info:
+                error_detail["duplicate_warning"] = {
+                    "message": duplicate_info["message"],
+                    "existing_id": duplicate_info["existing_id"],
+                    "similarity": duplicate_info["similarity_score"]
+                }
+
+            raise HTTPException(status_code=422, detail=error_detail)
+
+        # LEGACY QUALITY FILTER: Keep existing checks for backward compatibility
+        content = data.content.strip()
 
         # Reject useless session summaries with no data
         if "session-end" in (data.tags or []):
@@ -338,12 +481,13 @@ async def create_memory(data: MemoryCreate):
 
         # Reject generic/empty content patterns
         useless_patterns = [
-            "Duration: unknown.",  # Just duration unknown with nothing else
-            "Session ended (session_end) - Duration: unknown.",  # Exact match of useless memory
+            "Duration: unknown.",
+            "Session ended (session_end) - Duration: unknown.",
         ]
         if any(content == pattern.strip() for pattern in useless_patterns):
             raise HTTPException(status_code=400, detail="Memory content is too generic/empty")
 
+        # Store memory
         memory = collections.store_memory(data)
 
         # Broadcast update to WebSocket clients
@@ -353,8 +497,21 @@ async def create_memory(data: MemoryCreate):
         })
 
         return memory
+
     except HTTPException:
         raise
+    except QualityValidationError as e:
+        # Already handled above, but catch again in case
+        suggestions = get_quality_suggestions(data.type)
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "Memory quality too low",
+                "score": e.score,
+                "issues": e.warnings,
+                "suggestions": suggestions
+            }
+        )
     except Exception as e:
         logger.error(f"Failed to store memory: {e}")
         raise HTTPException(status_code=500, detail=str(e))

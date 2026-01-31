@@ -55,6 +55,9 @@ tasks/
 telemetry/
 paste-cache/
 stats-cache.json
+*.tmp
+agents-backup-*/
+agents-backup-*-*/
 
 # Config templates (exclude - not specific to Claude Brain)
 PROJECT_CONTEXT_TEMPLATE.md

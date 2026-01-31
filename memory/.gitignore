@@ -63,3 +63,30 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Temporary documentation and implementation summaries
+*_SUMMARY.md
+*_GUIDE.md
+*_COMPLETE.md
+*_VERIFIED.md
+*_SUCCESS.md
+*_STATUS.md
+DEPLOYMENT.md
+IMPLEMENTATION*.md
+COMPLETE_*.md
+AUTOMATIC_*.md
+BRAIN_*.md
+DOCUMENT_*.md
+DYNAMIC_*.md
+FULL_*.md
+LINKEDIN_*.md
+MEMORY_*.md
+THEME_*.md
+README-ENHANCEMENTS.md
+frontend/*_README.md
+frontend/*_SUCCESS.md
+frontend/*_STATUS.md
+frontend/*_SUMMARY.md
+frontend/FINAL_*.md
+frontend/QUICK_START.md
+frontend/VISUALIZATIONS.md
