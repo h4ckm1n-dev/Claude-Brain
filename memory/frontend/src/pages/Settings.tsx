@@ -160,6 +160,23 @@ export function Settings() {
     },
   });
 
+  // Consolidation mutation
+  const consolidateMutation = useMutation({
+    mutationFn: ({ older_than_days = 7, dry_run = false }: { older_than_days?: number; dry_run?: boolean }) =>
+      apiClient.post('/consolidate', null, { params: { older_than_days, dry_run } }),
+    onSuccess: (data: AxiosResponse<any>) => {
+      const result = data.data;
+      setSaveMessage(`Consolidation complete: ${result.consolidated || 0} memories consolidated, ${result.archived || 0} archived`);
+      setTimeout(() => setSaveMessage(''), 5000);
+      queryClient.invalidateQueries({ queryKey: ['memories'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+    onError: (error: any) => {
+      setSaveMessage(`Error: ${error.response?.data?.detail || error.message}`);
+      setTimeout(() => setSaveMessage(''), 5000);
+    },
+  });
+
   // Fetch indexing folders
   const { data: indexingConfig } = useQuery<any>({
     queryKey: ['indexing', 'folders'],
@@ -890,18 +907,15 @@ export function Settings() {
             <div className="space-y-3">
               <Label>Manual Consolidation</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Merge similar memories and archive old ones
+                Merge similar memories and archive old ones (last 7 days)
               </p>
               <Button
-                onClick={() => scriptMutation.mutate({
-                  endpoint: '/scheduler/jobs/consolidation_job/trigger',
-                  params: {}
-                })}
-                disabled={scriptMutation.isPending}
+                onClick={() => consolidateMutation.mutate({ older_than_days: 7, dry_run: false })}
+                disabled={consolidateMutation.isPending}
                 variant="outline"
                 className="w-full"
               >
-                Run Consolidation Now
+                {consolidateMutation.isPending ? 'Running...' : 'Run Consolidation Now'}
               </Button>
             </div>
           </CardContent>

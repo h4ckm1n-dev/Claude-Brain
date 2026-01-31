@@ -8,7 +8,6 @@ import {
   BarChart3,
   Brain,
   Lightbulb,
-  Archive,
   Settings
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -22,7 +21,6 @@ const navigation = [
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Brain Intelligence', href: '/brain', icon: Brain },
   { name: 'Suggestions', href: '/suggestions', icon: Lightbulb },
-  { name: 'Consolidation', href: '/consolidation', icon: Archive },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

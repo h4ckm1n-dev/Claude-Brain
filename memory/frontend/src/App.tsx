@@ -6,7 +6,6 @@ import { Memories } from './pages/Memories';
 import { Search } from './pages/Search';
 import { Graph } from './pages/Graph';
 import { Suggestions } from './pages/Suggestions';
-import { Consolidation } from './pages/Consolidation';
 import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
 import { BrainIntelligence } from './pages/BrainIntelligence';
@@ -43,7 +42,6 @@ function AppContent() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="brain" element={<BrainIntelligence />} />
           <Route path="suggestions" element={<Suggestions />} />
-          <Route path="consolidation" element={<Consolidation />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
