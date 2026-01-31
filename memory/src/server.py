@@ -2814,12 +2814,12 @@ if os.path.exists(FRONTEND_BUILD):
             'memories', 'documents', 'health', 'stats', 'graph', 'context',
             'consolidate', 'migrate', 'embed', 'notifications', 'settings',
             'processes', 'jobs', 'logs', 'scheduler', 'database', 'indexing',
-            'docs', 'openapi.json', 'brain'
+            'docs', 'openapi.json', 'brain/'  # Changed to 'brain/' to avoid blocking brain.svg
         ]
         if any(full_path.startswith(prefix) for prefix in api_prefixes):
             raise HTTPException(status_code=404, detail="API route not found")
 
-        # Check if it's a specific file request (e.g., /brain.svg)
+        # Check if it's a specific file request (e.g., /brain.svg, /manifest.json)
         file_path = os.path.join(FRONTEND_BUILD, full_path)
         if os.path.exists(file_path) and os.path.isfile(file_path):
             return FileResponse(file_path)
