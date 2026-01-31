@@ -51,8 +51,16 @@ services:
       - ./src:/app/src
       - ./frontend/dist:/app/frontend/dist
     depends_on:
-      - claude-mem-qdrant
-      - claude-mem-neo4j
+      claude-mem-qdrant:
+        condition: service_started
+      claude-mem-neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
 networks:
