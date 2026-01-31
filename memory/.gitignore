@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database runtime files
+neo4j-data/
+qdrant-storage/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+data/
+backups/
+cache/
+tmp/
+temp/
+
+# Node modules (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/.nuxt/
+frontend/.vite/
+
+# Test coverage
+.coverage
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db

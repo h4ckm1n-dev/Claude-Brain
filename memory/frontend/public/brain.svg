@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="brainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#EC4899;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Brain shape -->
+  <path d="M32 8C24 8 18 14 18 22C18 24 18.5 26 19.5 27.5C17 28 15 30.5 15 33.5C15 36 16.5 38 18.5 39C18 40 18 41 18 42C18 46 21 49 25 50C25 53 27.5 56 32 56C36.5 56 39 53 39 50C43 49 46 46 46 42C46 41 46 40 45.5 39C47.5 38 49 36 49 33.5C49 30.5 47 28 44.5 27.5C45.5 26 46 24 46 22C46 14 40 8 32 8Z"
+        fill="url(#brainGradient)"
+        stroke="url(#brainGradient)"
+        stroke-width="2"/>
+
+  <!-- Brain folds/details -->
+  <path d="M28 18C26 20 25 23 25 26"
+        stroke="#FFFFFF"
+        stroke-width="2"
+        stroke-linecap="round"
+        fill="none"
+        opacity="0.6"/>
+  <path d="M36 18C38 20 39 23 39 26"
+        stroke="#FFFFFF"
+        stroke-width="2"
+        stroke-linecap="round"
+        fill="none"
+        opacity="0.6"/>
+  <path d="M22 32C24 34 27 35 30 35"
+        stroke="#FFFFFF"
+        stroke-width="2"
+        stroke-linecap="round"
+        fill="none"
+        opacity="0.6"/>
+  <path d="M42 32C40 34 37 35 34 35"
+        stroke="#FFFFFF"
+        stroke-width="2"
+        stroke-linecap="round"
+        fill="none"
+        opacity="0.6"/>
+  <path d="M27 42C29 44 31 45 33 45"
+        stroke="#FFFFFF"
+        stroke-width="2"
+        stroke-linecap="round"
+        fill="none"
+        opacity="0.6"/>
+
+  <!-- Neural connections (small dots) -->
+  <circle cx="24" cy="24" r="1.5" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="40" cy="24" r="1.5" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="32" cy="30" r="1.5" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="26" cy="38" r="1.5" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="38" cy="38" r="1.5" fill="#FFFFFF" opacity="0.8"/>
+</svg>

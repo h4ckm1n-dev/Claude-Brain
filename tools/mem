@@ -1,0 +1,480 @@
+#!/bin/bash
+# Memory CLI - Quick access to Claude Memory System
+# Usage: mem <command> [options]
+
+set -e
+
+MEMORY_API="${MEMORY_API:-http://localhost:8100}"
+VERSION="1.0.0"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# Icons
+ICON_ERROR="🔴"
+ICON_PATTERN="📋"
+ICON_DECISION="🎯"
+ICON_DOCS="📖"
+ICON_LEARNING="💡"
+ICON_CONTEXT="📍"
+ICON_PIN="📌"
+
+get_icon() {
+    case "$1" in
+        error) echo "$ICON_ERROR" ;;
+        pattern) echo "$ICON_PATTERN" ;;
+        decision) echo "$ICON_DECISION" ;;
+        docs) echo "$ICON_DOCS" ;;
+        learning) echo "$ICON_LEARNING" ;;
+        context) echo "$ICON_CONTEXT" ;;
+        *) echo "•" ;;
+    esac
+}
+
+# Check if API is available
+check_api() {
+    if ! curl -s "$MEMORY_API/health" > /dev/null 2>&1; then
+        echo -e "${RED}Error: Memory service not available at $MEMORY_API${NC}"
+        echo "Start it with: cd ~/.claude/memory && docker compose up -d"
+        exit 1
+    fi
+}
+
+# Help
+show_help() {
+    cat << 'EOF'
+Memory CLI - Quick access to Claude Memory System
+
+USAGE:
+    mem <command> [options]
+
+COMMANDS:
+    search <query>       Search memories semantically
+    list                 List memories with filters
+    show <id>            Show a specific memory
+    pin <id>             Pin memory (never decay)
+    unpin <id>           Unpin memory
+    delete <id>          Delete a memory
+    archive <id>         Archive a memory
+    stats                Show statistics
+    suggest              Get proactive suggestions
+    recent               Show recent memories
+    errors               Show unresolved errors
+    health               Check service health
+
+OPTIONS:
+    --type=<type>        Filter by type (error|pattern|decision|docs|learning|context)
+    --project=<name>     Filter by project
+    --limit=<n>          Limit results (default: 10)
+    --unresolved         Show only unresolved errors
+    --json               Output as JSON
+
+EXAMPLES:
+    mem search "docker networking"
+    mem list --type=error --unresolved
+    mem show 019bfac0-59f2-75ff-a66a-671d4406508a
+    mem pin 019bfac0-59f2-75ff-a66a-671d4406508a
+    mem stats
+    mem suggest --project=my-app
+    mem recent --limit=5
+
+EOF
+}
+
+# Search memories
+cmd_search() {
+    local query="$1"
+    local type=""
+    local project=""
+    local limit=10
+    local json=false
+
+    shift
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --type=*) type="${1#*=}" ;;
+            --project=*) project="${1#*=}" ;;
+            --limit=*) limit="${1#*=}" ;;
+            --json) json=true ;;
+        esac
+        shift
+    done
+
+    if [ -z "$query" ]; then
+        echo -e "${RED}Error: Search query required${NC}"
+        echo "Usage: mem search \"your query\" [--type=error] [--limit=10]"
+        exit 1
+    fi
+
+    local payload=$(jq -n \
+        --arg query "$query" \
+        --arg type "$type" \
+        --arg project "$project" \
+        --argjson limit "$limit" \
+        '{
+            query: $query,
+            limit: $limit,
+            type: (if $type == "" then null else $type end),
+            project: (if $project == "" then null else $project end)
+        }')
+
+    local response=$(curl -s -X POST "$MEMORY_API/memories/search" \
+        -H "Content-Type: application/json" \
+        -d "$payload")
+
+    if [ "$json" = true ]; then
+        echo "$response" | jq .
+        return
+    fi
+
+    local count=$(echo "$response" | jq 'length')
+
+    if [ "$count" -eq 0 ]; then
+        echo -e "${YELLOW}No memories found for: $query${NC}"
+        return
+    fi
+
+    echo -e "${BOLD}Found $count memories:${NC}\n"
+
+    echo "$response" | jq -r '.[] | "\(.memory.id)|\(.memory.type)|\(.score)|\(.memory.content)|\(.memory.tags | join(", "))|\(.memory.project // "global")"' | \
+    while IFS='|' read -r id type score content tags project; do
+        local icon=$(get_icon "$type")
+        local short_content=$(echo "$content" | head -c 100)
+        [ ${#content} -gt 100 ] && short_content="$short_content..."
+
+        echo -e "$icon ${CYAN}[$type]${NC} ${BOLD}$short_content${NC}"
+        echo -e "   ID: ${PURPLE}$id${NC}"
+        echo -e "   Score: ${GREEN}$score${NC} | Project: $project"
+        [ -n "$tags" ] && echo -e "   Tags: ${YELLOW}$tags${NC}"
+        echo ""
+    done
+}
+
+# List memories
+cmd_list() {
+    local type=""
+    local project=""
+    local limit=10
+    local unresolved=false
+    local json=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --type=*) type="${1#*=}" ;;
+            --project=*) project="${1#*=}" ;;
+            --limit=*) limit="${1#*=}" ;;
+            --unresolved) unresolved=true ;;
+            --json) json=true ;;
+        esac
+        shift
+    done
+
+    local url="$MEMORY_API/context"
+    [ -n "$project" ] && url="$MEMORY_API/context/$project"
+    url="$url?hours=168"  # Last 7 days (API max)
+    [ -n "$type" ] && url="$url&types=$type"
+
+    local response=$(curl -s "$url")
+
+    if [ "$json" = true ]; then
+        echo "$response" | jq .
+        return
+    fi
+
+    # Filter unresolved if requested
+    if [ "$unresolved" = true ]; then
+        response=$(echo "$response" | jq '[.[] | select(.type == "error" and (.resolved == false or .resolved == null))]')
+    fi
+
+    # Apply limit
+    response=$(echo "$response" | jq ".[:$limit]")
+
+    local count=$(echo "$response" | jq 'length')
+
+    if [ "$count" -eq 0 ]; then
+        echo -e "${YELLOW}No memories found${NC}"
+        return
+    fi
+
+    echo -e "${BOLD}Listing $count memories:${NC}\n"
+
+    echo "$response" | jq -r '.[] | "\(.id)|\(.type)|\(.content)|\(.tags | join(", "))|\(.project // "global")|\(.access_count)|\(.pinned // false)"' | \
+    while IFS='|' read -r id type content tags project access_count pinned; do
+        local icon=$(get_icon "$type")
+        local short_content=$(echo "$content" | head -c 80)
+        [ ${#content} -gt 80 ] && short_content="$short_content..."
+
+        local pin_icon=""
+        [ "$pinned" = "true" ] && pin_icon=" $ICON_PIN"
+
+        echo -e "$icon ${CYAN}[$type]${NC}$pin_icon ${BOLD}$short_content${NC}"
+        echo -e "   ID: ${PURPLE}$id${NC} | Accessed: ${access_count}x | Project: $project"
+        echo ""
+    done
+}
+
+# Show single memory
+cmd_show() {
+    local id="$1"
+    local json=false
+
+    [ "$2" = "--json" ] && json=true
+
+    if [ -z "$id" ]; then
+        echo -e "${RED}Error: Memory ID required${NC}"
+        exit 1
+    fi
+
+    local response=$(curl -s "$MEMORY_API/memories/$id")
+
+    if echo "$response" | jq -e '.detail' > /dev/null 2>&1; then
+        echo -e "${RED}Memory not found: $id${NC}"
+        exit 1
+    fi
+
+    if [ "$json" = true ]; then
+        echo "$response" | jq .
+        return
+    fi
+
+    local type=$(echo "$response" | jq -r '.type')
+    local icon=$(get_icon "$type")
+
+    echo -e "${BOLD}$icon Memory Details${NC}\n"
+    echo -e "${CYAN}ID:${NC}        $(echo "$response" | jq -r '.id')"
+    echo -e "${CYAN}Type:${NC}      $(echo "$response" | jq -r '.type')"
+    echo -e "${CYAN}Project:${NC}   $(echo "$response" | jq -r '.project // "global"')"
+    echo -e "${CYAN}Created:${NC}   $(echo "$response" | jq -r '.created_at')"
+    echo -e "${CYAN}Accessed:${NC}  $(echo "$response" | jq -r '.access_count')x"
+    echo -e "${CYAN}Pinned:${NC}    $(echo "$response" | jq -r '.pinned // false')"
+    echo -e "${CYAN}Tags:${NC}      $(echo "$response" | jq -r '.tags | join(", ")')"
+    echo ""
+    echo -e "${CYAN}Content:${NC}"
+    echo "$response" | jq -r '.content' | fold -s -w 80
+
+    # Show solution if error type
+    local solution=$(echo "$response" | jq -r '.solution // empty')
+    if [ -n "$solution" ]; then
+        echo ""
+        echo -e "${GREEN}Solution:${NC}"
+        echo "$solution" | fold -s -w 80
+    fi
+}
+
+# Pin memory
+cmd_pin() {
+    local id="$1"
+
+    if [ -z "$id" ]; then
+        echo -e "${RED}Error: Memory ID required${NC}"
+        exit 1
+    fi
+
+    curl -s -X POST "$MEMORY_API/memories/$id/pin" > /dev/null
+
+    echo -e "${GREEN}$ICON_PIN Pinned memory $id${NC}"
+    echo "This memory will never decay in importance."
+}
+
+# Unpin memory
+cmd_unpin() {
+    local id="$1"
+
+    if [ -z "$id" ]; then
+        echo -e "${RED}Error: Memory ID required${NC}"
+        exit 1
+    fi
+
+    curl -s -X POST "$MEMORY_API/memories/$id/unpin" > /dev/null
+
+    echo -e "${YELLOW}Unpinned memory $id${NC}"
+}
+
+# Delete memory
+cmd_delete() {
+    local id="$1"
+
+    if [ -z "$id" ]; then
+        echo -e "${RED}Error: Memory ID required${NC}"
+        exit 1
+    fi
+
+    read -p "Delete memory $id? [y/N] " confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        curl -s -X DELETE "$MEMORY_API/memories/$id" > /dev/null
+        echo -e "${RED}Deleted memory $id${NC}"
+    else
+        echo "Cancelled"
+    fi
+}
+
+# Archive memory
+cmd_archive() {
+    local id="$1"
+
+    if [ -z "$id" ]; then
+        echo -e "${RED}Error: Memory ID required${NC}"
+        exit 1
+    fi
+
+    curl -s -X POST "$MEMORY_API/memories/$id/archive" > /dev/null
+
+    echo -e "${YELLOW}Archived memory $id${NC}"
+}
+
+# Show stats
+cmd_stats() {
+    local response=$(curl -s "$MEMORY_API/stats")
+    local graph=$(curl -s "$MEMORY_API/graph/stats" 2>/dev/null || echo '{"enabled":false}')
+
+    echo -e "${BOLD}📊 Memory Statistics${NC}\n"
+
+    echo -e "${CYAN}Total Memories:${NC}     $(echo "$response" | jq -r '.total_memories')"
+    echo -e "${CYAN}Active:${NC}             $(echo "$response" | jq -r '.active_memories')"
+    echo -e "${CYAN}Archived:${NC}           $(echo "$response" | jq -r '.archived_memories')"
+    echo -e "${CYAN}Unresolved Errors:${NC}  $(echo "$response" | jq -r '.unresolved_errors')"
+
+    echo ""
+    echo -e "${BOLD}By Type:${NC}"
+    echo "$response" | jq -r '.by_type | to_entries[] | "  \(.key): \(.value)"'
+
+    if [ "$(echo "$graph" | jq -r '.enabled')" = "true" ]; then
+        echo ""
+        echo -e "${BOLD}Knowledge Graph:${NC}"
+        echo -e "  Memory nodes:   $(echo "$graph" | jq -r '.memory_nodes')"
+        echo -e "  Project nodes:  $(echo "$graph" | jq -r '.project_nodes')"
+        echo -e "  Tag nodes:      $(echo "$graph" | jq -r '.tag_nodes')"
+        echo -e "  Relationships:  $(echo "$graph" | jq -r '.relationships')"
+    fi
+}
+
+# Suggest memories
+cmd_suggest() {
+    local project=""
+    local limit=5
+    local json=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --project=*) project="${1#*=}" ;;
+            --limit=*) limit="${1#*=}" ;;
+            --json) json=true ;;
+        esac
+        shift
+    done
+
+    # Auto-detect project if not specified
+    [ -z "$project" ] && project=$(basename "$(pwd)" 2>/dev/null)
+
+    local payload=$(jq -n \
+        --arg project "$project" \
+        --argjson limit "$limit" \
+        '{project: $project, limit: $limit}')
+
+    local response=$(curl -s -X POST "$MEMORY_API/memories/suggest" \
+        -H "Content-Type: application/json" \
+        -d "$payload")
+
+    if [ "$json" = true ]; then
+        echo "$response" | jq .
+        return
+    fi
+
+    local count=$(echo "$response" | jq -r '.count')
+
+    if [ "$count" -eq 0 ]; then
+        echo -e "${YELLOW}No suggestions for current context${NC}"
+        return
+    fi
+
+    echo -e "${BOLD}🧠 Memory Suggestions ($count):${NC}\n"
+
+    echo "$response" | jq -r '.suggestions[] | "\(.id)|\(.type)|\(.reason)|\(.content)|\(.combined_score)|\(.access_count)"' | \
+    while IFS='|' read -r id type reason content score access; do
+        echo -e "${GREEN}$reason${NC}"
+        echo -e "   $content"
+        echo -e "   ${PURPLE}ID: $id${NC} | Score: $score | Accessed: ${access}x"
+        echo ""
+    done
+}
+
+# Recent memories
+cmd_recent() {
+    local limit=10
+
+    [ -n "$1" ] && [[ "$1" == --limit=* ]] && limit="${1#*=}"
+
+    local response=$(curl -s "$MEMORY_API/graph/timeline?limit=$limit")
+
+    echo -e "${BOLD}📅 Recent Memories:${NC}\n"
+
+    echo "$response" | jq -r '.timeline[] | "\(.id)|\(.type)|\(.preview)|\(.created_at._DateTime__date._Date__year)-\(.created_at._DateTime__date._Date__month)-\(.created_at._DateTime__date._Date__day)"' | \
+    while IFS='|' read -r id type preview date; do
+        local icon=$(get_icon "$type")
+        echo -e "$icon ${CYAN}[$type]${NC} $preview"
+        echo -e "   ${PURPLE}$id${NC} | $date"
+        echo ""
+    done
+}
+
+# Show unresolved errors
+cmd_errors() {
+    cmd_list --type=error --unresolved "$@"
+}
+
+# Health check
+cmd_health() {
+    local response=$(curl -s "$MEMORY_API/health")
+
+    local status=$(echo "$response" | jq -r '.status')
+
+    if [ "$status" = "healthy" ]; then
+        echo -e "${GREEN}✓ Memory service is healthy${NC}"
+        echo ""
+        echo -e "Qdrant:     $(echo "$response" | jq -r '.qdrant')"
+        echo -e "Memories:   $(echo "$response" | jq -r '.memory_count')"
+        echo -e "Hybrid:     $(echo "$response" | jq -r '.hybrid_search_enabled')"
+        echo -e "Graph:      $(echo "$response" | jq -r '.graph_enabled')"
+        echo -e "Embedding:  $(echo "$response" | jq -r '.embedding_model')"
+    else
+        echo -e "${RED}✗ Memory service unhealthy${NC}"
+        echo "$response" | jq .
+    fi
+}
+
+# Main
+main() {
+    local cmd="${1:-help}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
+        search)   check_api; cmd_search "$@" ;;
+        list|ls)  check_api; cmd_list "$@" ;;
+        show|get) check_api; cmd_show "$@" ;;
+        pin)      check_api; cmd_pin "$@" ;;
+        unpin)    check_api; cmd_unpin "$@" ;;
+        delete|rm) check_api; cmd_delete "$@" ;;
+        archive)  check_api; cmd_archive "$@" ;;
+        stats)    check_api; cmd_stats ;;
+        suggest)  check_api; cmd_suggest "$@" ;;
+        recent)   check_api; cmd_recent "$@" ;;
+        errors)   check_api; cmd_errors "$@" ;;
+        health)   cmd_health ;;
+        help|-h|--help) show_help ;;
+        version|-v|--version) echo "mem $VERSION" ;;
+        *)
+            echo -e "${RED}Unknown command: $cmd${NC}"
+            echo "Run 'mem help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

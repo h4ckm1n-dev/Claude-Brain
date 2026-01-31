@@ -1,0 +1,9 @@
+{
+  "memory": {
+    "command": "node",
+    "args": ["/Users/h4ckm1n/.claude/mcp/memory-mcp/build/index.js"],
+    "env": {
+      "MEMORY_API_URL": "http://localhost:8100"
+    }
+  }
+}

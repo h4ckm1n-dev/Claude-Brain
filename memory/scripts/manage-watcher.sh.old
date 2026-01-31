@@ -1,0 +1,143 @@
+#!/bin/bash
+# Manage document watcher service on macOS
+
+PLIST_FILE="$HOME/Library/LaunchAgents/com.claude.memory.document-watcher.plist"
+SERVICE_NAME="com.claude.memory.document-watcher"
+
+case "$1" in
+  start)
+    echo "🚀 Starting document watcher service..."
+
+    # Create logs directory
+    mkdir -p ~/.claude/memory/logs
+    mkdir -p ~/.claude/memory/data
+
+    # Load the service
+    launchctl load "$PLIST_FILE" 2>/dev/null || launchctl bootstrap gui/$(id -u) "$PLIST_FILE"
+
+    sleep 2
+
+    # Check if running
+    if launchctl list | grep -q "$SERVICE_NAME"; then
+      echo "✅ Document watcher started successfully"
+      echo ""
+      echo "📊 Status:"
+      launchctl list | grep "$SERVICE_NAME"
+      echo ""
+      echo "📝 Logs:"
+      echo "   Output: ~/.claude/memory/logs/document-watcher.log"
+      echo "   Errors: ~/.claude/memory/logs/document-watcher.error.log"
+    else
+      echo "❌ Failed to start service"
+      echo ""
+      echo "Check logs:"
+      tail -20 ~/.claude/memory/logs/document-watcher.error.log 2>/dev/null || echo "No error log found"
+    fi
+    ;;
+
+  stop)
+    echo "🛑 Stopping document watcher service..."
+    launchctl unload "$PLIST_FILE" 2>/dev/null || launchctl bootout gui/$(id -u)/"$SERVICE_NAME"
+    echo "✅ Document watcher stopped"
+    ;;
+
+  restart)
+    echo "🔄 Restarting document watcher service..."
+    $0 stop
+    sleep 2
+    $0 start
+    ;;
+
+  status)
+    echo "📊 Document Watcher Status"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    if launchctl list | grep -q "$SERVICE_NAME"; then
+      echo "Status: ✅ RUNNING"
+      echo ""
+      launchctl list | grep "$SERVICE_NAME"
+      echo ""
+
+      # Show recent log activity
+      if [ -f ~/.claude/memory/logs/document-watcher.log ]; then
+        echo "Recent activity (last 10 lines):"
+        tail -10 ~/.claude/memory/logs/document-watcher.log
+      fi
+    else
+      echo "Status: ❌ NOT RUNNING"
+      echo ""
+      echo "Start with: $0 start"
+    fi
+    ;;
+
+  logs)
+    echo "📝 Document Watcher Logs"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    if [ "$2" = "error" ]; then
+      echo "Showing error log (live):"
+      tail -f ~/.claude/memory/logs/document-watcher.error.log
+    else
+      echo "Showing output log (live):"
+      tail -f ~/.claude/memory/logs/document-watcher.log
+    fi
+    ;;
+
+  install)
+    echo "📦 Installing document watcher service..."
+
+    # Create directories
+    mkdir -p ~/.claude/memory/logs
+    mkdir -p ~/.claude/memory/data
+    mkdir -p ~/Library/LaunchAgents
+
+    # Ensure plist exists
+    if [ ! -f "$PLIST_FILE" ]; then
+      echo "❌ Plist file not found: $PLIST_FILE"
+      echo "   Run the setup script first"
+      exit 1
+    fi
+
+    # Make script executable
+    chmod +x ~/.claude/memory/scripts/watch-documents.py
+    chmod +x ~/.claude/memory/scripts/index_documents.py
+
+    echo "✅ Installation complete"
+    echo ""
+    echo "Start service with: $0 start"
+    ;;
+
+  uninstall)
+    echo "🗑️  Uninstalling document watcher service..."
+
+    # Stop service
+    $0 stop
+
+    # Remove plist
+    if [ -f "$PLIST_FILE" ]; then
+      rm "$PLIST_FILE"
+      echo "✅ Service uninstalled"
+    else
+      echo "⚠️  Service was not installed"
+    fi
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop|restart|status|logs|install|uninstall}"
+    echo ""
+    echo "Commands:"
+    echo "  start      - Start the document watcher service"
+    echo "  stop       - Stop the document watcher service"
+    echo "  restart    - Restart the service"
+    echo "  status     - Check service status"
+    echo "  logs       - View live logs (use 'logs error' for errors)"
+    echo "  install    - Install the service (first time setup)"
+    echo "  uninstall  - Remove the service"
+    echo ""
+    echo "Examples:"
+    echo "  $0 start"
+    echo "  $0 status"
+    echo "  $0 logs"
+    exit 1
+    ;;
+esac

@@ -1,0 +1,64 @@
+#!/bin/bash
+#
+# Markdown to PDF Converter - Wrapper Script
+# Easy-to-use wrapper around md2pdf.py
+#
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_SCRIPT="$SCRIPT_DIR/md2pdf.py"
+
+# Check if Python script exists
+if [ ! -f "$PYTHON_SCRIPT" ]; then
+    echo "Error: md2pdf.py not found at $PYTHON_SCRIPT"
+    exit 1
+fi
+
+# Check if dependencies are installed
+check_dependencies() {
+    python3 -c "import markdown, weasyprint" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Required packages not installed."
+        echo ""
+        echo "Install with:"
+        echo "  pip3 install markdown weasyprint"
+        echo ""
+        echo "Or use Homebrew (recommended for weasyprint dependencies):"
+        echo "  brew install python3 cairo pango gdk-pixbuf libffi"
+        echo "  pip3 install markdown weasyprint"
+        echo ""
+        read -p "Install now? (y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            pip3 install markdown weasyprint
+            if [ $? -ne 0 ]; then
+                echo "Installation failed. You may need to install system dependencies first."
+                exit 1
+            fi
+        else
+            exit 1
+        fi
+    fi
+}
+
+# Show help if no arguments
+if [ $# -eq 0 ]; then
+    echo "Usage: md2pdf <input.md> [options]"
+    echo ""
+    echo "Options:"
+    echo "  -o, --output FILE   Output PDF file"
+    echo "  -c, --css FILE      Custom CSS file"
+    echo "  -h, --help         Show help"
+    echo "  --install          Show installation instructions"
+    echo ""
+    echo "Examples:"
+    echo "  md2pdf README.md"
+    echo "  md2pdf notes.md -o my-notes.pdf"
+    echo "  md2pdf doc.md -c custom-style.css"
+    exit 0
+fi
+
+# Check dependencies before running
+check_dependencies
+
+# Run the Python script with all arguments
+python3 "$PYTHON_SCRIPT" "$@"

@@ -1,0 +1,81 @@
+# Claude Brain Repository - Memory system + supporting infrastructure
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (frontend)
+memory/frontend/node_modules/
+memory/frontend/dist/
+memory/frontend/.next/
+
+# Logs & Cache
+*.log
+logs/
+cache/
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude Code session data (exclude)
+projects/
+shell-snapshots/
+history.jsonl
+file-history/
+statsig/
+todos/
+security_warnings_state_*.json
+settings.json
+.credentials.json
+debug/
+plugins/
+
+# Temporary files
+plans/
+tasks/
+telemetry/
+paste-cache/
+stats-cache.json
+
+# Config templates (exclude - not specific to Claude Brain)
+PROJECT_CONTEXT_TEMPLATE.md
+.test.env
+test.env
+
+# Exclude non-memory-related directories
+templates/
+tests/
+themes/
+
+# Keep memory-related infrastructure, exclude general Claude Code setup
+# (Specific files tracked below)
+
+# MCP node modules
+mcp/*/node_modules/
+mcp/**/node_modules/
+
+# Runtime database files
+memory/neo4j-data/
+memory/qdrant-storage/
+memory/logs/
+memory/data/
+memory/.env
