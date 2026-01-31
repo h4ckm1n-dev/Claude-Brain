@@ -84,10 +84,7 @@ class SessionTimeline:
         self.log("="*70 + "\n")
 
         # Fetch memories
-        response = self.api_request("/memories/search", 'POST', {
-            "query": "",
-            "limit": 1000
-        })
+        response = self.api_request("/memories?limit=1000", 'GET')
 
         if not response:
             self.log("❌ Failed to fetch memories")
@@ -146,10 +143,7 @@ class SessionTimeline:
         cutoff = datetime.now() - timedelta(hours=hours)
 
         # Fetch memories
-        response = self.api_request("/memories/search", 'POST', {
-            "query": "",
-            "limit": 1000
-        })
+        response = self.api_request("/memories?limit=1000", 'GET')
 
         if not response:
             return

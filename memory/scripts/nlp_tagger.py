@@ -148,10 +148,7 @@ class NLPTagger:
 
         # Fetch memories
         self.log("📊 Fetching memories...")
-        response = self.api_request("/memories/search", 'POST', {
-            "query": "",
-            "limit": limit
-        })
+        response = self.api_request(f"/memories?limit={limit}", 'GET')
 
         if not response:
             self.log("❌ Failed to fetch memories")

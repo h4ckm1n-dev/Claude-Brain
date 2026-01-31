@@ -95,7 +95,8 @@ class MemoryPruner:
 
     def prune(self, older_than_days: int = 30, max_delete: int = 1000):
         """Prune memories older than specified days"""
-        cutoff_date = datetime.now() - timedelta(days=older_than_days)
+        from datetime import timezone
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=older_than_days)
 
         self.log(f"\n🧹 Memory Pruning {'(DRY RUN)' if self.dry_run else ''}")
         self.log(f"Cutoff date: {cutoff_date.strftime('%Y-%m-%d')}")
@@ -103,7 +104,7 @@ class MemoryPruner:
 
         # Get all memories
         self.log("📊 Fetching memories...")
-        response = self.api_request("/memories/search", 'POST', {"query": "", "limit": 10000})
+        response = self.api_request("/memories?limit=10000", 'GET')
 
         if not response:
             self.log("❌ Failed to fetch memories")
