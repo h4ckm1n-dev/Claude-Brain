@@ -106,79 +106,81 @@ export function BrainIntelligence() {
   const utilityDist = brainStats?.utility_distribution;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
       <Header title="Brain Intelligence" />
 
       <div className="p-6 space-y-6">
         {/* Hero Section */}
-        <div className="bg-gradient-to-br from-purple-600 via-pink-600 to-red-600 rounded-lg p-8 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-blue-600 via-cyan-600 to-indigo-600 rounded-2xl p-8 shadow-2xl">
           <div className="flex items-center gap-4 mb-4">
-            <Brain className="h-12 w-12" />
+            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
+              <Brain className="h-10 w-10 text-white" />
+            </div>
             <div>
-              <h1 className="text-3xl font-bold">Brain Intelligence System</h1>
-              <p className="text-purple-100 mt-1">
+              <h1 className="text-3xl font-bold text-white">Brain Intelligence System</h1>
+              <p className="text-blue-100 mt-1">
                 Autonomous learning, adaptive importance, and intelligent forgetting
               </p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <p className="text-sm text-purple-100">Total Memories</p>
-              <p className="text-3xl font-bold">{totalMemories.toLocaleString()}</p>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
+              <p className="text-sm text-blue-100">Total Memories</p>
+              <p className="text-3xl font-bold text-white">{totalMemories.toLocaleString()}</p>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <p className="text-sm text-purple-100">Auto-Linked Relationships</p>
-              <p className="text-3xl font-bold">{(brainStats?.relationships || 0).toLocaleString()}</p>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
+              <p className="text-sm text-blue-100">Auto-Linked Relationships</p>
+              <p className="text-3xl font-bold text-white">{(brainStats?.relationships || 0).toLocaleString()}</p>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <p className="text-sm text-purple-100">High-Utility Memories</p>
-              <p className="text-3xl font-bold">{(utilityDist?.high || 0).toLocaleString()}</p>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
+              <p className="text-sm text-blue-100">High-Utility Memories</p>
+              <p className="text-3xl font-bold text-white">{(utilityDist?.high || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         {/* Feature Status */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-emerald-500 shadow-xl hover:shadow-emerald-500/10 transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+              <CardTitle className="flex items-center gap-2 text-lg text-white">
+                <TrendingUp className="h-5 w-5 text-emerald-400" />
                 Adaptive Learning
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Badge variant="default" className="mb-2">Active</Badge>
-              <p className="text-sm text-muted-foreground">
+              <Badge className="mb-2 bg-emerald-500 text-white">Active</Badge>
+              <p className="text-sm text-white/70">
                 Importance scores adapt based on access patterns and usage
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-blue-500 shadow-xl hover:shadow-blue-500/10 transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <LinkIcon className="h-5 w-5 text-blue-600" />
+              <CardTitle className="flex items-center gap-2 text-lg text-white">
+                <LinkIcon className="h-5 w-5 text-blue-400" />
                 Auto-Linking
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Badge variant="default" className="mb-2">Active</Badge>
-              <p className="text-sm text-muted-foreground">
+              <Badge className="mb-2 bg-blue-500 text-white">Active</Badge>
+              <p className="text-sm text-white/70">
                 Creates FIXES, RELATED, TEMPORAL relationships automatically
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500">
+          <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-orange-500 shadow-xl hover:shadow-orange-500/10 transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Archive className="h-5 w-5 text-orange-600" />
+              <CardTitle className="flex items-center gap-2 text-lg text-white">
+                <Archive className="h-5 w-5 text-orange-400" />
                 Smart Forgetting
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Badge variant="default" className="mb-2">Active</Badge>
-              <p className="text-sm text-muted-foreground">
+              <Badge className="mb-2 bg-orange-500 text-white">Active</Badge>
+              <p className="text-sm text-white/70">
                 Archives low-utility memories intelligently, not just by age
               </p>
             </CardContent>
@@ -187,13 +189,13 @@ export function BrainIntelligence() {
 
         {/* Utility Distribution */}
         {utilityDist && (
-          <Card>
+          <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-amber-600" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Zap className="h-5 w-5 text-amber-400" />
                 Memory Utility Distribution
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-white/60">
                 Based on access patterns, relationships, and importance scores
               </CardDescription>
             </CardHeader>
@@ -202,14 +204,14 @@ export function BrainIntelligence() {
                 {/* High Utility */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">High Utility (≥0.7)</span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm font-medium text-white/90">High Utility (≥0.7)</span>
+                    <span className="text-sm text-white/60">
                       {utilityDist.high} memories ({((utilityDist.high / totalMemories) * 100).toFixed(1)}%)
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div className="w-full bg-[#0a0a0a] rounded-full h-3 border border-white/5">
                     <div
-                      className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
+                      className="bg-gradient-to-r from-emerald-500 to-green-500 h-3 rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/30"
                       style={{ width: `${(utilityDist.high / totalMemories) * 100}%` }}
                     />
                   </div>
@@ -218,14 +220,14 @@ export function BrainIntelligence() {
                 {/* Medium Utility */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Medium Utility (0.3-0.7)</span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm font-medium text-white/90">Medium Utility (0.3-0.7)</span>
+                    <span className="text-sm text-white/60">
                       {utilityDist.medium} memories ({((utilityDist.medium / totalMemories) * 100).toFixed(1)}%)
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div className="w-full bg-[#0a0a0a] rounded-full h-3 border border-white/5">
                     <div
-                      className="bg-gradient-to-r from-yellow-500 to-amber-500 h-3 rounded-full transition-all duration-500"
+                      className="bg-gradient-to-r from-amber-500 to-yellow-500 h-3 rounded-full transition-all duration-500 shadow-lg shadow-amber-500/30"
                       style={{ width: `${(utilityDist.medium / totalMemories) * 100}%` }}
                     />
                   </div>
@@ -234,14 +236,14 @@ export function BrainIntelligence() {
                 {/* Low Utility */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Low Utility (&lt;0.3)</span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm font-medium text-white/90">Low Utility (&lt;0.3)</span>
+                    <span className="text-sm text-white/60">
                       {utilityDist.low} memories ({((utilityDist.low / totalMemories) * 100).toFixed(1)}%)
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div className="w-full bg-[#0a0a0a] rounded-full h-3 border border-white/5">
                     <div
-                      className="bg-gradient-to-r from-orange-500 to-red-500 h-3 rounded-full transition-all duration-500"
+                      className="bg-gradient-to-r from-orange-500 to-red-500 h-3 rounded-full transition-all duration-500 shadow-lg shadow-red-500/30"
                       style={{ width: `${(utilityDist.low / totalMemories) * 100}%` }}
                     />
                   </div>
@@ -254,19 +256,19 @@ export function BrainIntelligence() {
         {/* Action Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Relationship Inference */}
-          <Card>
+          <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-blue-500/10 transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LinkIcon className="h-5 w-5 text-blue-600" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <LinkIcon className="h-5 w-5 text-blue-400" />
                 Infer Relationships
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-white/60">
                 Automatically create links between related memories
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Lookback Days: {lookbackDays}</Label>
+              <div className="space-y-2 p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+                <Label className="text-white/90">Lookback Days: {lookbackDays}</Label>
                 <div className="w-full">
                   <Slider
                     value={[lookbackDays]}
@@ -276,7 +278,7 @@ export function BrainIntelligence() {
                     step={1}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-white/50">
                   Search for solutions created within this many days after errors
                 </p>
               </div>
@@ -284,7 +286,7 @@ export function BrainIntelligence() {
               <Button
                 onClick={() => relationshipMutation.mutate()}
                 disabled={relationshipMutation.isPending}
-                className="w-full"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20"
               >
                 {relationshipMutation.isPending ? (
                   <>
@@ -300,16 +302,16 @@ export function BrainIntelligence() {
               </Button>
 
               {relationshipMutation.data && (
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4 space-y-2">
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Results:</p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-4 space-y-2">
+                  <p className="text-sm font-medium text-blue-300">Results:</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-white/90">
                     <div>FIXES links:</div>
                     <div className="font-bold">{relationshipMutation.data.fixes_links}</div>
                     <div>RELATED links:</div>
                     <div className="font-bold">{relationshipMutation.data.related_links}</div>
                     <div>TEMPORAL links:</div>
                     <div className="font-bold">{relationshipMutation.data.temporal_links}</div>
-                    <div className="col-span-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                    <div className="col-span-2 pt-2 border-t border-blue-500/30">
                       Total: <span className="font-bold">{relationshipMutation.data.total_links}</span>
                     </div>
                   </div>
@@ -319,19 +321,19 @@ export function BrainIntelligence() {
           </Card>
 
           {/* Adaptive Importance */}
-          <Card>
+          <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-emerald-500/10 transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <TrendingUp className="h-5 w-5 text-emerald-400" />
                 Update Importance Scores
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-white/60">
                 Recalculate importance based on access patterns
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Batch Size: {importanceLimit}</Label>
+              <div className="space-y-2 p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+                <Label className="text-white/90">Batch Size: {importanceLimit}</Label>
                 <div className="w-full">
                   <Slider
                     value={[importanceLimit]}
@@ -341,7 +343,7 @@ export function BrainIntelligence() {
                     step={10}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-white/50">
                   Number of memories to update per run
                 </p>
               </div>
@@ -349,7 +351,7 @@ export function BrainIntelligence() {
               <Button
                 onClick={() => importanceMutation.mutate()}
                 disabled={importanceMutation.isPending}
-                className="w-full"
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
               >
                 {importanceMutation.isPending ? (
                   <>
@@ -365,8 +367,8 @@ export function BrainIntelligence() {
               </Button>
 
               {importanceMutation.data && (
-                <div className="rounded-lg bg-green-50 dark:bg-green-950 p-4">
-                  <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4">
+                  <p className="text-sm font-medium text-emerald-300">
                     Updated {importanceMutation.data.updated} memories
                   </p>
                 </div>
@@ -375,20 +377,20 @@ export function BrainIntelligence() {
           </Card>
 
           {/* Utility Archival */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-orange-500/10 transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Archive className="h-5 w-5 text-orange-600" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Archive className="h-5 w-5 text-orange-400" />
                 Utility-Based Archival
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-white/60">
                 Archive low-utility memories intelligently
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Utility Threshold: {utilityThreshold.toFixed(2)}</Label>
+                <div className="space-y-2 p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+                  <Label className="text-white/90">Utility Threshold: {utilityThreshold.toFixed(2)}</Label>
                   <div className="w-full">
                     <Slider
                       value={[utilityThreshold]}
@@ -398,13 +400,13 @@ export function BrainIntelligence() {
                       step={0.05}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-white/50">
                     Archive if utility score &lt; this value (lower = more aggressive)
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Max Archive: {archiveMax}</Label>
+                <div className="space-y-2 p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+                  <Label className="text-white/90">Max Archive: {archiveMax}</Label>
                   <div className="w-full">
                     <Slider
                       value={[archiveMax]}
@@ -414,18 +416,18 @@ export function BrainIntelligence() {
                       step={10}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-white/50">
                     Maximum memories to archive in one run
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+              <div className="flex items-center gap-2 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                 <Switch
                   checked={dryRun}
                   onCheckedChange={setDryRun}
                 />
-                <Label htmlFor="dry-run" className="cursor-pointer">
+                <Label htmlFor="dry-run" className="cursor-pointer text-amber-200">
                   Dry Run (preview only, don't actually archive)
                 </Label>
               </div>
@@ -434,7 +436,11 @@ export function BrainIntelligence() {
                 onClick={() => archivalMutation.mutate()}
                 disabled={archivalMutation.isPending}
                 variant={dryRun ? 'outline' : 'default'}
-                className="w-full"
+                className={`w-full ${
+                  dryRun
+                    ? 'bg-[#0a0a0a] border-white/10 text-white/90 hover:bg-white/5'
+                    : 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20'
+                }`}
               >
                 {archivalMutation.isPending ? (
                   <>
@@ -452,16 +458,16 @@ export function BrainIntelligence() {
               {archivalMutation.data && (
                 <div className={`rounded-lg p-4 ${
                   archivalMutation.data.dry_run
-                    ? 'bg-blue-50 dark:bg-blue-950'
-                    : 'bg-orange-50 dark:bg-orange-950'
+                    ? 'bg-blue-500/10 border border-blue-500/30'
+                    : 'bg-orange-500/10 border border-orange-500/30'
                 }`}>
-                  <p className="text-sm font-medium mb-2">
+                  <p className="text-sm font-medium mb-2 text-white/90">
                     {archivalMutation.data.dry_run ? 'Preview:' : 'Archived:'}
                   </p>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold text-white">
                     {archivalMutation.data.archived} memories
                   </p>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-white/60 mt-2">
                     Threshold: {archivalMutation.data.threshold.toFixed(2)}
                     {archivalMutation.data.dry_run && ' (no changes made)'}
                   </p>
@@ -472,32 +478,32 @@ export function BrainIntelligence() {
         </div>
 
         {/* Info Card */}
-        <Card className="border-l-4 border-l-purple-500">
+        <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-blue-500 shadow-xl hover:shadow-blue-500/10 transition-all">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-purple-600" />
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Info className="h-5 w-5 text-blue-400" />
               About Brain Intelligence
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-white/70">
               The Brain Intelligence system makes your memory autonomous and adaptive:
             </p>
-            <ul className="text-sm space-y-2 ml-4 list-disc text-muted-foreground">
+            <ul className="text-sm space-y-2 ml-4 list-disc text-white/70">
               <li>
-                <strong>Adaptive Learning</strong>: Importance scores evolve based on how often memories are accessed
+                <strong className="text-white/90">Adaptive Learning</strong>: Importance scores evolve based on how often memories are accessed
               </li>
               <li>
-                <strong>Auto-Linking</strong>: Creates relationships automatically (FIXES errors, RELATED concepts, TEMPORAL sequences)
+                <strong className="text-white/90">Auto-Linking</strong>: Creates relationships automatically (FIXES errors, RELATED concepts, TEMPORAL sequences)
               </li>
               <li>
-                <strong>Smart Forgetting</strong>: Archives based on utility (access + relationships + importance), not just age
+                <strong className="text-white/90">Smart Forgetting</strong>: Archives based on utility (access + relationships + importance), not just age
               </li>
               <li>
-                <strong>Protected Memories</strong>: Decisions, patterns, and resolved errors are never archived
+                <strong className="text-white/90">Protected Memories</strong>: Decisions, patterns, and resolved errors are never archived
               </li>
             </ul>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-white/70">
               These features run automatically every 24 hours when the scheduler is enabled. Use this page to run them manually.
             </p>
           </CardContent>

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { useQuery } from '@tanstack/react-query';
 import { getTimeline, getMemories } from '../api/memories';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Network } from 'lucide-react';
 import { EnhancedCytoscapeGraph } from '../components/graph/EnhancedCytoscapeGraph';
 import { useMemo } from 'react';
 
@@ -73,43 +73,62 @@ export function Graph() {
   }, [timelineData]);
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] flex flex-col">
       <Header title="Knowledge Graph" />
       <div className="flex-1 p-6 space-y-6 overflow-hidden">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+        {/* Hero Section */}
+        <div className="bg-gradient-to-br from-purple-600 via-violet-600 to-fuchsia-600 rounded-2xl p-8 shadow-2xl">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
+              <Network className="h-10 w-10 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Knowledge Graph</h1>
+              <p className="text-purple-100 mt-1">
+                Interactive visualization of memory relationships and connections
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Alert className="bg-purple-500/10 border-purple-500/30 backdrop-blur-sm">
+          <AlertCircle className="h-4 w-4 text-purple-400" />
+          <AlertDescription className="text-purple-200">
             Interactive knowledge graph. Hover nodes to see connections, click to view details. Use controls to navigate and customize the view.
           </AlertDescription>
         </Alert>
 
-        <Card className="h-[calc(100vh-220px)] shadow-xl">
-          <CardHeader>
-            <CardTitle>Memory Network Visualization</CardTitle>
+        <Card className="h-[calc(100vh-320px)] bg-[#0f0f0f] border border-white/10 shadow-2xl">
+          <CardHeader className="border-b border-white/10">
+            <CardTitle className="text-white flex items-center gap-2">
+              <Network className="h-5 w-5 text-purple-400" />
+              Memory Network Visualization
+            </CardTitle>
           </CardHeader>
-          <CardContent className="h-[calc(100%-80px)]">
+          <CardContent className="h-[calc(100%-80px)] p-0">
             {isLoading ? (
-              <div className="h-full flex items-center justify-center">
+              <div className="h-full flex items-center justify-center bg-[#0a0a0a]">
                 <div className="text-center space-y-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
-                  <p className="text-muted-foreground">Loading graph...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto" />
+                  <p className="text-white/70">Loading graph...</p>
                 </div>
               </div>
             ) : error ? (
-              <div className="h-full flex items-center justify-center">
+              <div className="h-full flex items-center justify-center bg-[#0a0a0a]">
                 <div className="text-center space-y-2">
                   <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
-                  <p className="text-destructive">Failed to load graph data</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-red-400">Failed to load graph data</p>
+                  <p className="text-sm text-white/50">
                     Make sure the graph service is running
                   </p>
                 </div>
               </div>
             ) : !graphElements || graphElements.length === 0 ? (
-              <div className="h-full flex items-center justify-center">
+              <div className="h-full flex items-center justify-center bg-[#0a0a0a]">
                 <div className="text-center space-y-2">
-                  <p className="text-muted-foreground">No graph data available</p>
-                  <p className="text-sm text-muted-foreground">
+                  <Network className="h-12 w-12 text-white/30 mx-auto" />
+                  <p className="text-white/70">No graph data available</p>
+                  <p className="text-sm text-white/50">
                     Create some memories with relationships to see them here
                   </p>
                 </div>
@@ -124,88 +143,88 @@ export function Graph() {
         </Card>
 
         {/* Legend Card */}
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Legend</CardTitle>
+        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+          <CardHeader className="border-b border-white/10">
+            <CardTitle className="text-white">Legend</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <div className="space-y-4">
               <div>
-                <h4 className="text-sm font-medium mb-2">Memory Types</h4>
+                <h4 className="text-sm font-medium mb-3 text-white/90">Memory Types</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-[#ef4444]" />
-                    <span className="text-sm">Error</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-5 h-5 rounded-full bg-[#ef4444] shadow-lg shadow-red-500/30" />
+                    <span className="text-sm text-white/90">Error</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-[#22c55e]" />
-                    <span className="text-sm">Decision</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-5 h-5 rounded-full bg-[#22c55e] shadow-lg shadow-green-500/30" />
+                    <span className="text-sm text-white/90">Decision</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-[#3b82f6]" />
-                    <span className="text-sm">Pattern</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-5 h-5 rounded-full bg-[#3b82f6] shadow-lg shadow-blue-500/30" />
+                    <span className="text-sm text-white/90">Pattern</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-[#a855f7]" />
-                    <span className="text-sm">Docs</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-5 h-5 rounded-full bg-[#a855f7] shadow-lg shadow-purple-500/30" />
+                    <span className="text-sm text-white/90">Docs</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-[#f59e0b]" />
-                    <span className="text-sm">Learning</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-5 h-5 rounded-full bg-[#f59e0b] shadow-lg shadow-amber-500/30" />
+                    <span className="text-sm text-white/90">Learning</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-[#6b7280]" />
-                    <span className="text-sm">Context</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium mb-2">Relationship Types</h4>
-                <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-0.5 bg-[#22c55e]" />
-                    <span className="text-sm">Fixes</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-0.5 bg-[#ef4444] border-dashed border-t" />
-                    <span className="text-sm">Causes</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-0.5 bg-[#6b7280] border-dotted border-t" />
-                    <span className="text-sm">Related</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-1 bg-[#3b82f6]" />
-                    <span className="text-sm">Supersedes</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-5 h-5 rounded-full bg-[#6b7280] shadow-lg shadow-gray-500/30" />
+                    <span className="text-sm text-white/90">Context</span>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-medium mb-2">Node Indicators</h4>
+              <div className="border-t border-white/10 pt-4">
+                <h4 className="text-sm font-medium mb-3 text-white/90">Relationship Types</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-8 h-0.5 bg-[#22c55e] shadow-sm shadow-green-500/30" />
+                    <span className="text-sm text-white/90">Fixes</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-8 h-0.5 bg-[#ef4444] border-dashed border-t shadow-sm shadow-red-500/30" />
+                    <span className="text-sm text-white/90">Causes</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-8 h-0.5 bg-[#6b7280] border-dotted border-t shadow-sm shadow-gray-500/30" />
+                    <span className="text-sm text-white/90">Related</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-8 h-1 bg-[#3b82f6] shadow-sm shadow-blue-500/30" />
+                    <span className="text-sm text-white/90">Supersedes</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <h4 className="text-sm font-medium mb-3 text-white/90">Node Indicators</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
                     <div className="relative">
-                      <div className="w-5 h-5 rounded-full bg-gray-400" />
-                      <div className="absolute inset-0 rounded-full border-2 border-amber-500" />
+                      <div className="w-5 h-5 rounded-full bg-purple-500/50" />
+                      <div className="absolute inset-0 rounded-full border-2 border-amber-500 shadow-lg shadow-amber-500/30" />
                     </div>
-                    <span className="text-sm">Pinned Memory</span>
+                    <span className="text-sm text-white/90">Pinned Memory</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
                     <div className="relative">
-                      <div className="w-5 h-5 rounded-full bg-gray-400" />
-                      <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-pulse" />
+                      <div className="w-5 h-5 rounded-full bg-purple-500/50" />
+                      <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-pulse shadow-lg shadow-red-500/30" />
                     </div>
-                    <span className="text-sm">Unresolved Error</span>
+                    <span className="text-sm text-white/90">Unresolved Error</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-5 rounded-full bg-gray-400" />
-                    <span className="text-sm">High Importance (larger)</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-8 h-5 rounded-full bg-purple-500/50 shadow-lg shadow-purple-500/30" />
+                    <span className="text-sm text-white/90">High Importance (larger)</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-gray-300" />
-                    <span className="text-sm">Low Recency (faded)</span>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <div className="w-3 h-3 rounded-full bg-purple-500/20" />
+                    <span className="text-sm text-white/90">Low Recency (faded)</span>
                   </div>
                 </div>
               </div>
