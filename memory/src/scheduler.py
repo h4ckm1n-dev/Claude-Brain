@@ -64,6 +64,15 @@ def get_scheduler():
                 replace_existing=True
             )
 
+            # Add state machine update job (Phase 4.1)
+            _scheduler.add_job(
+                run_state_machine_update,
+                trigger=IntervalTrigger(hours=12),
+                id="state_machine_update_job",
+                name="Memory State Machine Updates",
+                replace_existing=True
+            )
+
             # Add brain intelligence jobs
             _scheduler.add_job(
                 run_relationship_inference,
@@ -569,3 +578,44 @@ def run_quality_score_update():
 
     except Exception as e:
         logger.error(f"Scheduled quality score update failed: {e}")
+
+
+# ============================================================================
+# State Machine Scheduled Job (Phase 4.1)
+# ============================================================================
+
+
+def run_state_machine_update():
+    """Run memory state machine updates as a scheduled job."""
+    logger.info("Running scheduled state machine update...")
+
+    try:
+        from .lifecycle import update_memory_states
+        from . import collections
+
+        client = collections.get_client()
+
+        # Update memory states based on lifecycle rules
+        result = update_memory_states(
+            client,
+            collections.COLLECTION_NAME,
+            batch_size=100,
+            max_updates=None  # Process all memories
+        )
+
+        logger.info(
+            f"Scheduled state machine update complete: "
+            f"processed={result['total_processed']}, "
+            f"transitions={result['transitions']}, "
+            f"failed={result['failed']}"
+        )
+
+        # Log transition details
+        if result.get("by_transition"):
+            transitions_str = ", ".join([
+                f"{k}: {v}" for k, v in result["by_transition"].items()
+            ])
+            logger.info(f"Transitions: {transitions_str}")
+
+    except Exception as e:
+        logger.error(f"Scheduled state machine update failed: {e}")

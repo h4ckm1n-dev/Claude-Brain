@@ -2784,6 +2784,211 @@ async def rate_memory_quality(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Lifecycle State Machine Endpoints (Phase 4.1)
+
+@app.get("/lifecycle/stats")
+async def get_lifecycle_stats():
+    """Get memory state distribution statistics.
+
+    Returns:
+        Distribution of memories across lifecycle states
+    """
+    from .lifecycle import get_state_distribution
+
+    try:
+        client = collections.get_client()
+
+        distribution = get_state_distribution(
+            client,
+            collections.COLLECTION_NAME
+        )
+
+        return distribution
+
+    except Exception as e:
+        logger.error(f"Failed to get lifecycle stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/lifecycle/update")
+async def trigger_lifecycle_update():
+    """Manually trigger memory state machine updates.
+
+    Evaluates all memories and applies state transitions
+    according to lifecycle rules.
+
+    Returns:
+        Update statistics
+    """
+    from .lifecycle import update_memory_states
+
+    try:
+        client = collections.get_client()
+
+        result = update_memory_states(
+            client,
+            collections.COLLECTION_NAME,
+            batch_size=100
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to trigger lifecycle update: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/memories/{memory_id}/state")
+async def manual_state_transition(
+    memory_id: str,
+    new_state: str = Query(..., description="New state (episodic, staging, semantic, procedural, archived, purged)"),
+    reason: str = Query(default="Manual transition", description="Reason for transition")
+):
+    """Manually transition a memory to a new state.
+
+    Args:
+        memory_id: Memory ID
+        new_state: Desired new state
+        reason: Reason for manual transition
+
+    Returns:
+        Result of transition
+    """
+    from .lifecycle import manual_state_transition, MemoryState
+
+    try:
+        # Validate state
+        try:
+            state_enum = MemoryState(new_state.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid state '{new_state}'. Valid states: {[s.value for s in MemoryState]}"
+            )
+
+        client = collections.get_client()
+
+        result = manual_state_transition(
+            client,
+            collections.COLLECTION_NAME,
+            memory_id,
+            state_enum,
+            reason
+        )
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=400,
+                detail=result.get("error", "State transition failed")
+            )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to transition memory state: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/memories/{memory_id}/state-history")
+async def get_memory_state_history(memory_id: str):
+    """Get state transition history for a memory.
+
+    Args:
+        memory_id: Memory ID
+
+    Returns:
+        State history with transitions
+    """
+    try:
+        # Get memory
+        memory = collections.get_memory(memory_id)
+        if not memory:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        # Extract state history
+        state_history = memory.state_history if hasattr(memory, 'state_history') else []
+
+        return {
+            "memory_id": memory_id,
+            "current_state": memory.state if hasattr(memory, 'state') else "episodic",
+            "state_changed_at": memory.state_changed_at if hasattr(memory, 'state_changed_at') else memory.created_at,
+            "state_history": state_history
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get state history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/lifecycle/transitions")
+async def get_recent_transitions(
+    limit: int = Query(default=50, ge=1, le=500, description="Maximum transitions to return")
+):
+    """Get recent state transitions across all memories.
+
+    Args:
+        limit: Maximum number of transitions
+
+    Returns:
+        Recent transitions with memory details
+    """
+    from qdrant_client.http import models
+
+    try:
+        client = collections.get_client()
+
+        # Get memories with state history
+        response = client.scroll(
+            collection_name=collections.COLLECTION_NAME,
+            scroll_filter=models.Filter(
+                must=[
+                    # Only memories with state history
+                    models.HasIdCondition(has_id=[])  # Placeholder, we'll get all
+                ]
+            ),
+            limit=limit * 2,  # Get more to filter
+            with_payload=True,
+            with_vectors=False
+        )
+
+        points, _ = response
+
+        # Extract all transitions
+        all_transitions = []
+        for point in points:
+            payload = point.payload
+            state_history = payload.get("state_history", [])
+
+            for transition in state_history:
+                all_transitions.append({
+                    "memory_id": payload.get("id"),
+                    "memory_content": payload.get("content", "")[:100],
+                    "from_state": transition.get("from_state"),
+                    "to_state": transition.get("to_state"),
+                    "timestamp": transition.get("timestamp"),
+                    "reason": transition.get("reason")
+                })
+
+        # Sort by timestamp (most recent first)
+        all_transitions.sort(
+            key=lambda x: x["timestamp"],
+            reverse=True
+        )
+
+        return {
+            "total": len(all_transitions),
+            "transitions": all_transitions[:limit]
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get recent transitions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Notification Endpoints
 
 class NotificationCreate(BaseModel):

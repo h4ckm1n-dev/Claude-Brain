@@ -36,6 +36,16 @@ class MemoryTier(str, Enum):
     PROCEDURAL = "procedural" # Workflows and routines (permanent)
 
 
+class MemoryState(str, Enum):
+    """Memory lifecycle states (Phase 4.1: State Machine)."""
+    EPISODIC = "episodic"       # New memory, not consolidated yet
+    STAGING = "staging"         # Candidate for consolidation, waiting for similar memories
+    SEMANTIC = "semantic"       # Consolidated, generalized knowledge
+    PROCEDURAL = "procedural"   # Permanent best practice, never archived
+    ARCHIVED = "archived"       # Soft-deleted, low utility, retrievable
+    PURGED = "purged"          # Hard-deleted after retention period
+
+
 class RelationType(str, Enum):
     """Types of relationships between memories."""
     CAUSES = "causes"
@@ -198,11 +208,17 @@ class Memory(MemoryBase):
     archived: bool = False
     archived_at: Optional[datetime] = None
 
+    # State machine (Phase 4.1)
+    state: MemoryState = MemoryState.EPISODIC
+    state_changed_at: datetime = Field(default_factory=utc_now)
+    state_history: list[dict] = Field(default_factory=list)  # [{state, timestamp, reason}]
+
     # Scoring
     access_count: int = 0
     usefulness_score: float = 0.5
     importance_score: float = 0.5  # Heuristic-based importance
     recency_score: float = 1.0     # Decays over time
+    quality_score: float = 0.5     # Phase 3.2: Multi-factor quality score (0.0-1.0)
     pinned: bool = False           # Pinned memories never decay
 
     # Adaptive forgetting (FadeMem-inspired)
@@ -223,6 +239,7 @@ class Memory(MemoryBase):
     # Status
     resolved: bool = False
     relations: list[Relation] = Field(default_factory=list)
+    relationships: list[dict] = Field(default_factory=list)  # Neo4j relationships
 
     # Error-specific fields
     error_message: Optional[str] = None
