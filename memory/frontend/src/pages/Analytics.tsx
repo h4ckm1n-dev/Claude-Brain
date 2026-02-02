@@ -10,7 +10,7 @@ import { TrendingUp, GitBranch, Zap, Target, BarChart3 } from 'lucide-react';
 export function Analytics() {
   const { data: stats } = useStats();
   const { data: memories } = useMemories({ limit: 500 });
-  const { data: graphStats } = useGraphStats();
+  const { data: graphStats } = useGraphStats(); // Fetch graph stats for relationship count
 
   // Project breakdown data
   const projectData = useMemo(() => {
