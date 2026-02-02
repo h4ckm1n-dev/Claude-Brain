@@ -8,6 +8,7 @@ Memories are structured knowledge (errors, decisions, patterns, learnings).
 import logging
 import os
 from typing import Optional, List, Dict
+from datetime import datetime, timezone
 from qdrant_client import QdrantClient, models
 from . import collections
 from .embeddings import embed_query, get_embedding_dim, is_sparse_enabled
@@ -15,6 +16,11 @@ from .embeddings import embed_query, get_embedding_dim, is_sparse_enabled
 logger = logging.getLogger(__name__)
 
 DOCUMENTS_COLLECTION = "documents"
+
+
+def utc_now() -> str:
+    """Get current UTC timestamp as ISO string."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def get_client() -> QdrantClient:
@@ -154,9 +160,12 @@ def search_documents(
                 query_filter=filter_obj
             )
 
-        # Format results
+        # Format results and track accesses
         documents = []
         for point in results.points:
+            # Track access for this document
+            track_document_access(str(point.id))
+
             doc = {
                 "id": point.id,
                 "score": point.score,
@@ -166,7 +175,9 @@ def search_documents(
                 "content": point.payload.get("content"),
                 "chunk_index": point.payload.get("chunk_index", 0),
                 "total_chunks": point.payload.get("total_chunks", 1),
-                "modified_at": point.payload.get("modified_at")
+                "modified_at": point.payload.get("modified_at"),
+                "access_count": point.payload.get("access_count", 0),
+                "last_accessed": point.payload.get("last_accessed")
             }
             documents.append(doc)
 
@@ -177,16 +188,105 @@ def search_documents(
         return []
 
 
+def track_document_access(point_id: str) -> bool:
+    """
+    Track that a document was accessed by incrementing access_count
+    and updating last_accessed timestamp.
+
+    Args:
+        point_id: The ID of the document point to track
+
+    Returns:
+        True if tracking succeeded, False otherwise
+    """
+    client = get_client()
+
+    try:
+        # Get current point to read access_count
+        points = client.retrieve(
+            collection_name=DOCUMENTS_COLLECTION,
+            ids=[point_id]
+        )
+
+        if not points:
+            logger.warning(f"Point {point_id} not found for access tracking")
+            return False
+
+        point = points[0]
+        current_count = point.payload.get("access_count", 0)
+
+        # Update with incremented count and new timestamp
+        client.set_payload(
+            collection_name=DOCUMENTS_COLLECTION,
+            payload={
+                "access_count": current_count + 1,
+                "last_accessed": utc_now()
+            },
+            points=[point_id]
+        )
+
+        logger.debug(f"Tracked access for document {point_id} (count: {current_count + 1})")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to track document access for {point_id}: {e}")
+        return False
+
+
 def get_document_stats() -> Dict:
-    """Get document collection statistics."""
+    """Get document collection statistics including access metrics."""
     client = get_client()
 
     try:
         collection_info = client.get_collection(DOCUMENTS_COLLECTION)
+
+        # Get access statistics by scrolling through all points
+        total_accesses = 0
+        never_accessed = 0
+        most_accessed_file = None
+        max_access_count = 0
+
+        # Scroll through documents to aggregate stats
+        offset = None
+        while True:
+            results = client.scroll(
+                collection_name=DOCUMENTS_COLLECTION,
+                limit=100,
+                offset=offset,
+                with_payload=True
+            )
+
+            points, offset = results
+
+            if not points:
+                break
+
+            for point in points:
+                access_count = point.payload.get("access_count", 0)
+                total_accesses += access_count
+
+                if access_count == 0:
+                    never_accessed += 1
+
+                if access_count > max_access_count:
+                    max_access_count = access_count
+                    most_accessed_file = point.payload.get("file_path")
+
+            if offset is None:
+                break
+
+        total_chunks = collection_info.points_count
+        avg_access = total_accesses / total_chunks if total_chunks > 0 else 0
+
         return {
             "collection": DOCUMENTS_COLLECTION,
-            "total_chunks": collection_info.points_count,
-            "status": str(collection_info.status)
+            "total_chunks": total_chunks,
+            "status": str(collection_info.status),
+            "total_accesses": total_accesses,
+            "never_accessed": never_accessed,
+            "avg_access": round(avg_access, 2),
+            "most_accessed_file": most_accessed_file,
+            "max_access_count": max_access_count
         }
     except Exception as e:
         logger.error(f"Failed to get document stats: {e}")
@@ -262,7 +362,7 @@ def insert_document_chunk(
         # Generate embeddings
         embeddings = embed_text(content, include_sparse=collections.is_sparse_enabled())
 
-        # Prepare payload
+        # Prepare payload with access tracking fields
         payload = {
             "file_path": file_path,
             "content": content,
@@ -271,6 +371,8 @@ def insert_document_chunk(
             "file_type": metadata.get("file_type", os.path.splitext(file_path)[1]),
             "folder": metadata.get("folder", os.path.dirname(file_path)),
             "modified_at": metadata.get("modified_at"),
+            "access_count": 0,
+            "last_accessed": None,
             **metadata  # Include any additional metadata
         }
 

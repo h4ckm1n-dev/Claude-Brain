@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -7,7 +7,8 @@ import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
 import { apiClient } from '../lib/api';
 import type { AxiosResponse } from 'axios';
-import { FileText, Search, Folder, FolderOpen, Trash2, BookOpen } from 'lucide-react';
+import { FileText, Search, Folder, FolderOpen, Trash2, BookOpen, Eye, Clock, TrendingUp, Zap } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface DocumentResult {
   id: string;
@@ -19,12 +20,19 @@ interface DocumentResult {
   chunk_index: number;
   total_chunks: number;
   modified_at: string | null;
+  access_count: number;
+  last_accessed: string | null;
 }
 
 interface DocumentStats {
   collection: string;
   total_chunks: number;
   status: string;
+  total_accesses: number;
+  never_accessed: number;
+  avg_access: number;
+  most_accessed_file: string | null;
+  max_access_count: number;
 }
 
 export default function Documents() {
@@ -33,7 +41,7 @@ export default function Documents() {
   const [results, setResults] = useState<DocumentResult[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Get document stats
+  // Get document stats (now includes access metrics)
   const { data: stats } = useQuery<DocumentStats>({
     queryKey: ['documents', 'stats'],
     queryFn: () => apiClient.get('/documents/stats').then((r: AxiosResponse) => r.data),
@@ -48,6 +56,8 @@ export default function Documents() {
     onSuccess: (response: AxiosResponse) => {
       setResults(response.data.results || []);
       setSearching(false);
+      // Refetch stats to get updated access counts
+      queryClient.invalidateQueries({ queryKey: ['documents', 'stats'] });
     },
     onError: () => {
       setSearching(false);
@@ -59,6 +69,42 @@ export default function Documents() {
     setSearching(true);
     searchMutation.mutate(searchQuery);
   };
+
+  // Get access badge style based on count
+  const getAccessBadgeStyle = (count: number) => {
+    if (count === 0) {
+      return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+    } else if (count <= 5) {
+      return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    } else if (count <= 20) {
+      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    } else {
+      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+    }
+  };
+
+  const getAccessIcon = (count: number) => {
+    if (count === 0) return '💤';
+    if (count <= 5) return '🔹';
+    if (count <= 20) return '✅';
+    return '🔥';
+  };
+
+  // Group results by file path and get most accessed
+  const popularDocuments = useMemo(() => {
+    const fileMap = new Map<string, DocumentResult>();
+
+    results.forEach(doc => {
+      const existing = fileMap.get(doc.file_path);
+      if (!existing || doc.access_count > existing.access_count) {
+        fileMap.set(doc.file_path, doc);
+      }
+    });
+
+    return Array.from(fileMap.values())
+      .sort((a, b) => b.access_count - a.access_count)
+      .slice(0, 5);
+  }, [results]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
@@ -79,39 +125,88 @@ export default function Documents() {
           </div>
         </div>
 
-        {/* Stats Card */}
-        <Card className="bg-[#0f0f0f] border-white/10">
-          <CardHeader className="border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-white">Document Collection</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
-                <p className="text-sm text-white/50 mb-1">Total Chunks</p>
-                <p className="text-3xl font-bold text-white">{stats?.total_chunks || 0}</p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="bg-[#0f0f0f] border-white/10">
+            <CardHeader className="border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-400" />
+                <CardTitle className="text-white">Document Collection</CardTitle>
               </div>
-              <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
-                <p className="text-sm text-white/50 mb-1">Collection</p>
-                <p className="text-lg font-medium text-white">{stats?.collection || 'documents'}</p>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+                  <p className="text-sm text-white/50 mb-1">Total Chunks</p>
+                  <p className="text-3xl font-bold text-white">{stats?.total_chunks || 0}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+                  <p className="text-sm text-white/50 mb-1">Collection</p>
+                  <p className="text-lg font-medium text-white">{stats?.collection || 'documents'}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+                  <p className="text-sm text-white/50 mb-1">Status</p>
+                  <Badge
+                    className={
+                      stats?.status === 'green'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : 'bg-white/5 text-white/50 border-white/10'
+                    }
+                  >
+                    {stats?.status || 'unknown'}
+                  </Badge>
+                </div>
               </div>
-              <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
-                <p className="text-sm text-white/50 mb-1">Status</p>
-                <Badge
-                  className={
-                    stats?.status === 'green'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-white/5 text-white/50 border-white/10'
-                  }
-                >
-                  {stats?.status || 'unknown'}
-                </Badge>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#0f0f0f] border-white/10">
+            <CardHeader className="border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-purple-400" />
+                <CardTitle className="text-white">Access Statistics</CardTitle>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye className="h-4 w-4 text-blue-400" />
+                    <p className="text-xs text-white/70">Total</p>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{stats?.total_accesses?.toLocaleString() || 0}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="h-4 w-4 text-emerald-400" />
+                    <p className="text-xs text-white/70">Most</p>
+                  </div>
+                  <p className="text-lg font-bold text-white">{stats?.max_access_count || 0}x</p>
+                </div>
+                <div className="p-4 rounded-lg bg-gradient-to-br from-gray-500/10 to-gray-500/5 border border-gray-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="h-4 w-4 text-gray-400" />
+                    <p className="text-xs text-white/70">Never</p>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{stats?.never_accessed || 0}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-4 w-4 text-purple-400" />
+                    <p className="text-xs text-white/70">Avg</p>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{stats?.avg_access?.toFixed(1) || '0.0'}</p>
+                </div>
+              </div>
+              {stats?.most_accessed_file && (
+                <div className="mt-4 p-3 rounded-lg bg-[#0a0a0a] border border-emerald-500/20">
+                  <p className="text-xs text-white/50 mb-1">Most Accessed File</p>
+                  <p className="text-sm font-mono text-emerald-400 truncate">{stats.most_accessed_file}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Search Card */}
         <Card className="bg-[#0f0f0f] border-white/10">
@@ -145,11 +240,45 @@ export default function Documents() {
               </Button>
             </div>
 
+            {/* Popular Documents */}
+            {popularDocuments.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Zap className="h-5 w-5 text-amber-400" />
+                  <Label className="text-white/90">Popular Documents ({popularDocuments.length})</Label>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  {popularDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-sm font-medium text-white/90 truncate">{doc.file_path}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge className={`text-xs ${getAccessBadgeStyle(doc.access_count)}`}>
+                              {getAccessIcon(doc.access_count)} {doc.access_count}x
+                            </Badge>
+                            {doc.last_accessed && (
+                              <span className="text-xs text-white/40">
+                                {formatDistanceToNow(new Date(doc.last_accessed), { addSuffix: true })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Results */}
             {results.length > 0 && (
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-white/90">Results ({results.length})</Label>
+                  <Label className="text-white/90">All Results ({results.length})</Label>
                 </div>
 
                 {results.map((doc) => (
@@ -169,9 +298,19 @@ export default function Documents() {
                             Score: {doc.score.toFixed(2)}
                           </span>
                         </div>
-                        <p className="text-xs text-white/40 mb-2">
-                          Chunk {doc.chunk_index + 1}/{doc.total_chunks} • {doc.folder}
-                        </p>
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                          <p className="text-xs text-white/40">
+                            Chunk {doc.chunk_index + 1}/{doc.total_chunks} • {doc.folder}
+                          </p>
+                          <Badge className={`text-xs ${getAccessBadgeStyle(doc.access_count)}`}>
+                            {getAccessIcon(doc.access_count)} Accessed {doc.access_count}x
+                          </Badge>
+                          {doc.last_accessed && (
+                            <span className="text-xs text-white/40">
+                              • Last seen {formatDistanceToNow(new Date(doc.last_accessed), { addSuffix: true })}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 

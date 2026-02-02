@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMemories, useDeleteMemory, usePinMemory, useArchiveMemory } from '../hooks/useMemories';
 import { Header } from '../components/layout/Header';
@@ -8,7 +8,7 @@ import { Select } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Plus, Trash2, Pin, Archive, Edit, Search, Download, FileText, Database } from 'lucide-react';
+import { Plus, Trash2, Pin, Archive, Edit, Search, Download, FileText, Database, Eye, Clock, TrendingUp, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Memory, MemoryType } from '../types/memory';
 import { MemoryDialog } from '../components/memory/MemoryDialog';
@@ -20,6 +20,8 @@ export function Memories() {
   const [limit] = useState(50);
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'created' | 'accessed' | 'count'>('created');
+  const [accessFilter, setAccessFilter] = useState<'all' | 'never' | 'recent'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -34,10 +36,59 @@ export function Memories() {
   const pinMemory = usePinMemory();
   const archiveMemory = useArchiveMemory();
 
-  const filteredMemories = memories?.filter((m: Memory) =>
-    !searchQuery || m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  ) || [];
+  const filteredMemories = useMemo(() => {
+    let filtered = memories?.filter((m: Memory) =>
+      !searchQuery || m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    ) || [];
+
+    // Apply access filter
+    if (accessFilter === 'never') {
+      filtered = filtered.filter(m => m.access_count === 0);
+    } else if (accessFilter === 'recent') {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(m => new Date(m.last_accessed) > oneDayAgo);
+    }
+
+    // Sort memories
+    filtered.sort((a, b) => {
+      if (sortBy === 'count') {
+        return b.access_count - a.access_count;
+      } else if (sortBy === 'accessed') {
+        return new Date(b.last_accessed).getTime() - new Date(a.last_accessed).getTime();
+      } else {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return filtered;
+  }, [memories, searchQuery, accessFilter, sortBy]);
+
+  // Calculate access statistics
+  const accessStats = useMemo(() => {
+    if (!filteredMemories.length) {
+      return {
+        totalAccesses: 0,
+        mostAccessed: null,
+        neverAccessed: 0,
+        avgAccess: 0,
+      };
+    }
+
+    const totalAccesses = filteredMemories.reduce((sum, m) => sum + m.access_count, 0);
+    const neverAccessed = filteredMemories.filter(m => m.access_count === 0).length;
+    const avgAccess = totalAccesses / filteredMemories.length;
+    const mostAccessed = filteredMemories.reduce((max, m) =>
+      m.access_count > (max?.access_count || 0) ? m : max
+    , filteredMemories[0]);
+
+    return {
+      totalAccesses,
+      mostAccessed,
+      neverAccessed,
+      avgAccess,
+    };
+  }, [filteredMemories]);
 
   // Temporarily disabled virtual scrolling due to missing dependency
   // const rowVirtualizer = useVirtualizer({
@@ -46,6 +97,26 @@ export function Memories() {
   //   estimateSize: () => 80,
   //   overscan: 5,
   // });
+
+  // Get access count badge style
+  const getAccessBadgeStyle = (count: number) => {
+    if (count === 0) {
+      return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+    } else if (count <= 5) {
+      return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    } else if (count <= 20) {
+      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    } else {
+      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+    }
+  };
+
+  const getAccessIcon = (count: number) => {
+    if (count === 0) return '💤';
+    if (count <= 5) return '🔹';
+    if (count <= 20) return '✅';
+    return '🔥';
+  };
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this memory?')) {
@@ -83,6 +154,56 @@ export function Memories() {
             </div>
           </div>
         </div>
+
+        {/* Access Statistics Panel */}
+        <Card className="bg-[#0f0f0f] border-white/10">
+          <CardHeader className="border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-purple-400" />
+              <CardTitle className="text-white">Access Statistics</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Eye className="h-4 w-4 text-blue-400" />
+                  <p className="text-sm text-white/70">Total Accesses</p>
+                </div>
+                <p className="text-3xl font-bold text-white">{accessStats.totalAccesses.toLocaleString()}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="h-4 w-4 text-emerald-400" />
+                  <p className="text-sm text-white/70">Most Accessed</p>
+                </div>
+                <p className="text-lg font-medium text-white truncate">
+                  {accessStats.mostAccessed ? `${accessStats.mostAccessed.content.substring(0, 30)}...` : 'N/A'}
+                </p>
+                <p className="text-xs text-white/50 mt-1">
+                  {accessStats.mostAccessed ? `${accessStats.mostAccessed.access_count}x` : ''}
+                </p>
+              </div>
+              <div className="p-4 rounded-lg bg-gradient-to-br from-gray-500/10 to-gray-500/5 border border-gray-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-4 w-4 text-gray-400" />
+                  <p className="text-sm text-white/70">Never Accessed</p>
+                </div>
+                <p className="text-3xl font-bold text-white">{accessStats.neverAccessed}</p>
+                <p className="text-xs text-white/50 mt-1">
+                  {filteredMemories.length > 0 ? `${((accessStats.neverAccessed / filteredMemories.length) * 100).toFixed(1)}%` : '0%'}
+                </p>
+              </div>
+              <div className="p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-purple-400" />
+                  <p className="text-sm text-white/70">Avg Accesses</p>
+                </div>
+                <p className="text-3xl font-bold text-white">{accessStats.avgAccess.toFixed(1)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filters and Actions */}
         <Card className="bg-[#0f0f0f] border-white/10">
@@ -150,6 +271,24 @@ export function Memories() {
                   </option>
                 ))}
               </Select>
+              <Select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'created' | 'accessed' | 'count')}
+                className="w-48 bg-[#0a0a0a] border-white/10 text-white"
+              >
+                <option value="created">Sort by Created</option>
+                <option value="accessed">Sort by Last Accessed</option>
+                <option value="count">Sort by Access Count</option>
+              </Select>
+              <Select
+                value={accessFilter}
+                onChange={(e) => setAccessFilter(e.target.value as 'all' | 'never' | 'recent')}
+                className="w-48 bg-[#0a0a0a] border-white/10 text-white"
+              >
+                <option value="all">All Memories</option>
+                <option value="never">Never Accessed</option>
+                <option value="recent">Recently Accessed (24h)</option>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -180,6 +319,8 @@ export function Memories() {
                     <TableHead className="text-white/70">Project</TableHead>
                     <TableHead className="text-white/70">Created</TableHead>
                     <TableHead className="text-white/70">Score</TableHead>
+                    <TableHead className="text-white/70">Accesses</TableHead>
+                    <TableHead className="text-white/70">Last Accessed</TableHead>
                     <TableHead className="text-right text-white/70">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -220,6 +361,16 @@ export function Memories() {
                         <span className="text-sm font-medium text-white/90">
                           {memory.importance_score.toFixed(2)}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`text-xs ${getAccessBadgeStyle(memory.access_count)}`}>
+                          {getAccessIcon(memory.access_count)} {memory.access_count}x
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-white/50">
+                        {memory.access_count === 0
+                          ? 'Never'
+                          : formatDistanceToNow(new Date(memory.last_accessed), { addSuffix: true })}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
