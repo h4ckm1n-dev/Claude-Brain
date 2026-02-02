@@ -89,13 +89,15 @@ class RelationshipInference:
                         (candidate_time - error_time).days <= lookback_days):
 
                         # Link solution → error (FIXES)
-                        create_relationship(
+                        # UPPERCASE required for Neo4j Cypher
+                        success = create_relationship(
                             source_id=str(candidate.id),
                             target_id=str(error.id),
-                            relation_type="fixes"  # Lowercase per API requirement
+                            relation_type="FIXES"
                         )
-                        links_created += 1
-                        logger.info(f"Linked solution {candidate.id} FIXES error {error.id}")
+                        if success:
+                            links_created += 1
+                            logger.info(f"Linked solution {candidate.id} FIXES error {error.id}")
                         break
 
             logger.info(f"Created {links_created} FIXES relationships")
@@ -154,12 +156,14 @@ class RelationshipInference:
                 for candidate in similar[:3]:
                     if str(candidate.id) != str(memory.id):
                         try:
-                            create_relationship(
+                            # UPPERCASE required for Neo4j Cypher
+                            success = create_relationship(
                                 source_id=str(memory.id),
                                 target_id=str(candidate.id),
-                                relation_type="related"  # Lowercase
+                                relation_type="RELATED"
                             )
-                            links_created += 1
+                            if success:
+                                links_created += 1
                         except Exception as e:
                             # Skip if relationship already exists
                             if "already exists" not in str(e).lower():
@@ -227,12 +231,14 @@ class RelationshipInference:
 
                     if (next_time - curr_time).total_seconds() / 3600 <= hours_window:
                         try:
-                            create_relationship(
+                            # UPPERCASE required for Neo4j Cypher
+                            success = create_relationship(
                                 source_id=str(mems[i].id),
                                 target_id=str(mems[i+1].id),
-                                relation_type="follows"  # Lowercase
+                                relation_type="FOLLOWS"
                             )
-                            links_created += 1
+                            if success:
+                                links_created += 1
                         except Exception as e:
                             # Skip if relationship already exists
                             pass
@@ -296,12 +302,14 @@ class RelationshipInference:
                         if candidates and str(candidates[0].id) != str(memory.id):
                             try:
                                 # Link: cause → effect
-                                create_relationship(
+                                # UPPERCASE required for Neo4j Cypher
+                                success = create_relationship(
                                     source_id=str(candidates[0].id),
                                     target_id=str(memory.id),
-                                    relation_type="causes"  # Lowercase
+                                    relation_type="CAUSES"
                                 )
-                                links_created += 1
+                                if success:
+                                    links_created += 1
                             except Exception:
                                 pass
 

@@ -2416,7 +2416,7 @@ async def brain_get_stats():
 
         return {
             "total_memories": stats.total_memories,
-            "relationships": graph_stats.get("total_relationships", 0),
+            "relationships": graph_stats.get("relationships", 0),
             "utility_distribution": {
                 "high": high_utility,
                 "medium": medium_utility,
