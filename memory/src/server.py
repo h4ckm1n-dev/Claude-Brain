@@ -3,7 +3,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, Request
