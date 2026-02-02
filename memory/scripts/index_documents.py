@@ -23,7 +23,7 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configuration
-DOCUMENTS_ROOT = os.path.expanduser("~/Documents")
+DOCUMENTS_ROOT = None  # Will be set dynamically based on --path argument
 MEMORY_API = "http://localhost:8100"
 CHUNK_SIZE = 2000  # Characters per chunk
 OVERLAP = 200  # Overlap between chunks
@@ -82,7 +82,8 @@ def format_time(seconds: float) -> str:
 
 
 class DocumentIndexer:
-    def __init__(self, use_state=True, force_reindex=False, parallel=False):
+    def __init__(self, root_path, use_state=True, force_reindex=False, parallel=False):
+        self.root_path = Path(root_path).expanduser().resolve()
         self.indexed_count = 0
         self.error_count = 0
         self.skipped_count = 0
@@ -218,7 +219,7 @@ class DocumentIndexer:
     def get_file_metadata(self, file_path: Path) -> Dict:
         """Extract metadata from file"""
         stat = file_path.stat()
-        relative_path = file_path.relative_to(DOCUMENTS_ROOT)
+        relative_path = file_path.relative_to(self.root_path)
         parts = relative_path.parts
         category = parts[0] if len(parts) > 1 else "root"
 
@@ -286,7 +287,7 @@ class DocumentIndexer:
             ]
 
             # Add directory tags
-            for part in file_path.relative_to(DOCUMENTS_ROOT).parts[:-1]:
+            for part in file_path.relative_to(self.root_path).parts[:-1]:
                 if part not in EXCLUDE_DIRS:
                     tags.append(part)
 
@@ -466,7 +467,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Index documents into RAG memory system (Enhanced)')
-    parser.add_argument('--path', default=DOCUMENTS_ROOT, help='Path to index (default: ~/Documents)')
+    parser.add_argument('--path', default=os.path.expanduser("~/Documents"), help='Path to index (default: ~/Documents)')
     parser.add_argument('--max-files', type=int, help='Maximum files to index (for testing)')
     parser.add_argument('--test', action='store_true', help='Test mode: index only 10 files')
     parser.add_argument('--force', action='store_true', help='Force re-index all files (even if already indexed)')
@@ -492,7 +493,7 @@ def main():
     use_state = not args.no_state
     force_reindex = args.force
     parallel = args.parallel
-    indexer = DocumentIndexer(use_state=use_state, force_reindex=force_reindex, parallel=parallel)
+    indexer = DocumentIndexer(root_path=args.path, use_state=use_state, force_reindex=force_reindex, parallel=parallel)
     max_files = 10 if args.test else args.max_files
 
     print("\n" + "="*70)

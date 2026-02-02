@@ -1449,6 +1449,147 @@ async def unpin_memory(memory_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Adaptive Forgetting Endpoints (FadeMem-inspired)
+
+@app.post("/forgetting/update")
+async def update_memory_strengths(
+    max_updates: Optional[int] = Query(default=None, description="Maximum memories to update (None = all)")
+):
+    """Manually trigger memory strength update for all active memories.
+
+    This implements FadeMem-inspired adaptive forgetting where:
+    - High-importance memories decay slower (differential decay)
+    - Frequently accessed memories are reinforced
+    - Weak memories are automatically archived when strength < 0.15
+    - Optional purging when strength < 0.05 (if MEMORY_PURGE_ENABLED=true)
+
+    Args:
+        max_updates: Maximum number of memories to update (default: all)
+
+    Returns:
+        Statistics about the update operation including:
+        - total_processed: Number of memories processed
+        - updated: Number of memories with updated strength
+        - archived: Number of memories archived due to low strength
+        - purged: Number of memories deleted (if purging enabled)
+        - avg_strength: Average memory strength across all processed
+    """
+    from .forgetting import update_all_memory_strengths
+
+    try:
+        client = collections.get_client()
+        result = update_all_memory_strengths(
+            client,
+            collections.COLLECTION_NAME,
+            batch_size=100,
+            max_updates=max_updates
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Memory strength update failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/forgetting/stats")
+async def get_forgetting_stats():
+    """Get statistics about memory strength distribution.
+
+    Returns detailed statistics including:
+    - Total active memories
+    - Average/median/min/max memory strength
+    - Distribution by memory tier (episodic/semantic/procedural)
+    - Number of memories below archive/purge thresholds
+    - Average decay rate
+    - Current configuration (thresholds, purge enabled)
+    """
+    from .forgetting import get_forgetting_stats
+
+    try:
+        client = collections.get_client()
+        stats = get_forgetting_stats(client, collections.COLLECTION_NAME)
+        return stats
+    except Exception as e:
+        logger.error(f"Failed to get forgetting stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/forgetting/weak")
+async def get_weak_memories(
+    strength_threshold: float = Query(default=0.3, ge=0.0, le=1.0),
+    limit: int = Query(default=50, ge=1, le=200)
+):
+    """Get memories with low strength that are candidates for archival.
+
+    Args:
+        strength_threshold: Strength threshold (0.0-1.0, default: 0.3)
+        limit: Maximum number of results (default: 50)
+
+    Returns:
+        List of weak memories with metadata including:
+        - id, content preview, type
+        - memory_strength, decay_rate
+        - access_count, created_at, last_accessed
+    """
+    from .forgetting import get_weak_memories
+
+    try:
+        client = collections.get_client()
+        weak = get_weak_memories(
+            client,
+            collections.COLLECTION_NAME,
+            strength_threshold=strength_threshold,
+            limit=limit
+        )
+        return weak
+    except Exception as e:
+        logger.error(f"Failed to get weak memories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/memories/{memory_id}/reinforce")
+async def reinforce_memory(
+    memory_id: str,
+    boost_amount: float = Query(default=0.2, ge=0.0, le=0.5, description="Amount to boost strength (0.0-0.5)")
+):
+    """Reinforce a memory by boosting its strength (simulates successful recall).
+
+    This is useful when a memory proves particularly valuable - it will
+    increase the memory's strength and slow its decay rate.
+
+    Args:
+        memory_id: ID of the memory to reinforce
+        boost_amount: Amount to boost strength by (default: 0.2, max: 0.5)
+
+    Returns:
+        New memory strength after reinforcement
+    """
+    from .forgetting import reinforce_memory as do_reinforce
+
+    try:
+        client = collections.get_client()
+        new_strength = do_reinforce(
+            client,
+            collections.COLLECTION_NAME,
+            memory_id,
+            boost_amount=boost_amount
+        )
+
+        if new_strength is None:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        return {
+            "status": "reinforced",
+            "id": memory_id,
+            "new_strength": new_strength,
+            "boost_amount": boost_amount
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to reinforce memory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Knowledge Graph Endpoints
 
 @app.get("/graph/stats")

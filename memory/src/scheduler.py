@@ -37,6 +37,15 @@ def get_scheduler():
                 replace_existing=True
             )
 
+            # Add memory strength decay job (FadeMem-inspired adaptive forgetting)
+            _scheduler.add_job(
+                run_memory_strength_update,
+                trigger=IntervalTrigger(hours=24),
+                id="memory_strength_update_job",
+                name="Adaptive Forgetting (Strength Update)",
+                replace_existing=True
+            )
+
             # Add brain intelligence jobs
             _scheduler.add_job(
                 run_relationship_inference,
@@ -405,3 +414,37 @@ def run_meta_learning():
 
     except Exception as e:
         logger.error(f"Scheduled meta-learning failed: {e}")
+
+
+# ============================================================================
+# Adaptive Forgetting Scheduled Job
+# ============================================================================
+
+
+def run_memory_strength_update():
+    """Run memory strength update as a scheduled job (FadeMem-inspired adaptive forgetting)."""
+    logger.info("Running scheduled memory strength update...")
+
+    try:
+        from .forgetting import update_all_memory_strengths
+        from . import collections
+
+        client = collections.get_client()
+        result = update_all_memory_strengths(
+            client,
+            collections.COLLECTION_NAME,
+            batch_size=100,
+            max_updates=None  # Update all memories
+        )
+
+        logger.info(
+            f"Scheduled memory strength update complete: "
+            f"processed={result['total_processed']}, "
+            f"updated={result['updated']}, "
+            f"archived={result['archived']}, "
+            f"purged={result['purged']}, "
+            f"avg_strength={result['avg_strength']:.3f}"
+        )
+
+    except Exception as e:
+        logger.error(f"Scheduled memory strength update failed: {e}")

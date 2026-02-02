@@ -190,6 +190,11 @@ class Memory(MemoryBase):
     recency_score: float = 1.0     # Decays over time
     pinned: bool = False           # Pinned memories never decay
 
+    # Adaptive forgetting (FadeMem-inspired)
+    memory_strength: float = 1.0   # Strength from 0.0-1.0, starts at 1.0
+    decay_rate: float = 0.005      # Differential decay rate (lower = slower decay)
+    last_decay_update: datetime = Field(default_factory=utc_now)
+
     # User Quality Ratings
     user_rating: Optional[float] = None  # Running average of user ratings (1-5 stars)
     user_rating_count: int = 0           # Number of ratings received
@@ -299,12 +304,86 @@ class Memory(MemoryBase):
 
     def composite_score(self, relevance: float = 1.0) -> float:
         """
-        Calculate composite score for ranking.
-        score = (importance * 0.4) + (relevance * 0.35) + (recency * 0.25)
+        Calculate composite score for ranking with memory strength.
+        score = (importance * 0.3) + (relevance * 0.35) + (recency * 0.2) + (strength * 0.15)
         """
         importance = self.calculate_importance()
         recency = self.calculate_recency()
-        return (importance * 0.4) + (relevance * 0.35) + (recency * 0.25)
+        strength = self.memory_strength if hasattr(self, 'memory_strength') else 1.0
+        return (importance * 0.3) + (relevance * 0.35) + (recency * 0.2) + (strength * 0.15)
+
+    def calculate_decay_rate(self) -> float:
+        """
+        Calculate differential decay rate based on importance and semantic relevance.
+        High-importance memories decay slower (lower decay_rate).
+
+        Returns:
+            float: Decay rate (0.001 to 0.01), where lower = slower decay
+        """
+        import math
+
+        # Base decay rate
+        base_rate = 0.005
+
+        # Importance factor: higher importance = lower decay
+        importance = self.calculate_importance()
+        importance_factor = 1.0 - (importance * 0.7)  # Range: 0.3 to 1.0
+
+        # Access frequency factor: frequently accessed = lower decay
+        # Normalize access_count (assume max ~50 accesses is very frequent)
+        access_frequency = min(self.access_count / 50.0, 1.0)
+        access_factor = 1.0 - (access_frequency * 0.5)  # Range: 0.5 to 1.0
+
+        # Memory tier factor: procedural < semantic < episodic decay
+        tier_factors = {
+            MemoryTier.PROCEDURAL: 0.3,  # Slowest decay
+            MemoryTier.SEMANTIC: 0.6,
+            MemoryTier.EPISODIC: 1.0     # Fastest decay
+        }
+        tier_factor = tier_factors.get(self.memory_tier, 1.0)
+
+        # Combined decay rate
+        decay_rate = base_rate * importance_factor * access_factor * tier_factor
+
+        # Clamp to reasonable bounds
+        return max(0.001, min(decay_rate, 0.01))
+
+    def calculate_memory_strength(self, time_elapsed_hours: Optional[float] = None) -> float:
+        """
+        Calculate current memory strength with exponential decay.
+        Formula: strength(t) = initial_strength * exp(-decay_rate * time_elapsed)
+
+        Args:
+            time_elapsed_hours: Hours since last decay update. If None, calculates from last_decay_update.
+
+        Returns:
+            float: Memory strength (0.0-1.0)
+        """
+        import math
+
+        # Pinned memories never decay
+        if self.pinned:
+            return 1.0
+
+        # Calculate time elapsed
+        if time_elapsed_hours is None:
+            now = utc_now()
+            last_update = self.last_decay_update
+            if last_update.tzinfo is None:
+                last_update = last_update.replace(tzinfo=timezone.utc)
+            time_elapsed_hours = (now - last_update).total_seconds() / 3600
+
+        # Get current strength (default to 1.0 for old memories)
+        current_strength = getattr(self, 'memory_strength', 1.0)
+
+        # Get decay rate (recalculate to account for changing factors)
+        decay_rate = self.calculate_decay_rate()
+
+        # Apply exponential decay
+        new_strength = current_strength * math.exp(-decay_rate * time_elapsed_hours)
+
+        # Clamp to [0.0, 1.0]
+        return max(0.0, min(new_strength, 1.0))
 
 
 class MemoryUpdate(BaseModel):
