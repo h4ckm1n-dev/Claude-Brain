@@ -684,6 +684,57 @@ async def link_memories(request: LinkRequest):
     return {"status": "linked", "source": request.source_id, "target": request.target_id}
 
 
+# Unified Search Endpoint
+
+@app.get("/search/unified")
+async def unified_search(
+    query: str = Query(..., description="Search query"),
+    search_memories: bool = Query(default=True, description="Include memories in search"),
+    search_documents: bool = Query(default=True, description="Include documents in search"),
+    memory_limit: int = Query(default=10, description="Maximum memories to return"),
+    document_limit: int = Query(default=5, description="Maximum documents to return"),
+    type_filter: Optional[str] = Query(default=None, description="Filter memories by type"),
+    project: Optional[str] = Query(default=None, description="Filter by project")
+):
+    """
+    Unified search across memories and documents.
+    Returns both structured memories and filesystem documents.
+    """
+    results = {
+        "query": query,
+        "memories": [],
+        "documents": [],
+        "total_count": 0
+    }
+
+    # Search memories if requested
+    if search_memories:
+        search_query = SearchQuery(
+            query=query,
+            type=type_filter,
+            project=project,
+            limit=memory_limit
+        )
+        memory_results = collections.search_memories(search_query)
+        results["memories"] = [r.model_dump(mode='json') for r in memory_results]
+
+    # Search documents if requested
+    if search_documents:
+        try:
+            doc_results = documents.search_documents(
+                query=query,
+                limit=document_limit,
+                folder=project
+            )
+            results["documents"] = doc_results
+        except Exception as e:
+            logger.warning(f"Document search failed: {e}")
+            results["documents"] = []
+
+    results["total_count"] = len(results["memories"]) + len(results["documents"])
+    return results
+
+
 # Quality Rating Endpoints
 
 class RatingRequest(BaseModel):
@@ -1141,37 +1192,48 @@ async def enhance_query(
 
 # Context Endpoint
 
-@app.get("/context/{project}", response_model=list[Memory])
+@app.get("/context/{project}")
 async def get_project_context(
     project: str,
     hours: int = Query(default=24, ge=1, le=168, description="Hours to look back"),
-    types: Optional[str] = Query(default=None, description="Comma-separated memory types")
+    types: Optional[str] = Query(default=None, description="Comma-separated memory types"),
+    include_documents: bool = Query(default=True, description="Include relevant documents"),
+    document_limit: int = Query(default=5, ge=0, le=20, description="Max documents to return")
 ):
-    """Get relevant context memories for a project."""
+    """Get relevant context memories and documents for a project."""
     type_list = None
     if types:
         type_list = [MemoryType(t.strip()) for t in types.split(",")]
 
-    memories = collections.get_context(
+    context = collections.get_context(
         project=project if project != "_all" else None,
         hours=hours,
-        types=type_list
+        types=type_list,
+        include_documents=include_documents,
+        document_limit=document_limit
     )
-    return memories
+    return context
 
 
-@app.get("/context", response_model=list[Memory])
+@app.get("/context")
 async def get_global_context(
     hours: int = Query(default=24, ge=1, le=168),
-    types: Optional[str] = Query(default=None)
+    types: Optional[str] = Query(default=None),
+    include_documents: bool = Query(default=True, description="Include relevant documents"),
+    document_limit: int = Query(default=5, ge=0, le=20, description="Max documents to return")
 ):
-    """Get recent context memories across all projects."""
+    """Get recent context memories and documents across all projects."""
     type_list = None
     if types:
         type_list = [MemoryType(t.strip()) for t in types.split(",")]
 
-    memories = collections.get_context(hours=hours, types=type_list)
-    return memories
+    context = collections.get_context(
+        hours=hours,
+        types=type_list,
+        include_documents=include_documents,
+        document_limit=document_limit
+    )
+    return context
 
 
 # Proactive Surfacing Endpoint

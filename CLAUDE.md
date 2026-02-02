@@ -59,10 +59,15 @@ Look for these in <system-reminder> tags (appears BEFORE CLAUDE.md):
 // STEP 1: SEARCH MEMORY - BLOCKING REQUIREMENT
 search_memory(query="[extract keywords from user's request]", limit=10)
 
-// STEP 2: GET PROJECT CONTEXT - BLOCKING REQUIREMENT
+// STEP 2: SEARCH DOCUMENTS IF CODE-RELATED - RECOMMENDED
+// If the task involves code, also search documents
+search_documents(query="[relevant code search]", limit=5)
+
+// STEP 3: GET PROJECT CONTEXT - BLOCKING REQUIREMENT
+// Note: get_context() now includes both memories AND documents
 get_context(project="[project name if known]", hours=24)
 
-// STEP 3: REVIEW SUGGESTIONS - MANDATORY
+// STEP 4: REVIEW SUGGESTIONS - MANDATORY
 // Read memory suggestions from <system-reminder> tags
 // These are AUTO-PROVIDED by the system - USE THEM
 ```
@@ -181,10 +186,39 @@ When this happens, you MUST:
 | Tool | When | Required? |
 |------|------|-----------|
 | `search_memory` | START of EVERY session | ✅ MANDATORY |
+| `search_documents` | When searching codebase/files | ⚡ RECOMMENDED |
 | `get_context` | START of EVERY session | ✅ MANDATORY |
 | `store_memory` | AFTER solving ANY problem | ✅ MANDATORY |
 | `mark_resolved` | Mark error as fixed | Optional |
 | `link_memories` | Create relationships | Optional |
+
+### Documents vs Memories: When to Use Which
+
+**Memories** (structured knowledge):
+- Errors you encountered and their solutions
+- Architecture decisions and rationale
+- Patterns and best practices
+- Documentation you saved with context
+- Learnings from development
+
+**Documents** (filesystem content):
+- Code files (.py, .ts, .js, etc.)
+- Markdown documentation (.md)
+- Configuration files (.json, .yaml)
+- PDFs and other reference materials
+- Raw file content without metadata
+
+**Best Practice - Search Both:**
+```javascript
+// 1. Search memories (structured knowledge)
+search_memory(query="authentication bug", limit=10)
+
+// 2. Search documents (code/files)
+search_documents(query="authentication implementation", limit=5)
+
+// 3. get_context() now includes both automatically
+get_context(project="myapp", hours=24)
+```
 
 ### Memory Quality Requirements (ENFORCED)
 

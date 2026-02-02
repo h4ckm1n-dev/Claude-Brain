@@ -17,6 +17,7 @@ export function Search() {
   const [searchMode, setSearchMode] = useState<'semantic' | 'keyword' | 'hybrid'>('hybrid');
   const [typeFilter, setTypeFilter] = useState<MemoryType | ''>('');
   const [showFilters, setShowFilters] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'memories' | 'documents'>('all');
 
   const debouncedQuery = useDebounce(query, 500);
 
@@ -27,11 +28,27 @@ export function Search() {
     limit: 20,
   };
 
-  const { data: results, isLoading } = useQuery({
-    queryKey: ['search', debouncedQuery, searchMode, typeFilter],
-    queryFn: () => searchMemories(searchQuery),
+  // Use unified search endpoint for all tabs
+  const { data: unifiedResults, isLoading } = useQuery({
+    queryKey: ['search-unified', debouncedQuery, searchMode, typeFilter, activeTab],
+    queryFn: async () => {
+      const searchMemoriesFlag = activeTab === 'all' || activeTab === 'memories';
+      const searchDocumentsFlag = activeTab === 'all' || activeTab === 'documents';
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8100'}/search/unified?` + new URLSearchParams({
+        query: debouncedQuery,
+        search_memories: String(searchMemoriesFlag),
+        search_documents: String(searchDocumentsFlag),
+        memory_limit: '15',
+        document_limit: '10',
+      }));
+      return response.json();
+    },
     enabled: debouncedQuery.length > 0,
   });
+
+  const results = unifiedResults?.memories || [];
+  const documents = unifiedResults?.documents || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
@@ -45,10 +62,10 @@ export function Search() {
               <SearchIcon className="h-8 w-8 text-purple-400" />
             </div>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-white">Search Memories</h1>
+              <h1 className="text-3xl font-bold text-white">Unified Search</h1>
               <p className="text-white/60 mt-1 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-emerald-400" />
-                Hybrid search with semantic understanding
+                Search memories and documents with semantic understanding
               </p>
             </div>
           </div>
@@ -65,7 +82,7 @@ export function Search() {
                 <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-white/30" />
                 <Input
                   className="pl-10 bg-[#0a0a0a] border-white/10 text-white placeholder:text-white/30 focus:border-purple-500/50"
-                  placeholder="Search memories..."
+                  placeholder="Search memories and documents..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -121,15 +138,54 @@ export function Search() {
           </CardContent>
         </Card>
 
+        {/* Result Tabs */}
+        {debouncedQuery.length > 0 && (
+          <div className="flex gap-2 border-b border-white/10 pb-4">
+            <Button
+              variant={activeTab === 'all' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('all')}
+              className={`transition-all ${
+                activeTab === 'all'
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              All ({(results?.length || 0) + (documents?.length || 0)})
+            </Button>
+            <Button
+              variant={activeTab === 'memories' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('memories')}
+              className={`transition-all ${
+                activeTab === 'memories'
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Memories ({results?.length || 0})
+            </Button>
+            <Button
+              variant={activeTab === 'documents' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('documents')}
+              className={`transition-all ${
+                activeTab === 'documents'
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Documents ({documents?.length || 0})
+            </Button>
+          </div>
+        )}
+
         {/* Search Results */}
         <div className="space-y-4">
           {debouncedQuery.length === 0 ? (
             <Card className="bg-[#0f0f0f] border-white/10">
               <CardContent className="p-12 text-center">
                 <Sparkles className="h-16 w-16 mx-auto mb-4 text-white/20" />
-                <p className="text-white/50 text-lg mb-2">Start typing to search memories</p>
+                <p className="text-white/50 text-lg mb-2">Start typing to search</p>
                 <p className="text-white/30 text-sm">
-                  Use natural language to find what you need
+                  Search across memories and documents with natural language
                 </p>
               </CardContent>
             </Card>
@@ -142,7 +198,7 @@ export function Search() {
                 </div>
               </CardContent>
             </Card>
-          ) : !results || results.length === 0 ? (
+          ) : (!results || results.length === 0) && (!documents || documents.length === 0) ? (
             <Card className="bg-[#0f0f0f] border-white/10">
               <CardContent className="p-12 text-center">
                 <SearchIcon className="h-16 w-16 mx-auto mb-4 text-white/20" />
@@ -156,13 +212,20 @@ export function Search() {
             <>
               <div className="flex items-center justify-between">
                 <div className="text-sm text-white/50">
-                  Found <span className="text-white/90 font-semibold">{results.length}</span> results for "{debouncedQuery}"
+                  Found <span className="text-white/90 font-semibold">{(results?.length || 0) + (documents?.length || 0)}</span> results for "{debouncedQuery}"
+                  {results?.length > 0 && documents?.length > 0 && (
+                    <span className="ml-2">
+                      ({results.length} memories, {documents.length} documents)
+                    </span>
+                  )}
                 </div>
                 <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
                   {searchMode === 'hybrid' ? 'Hybrid' : searchMode === 'semantic' ? 'Semantic' : 'Keyword'} Mode
                 </Badge>
               </div>
-              {results.map((result: SearchResult) => (
+
+              {/* Memory Results */}
+              {(activeTab === 'all' || activeTab === 'memories') && results && results.map((result: SearchResult) => (
                 <Card
                   key={result.memory.id}
                   className="bg-[#0f0f0f] border-white/10 hover:border-purple-500/50 hover:bg-white/5 transition-all duration-300 group"
@@ -234,6 +297,48 @@ export function Search() {
                       <span>
                         Tier: <span className="text-white/60">{result.memory.memory_tier}</span>
                       </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* Document Results */}
+              {(activeTab === 'all' || activeTab === 'documents') && documents && documents.map((doc: any, idx: number) => (
+                <Card
+                  key={`doc-${idx}`}
+                  className="bg-[#0f0f0f] border-white/10 hover:border-amber-500/50 hover:bg-white/5 transition-all duration-300"
+                >
+                  <CardHeader className="border-b border-white/5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20">
+                        Document
+                      </Badge>
+                      {doc.file_type && (
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                          {doc.file_type}
+                        </Badge>
+                      )}
+                      <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                        Score: {doc.score.toFixed(3)}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-white/40 mt-2 font-mono">{doc.file_path}</span>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <pre className="text-sm font-mono text-white/80 bg-[#0a0a0a] p-4 rounded-lg overflow-x-auto border border-white/5 whitespace-pre-wrap">
+                      {doc.content.substring(0, 400)}...
+                    </pre>
+                    <div className="text-xs text-white/40 mt-3 flex items-center gap-4">
+                      {doc.chunk_index !== undefined && (
+                        <span>
+                          Chunk: <span className="text-white/60">{doc.chunk_index + 1}/{doc.total_chunks}</span>
+                        </span>
+                      )}
+                      {doc.indexed_at && (
+                        <span>
+                          Indexed: <span className="text-white/60">{formatDistanceToNow(new Date(doc.indexed_at), { addSuffix: true })}</span>
+                        </span>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

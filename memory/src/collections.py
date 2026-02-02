@@ -779,9 +779,23 @@ def link_memories(source_id: str, target_id: str, relation_type: RelationType) -
 def get_context(
     project: Optional[str] = None,
     hours: int = 24,
-    types: Optional[list[MemoryType]] = None
-) -> list[Memory]:
-    """Get relevant context memories for a project."""
+    types: Optional[list[MemoryType]] = None,
+    include_documents: bool = True,
+    document_limit: int = 5
+) -> dict:
+    """Get relevant context memories and documents for a project.
+
+    Args:
+        project: Optional project name to filter by
+        hours: Hours to look back (default: 24)
+        types: Optional memory types to filter
+        include_documents: Whether to include relevant documents (default: True)
+        document_limit: Maximum number of documents to return (default: 5)
+
+    Returns:
+        Dict with keys: memories (list[Memory]), documents (list[dict]),
+        combined_count (int), has_documents (bool)
+    """
     client = get_client()
 
     time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -829,7 +843,32 @@ def get_context(
         if created >= time_threshold:
             filtered.append(m)
 
-    return filtered[:50]  # Limit to 50
+    memories = filtered[:50]  # Limit to 50
+
+    # Search for relevant documents if requested
+    documents = []
+    if include_documents and project:
+        # Build a context query from the recent memory content
+        context_query = f"{project} " + " ".join([m.content[:50] for m in memories[:3]])
+
+        try:
+            from . import documents as doc_module
+            doc_results = doc_module.search_documents(
+                query=context_query,
+                limit=document_limit,
+                folder=project
+            )
+            documents = doc_results
+        except Exception as e:
+            logger.warning(f"Failed to fetch documents for context: {e}")
+            documents = []
+
+    return {
+        "memories": memories,
+        "documents": documents,
+        "combined_count": len(memories) + len(documents),
+        "has_documents": len(documents) > 0
+    }
 
 
 def get_stats() -> dict:

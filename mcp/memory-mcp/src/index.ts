@@ -537,35 +537,62 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const params = new URLSearchParams({ hours: String(hours) });
         if (types) params.append("types", types);
 
-        const memories = await apiCall<Memory[]>(
-          `/context/${project}?${params.toString()}`
-        );
+        const context = await apiCall<{
+          memories: Memory[];
+          documents: Array<{
+            file_path: string;
+            content: string;
+            score: number;
+            file_type?: string;
+          }>;
+          combined_count: number;
+          has_documents: boolean;
+        }>(`/context/${project}?${params.toString()}`);
 
-        if (memories.length === 0) {
+        if (context.combined_count === 0) {
           return {
             content: [
               {
                 type: "text",
-                text: "No recent context memories found.",
+                text: "No recent context found.",
               },
             ],
           };
         }
 
-        const formatted = memories
-          .map(
-            (m) =>
-              `[${m.type}] ${m.content}` +
-              (m.solution ? `\n  → Solution: ${m.solution}` : "") +
-              (m.resolved === false && m.type === "error" ? " (UNRESOLVED)" : "")
-          )
-          .join("\n\n");
+        let formatted = `📚 Context (last ${hours}h): ${context.combined_count} items\n\n`;
+
+        // Format memories
+        if (context.memories.length > 0) {
+          formatted += `=== MEMORIES (${context.memories.length}) ===\n\n`;
+          formatted += context.memories
+            .map(
+              (m) =>
+                `[${m.type}] ${m.content}` +
+                (m.solution ? `\n  → Solution: ${m.solution}` : "") +
+                (m.resolved === false && m.type === "error" ? " (UNRESOLVED)" : "")
+            )
+            .join("\n\n");
+        }
+
+        // Format documents
+        if (context.documents.length > 0) {
+          formatted += `\n\n=== RELEVANT DOCUMENTS (${context.documents.length}) ===\n\n`;
+          formatted += context.documents
+            .map(
+              (d) =>
+                `📄 ${d.file_path}${d.file_type ? ` (${d.file_type})` : ""}\n` +
+                `   ${d.content.substring(0, 200)}...` +
+                `\n   Score: ${d.score.toFixed(3)}`
+            )
+            .join("\n\n");
+        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Recent context (last ${hours}h):\n\n${formatted}`,
+              text: formatted,
             },
           ],
         };
