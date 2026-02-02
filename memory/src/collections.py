@@ -32,6 +32,7 @@ from .graph import (
     is_graph_enabled, init_graph_schema, create_memory_node,
     create_relationship, get_related_memories, get_graph_stats
 )
+from .graph_search import expand_search_with_graph
 from .query_understanding import route_query
 
 logger = logging.getLogger(__name__)
@@ -324,7 +325,8 @@ def search_memories(
     query: SearchQuery,
     search_mode: SearchMode = "hybrid",
     use_cache: bool = True,
-    use_reranking: bool = True
+    use_reranking: bool = True,
+    use_graph_expansion: bool = False
 ) -> list[SearchResult]:
     """
     Search memories using specified search mode with caching and reranking.
@@ -334,6 +336,7 @@ def search_memories(
         search_mode: "semantic" (dense only), "keyword" (sparse only), or "hybrid" (both with RRF)
         use_cache: Whether to use semantic query cache
         use_reranking: Whether to apply cross-encoder reranking
+        use_graph_expansion: Whether to expand results using knowledge graph relationships (Phase 2.1)
 
     Returns:
         List of SearchResult objects sorted by relevance
@@ -423,6 +426,17 @@ def search_memories(
         search_results = rerank_search_results(query.query, search_results, top_k=query.limit)
     else:
         search_results = search_results[:query.limit]
+
+    # Phase 2.1: Apply graph-based search expansion if enabled
+    if use_graph_expansion and is_graph_enabled() and len(search_results) > 0:
+        logger.debug(f"Expanding {len(search_results)} results using knowledge graph")
+        search_results = expand_search_with_graph(
+            initial_results=search_results,
+            use_expansion=True,
+            max_hops=1,  # 1-hop expansion by default
+            expansion_factor=0.6,  # Dampen expanded results to 60% of original score
+            top_k=query.limit  # Return same number of results
+        )
 
     # Store in cache (only if no filters)
     if use_cache and search_results and not query.type and not query.tags and not query.project:

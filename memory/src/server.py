@@ -540,10 +540,31 @@ async def bulk_store_memories(memories: list[MemoryCreate]):
 
 
 @app.post("/memories/search", response_model=list[SearchResult])
-async def search_memories(query: SearchQuery):
-    """Search memories using semantic similarity."""
+async def search_memories(
+    query: SearchQuery,
+    search_mode: str = "hybrid",
+    use_cache: bool = True,
+    use_reranking: bool = True,
+    use_graph_expansion: bool = False
+):
+    """
+    Search memories using semantic similarity with optional enhancements.
+
+    Args:
+        query: Search query with filters
+        search_mode: "semantic", "keyword", or "hybrid" (default: hybrid)
+        use_cache: Enable query cache (default: true)
+        use_reranking: Enable cross-encoder reranking (default: true)
+        use_graph_expansion: Enable graph-based search expansion (Phase 2.1, default: false)
+    """
     try:
-        results = collections.search_memories(query)
+        results = collections.search_memories(
+            query,
+            search_mode=search_mode,
+            use_cache=use_cache,
+            use_reranking=use_reranking,
+            use_graph_expansion=use_graph_expansion
+        )
         return results
     except Exception as e:
         logger.error(f"Search failed: {e}")
