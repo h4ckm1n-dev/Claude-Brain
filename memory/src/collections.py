@@ -236,7 +236,11 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
         # Session fields
         session_id=session_id,
         conversation_context=conversation_context,
-        session_sequence=session_sequence
+        session_sequence=session_sequence,
+        # Temporal fields (Phase 2.2)
+        event_time=data.event_time,
+        validity_start=data.validity_start,
+        validity_end=data.validity_end
     )
 
     # Create initial version snapshot
@@ -261,6 +265,10 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
     payload = memory.model_dump(exclude={"embedding"})
     payload["created_at"] = memory.created_at.isoformat()
     payload["updated_at"] = memory.updated_at.isoformat()
+
+    # Phase 2.2: Set default temporal fields if not provided
+    from .temporal import TemporalQuery
+    payload = TemporalQuery.set_default_temporal_fields(payload)
 
     # Prepare vectors
     vectors = {"dense": embeddings["dense"]}

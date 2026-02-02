@@ -115,6 +115,11 @@ class MemoryCreate(MemoryBase):
     conversation_context: Optional[str] = None
     session_sequence: Optional[int] = None
 
+    # Bi-temporal tracking (Phase 2.2)
+    event_time: Optional[datetime] = None       # When the event actually occurred
+    validity_start: Optional[datetime] = None   # When this memory became true
+    validity_end: Optional[datetime] = None     # When this memory became obsolete
+
     @field_validator('content')
     @classmethod
     def validate_content_quality(cls, v: str) -> str:
@@ -182,6 +187,11 @@ class Memory(MemoryBase):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     last_accessed: datetime = Field(default_factory=utc_now)
+
+    # Bi-temporal tracking (Phase 2.2)
+    event_time: Optional[datetime] = None       # When the event actually occurred
+    validity_start: datetime = Field(default_factory=utc_now)  # When this memory became true
+    validity_end: Optional[datetime] = None     # When this memory became obsolete
 
     # Lifecycle management
     memory_tier: MemoryTier = MemoryTier.EPISODIC

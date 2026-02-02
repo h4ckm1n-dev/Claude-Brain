@@ -188,15 +188,19 @@ def create_relationship(
     source_id: str,
     target_id: str,
     relation_type: str,
-    properties: Optional[dict] = None
+    properties: Optional[dict] = None,
+    valid_from: Optional[datetime] = None,
+    valid_to: Optional[datetime] = None
 ) -> bool:
-    """Create a relationship between two memories.
+    """Create a relationship between two memories with optional temporal validity.
 
     Args:
         source_id: Source memory ID
         target_id: Target memory ID
         relation_type: Type of relationship (FIXES, CAUSES, RELATES_TO, etc.)
         properties: Optional relationship properties
+        valid_from: When this relationship became true (default: now)
+        valid_to: When this relationship became obsolete (default: None = indefinite)
 
     Returns:
         True if created successfully
@@ -211,6 +215,11 @@ def create_relationship(
         try:
             props = properties or {}
             props["created_at"] = datetime.now(timezone.utc).isoformat()
+
+            # Phase 2.2: Add temporal validity window
+            props["valid_from"] = (valid_from or datetime.now(timezone.utc)).isoformat()
+            if valid_to:
+                props["valid_to"] = valid_to.isoformat()
 
             # Create relationship with dynamic type
             query = f"""
@@ -294,6 +303,132 @@ def get_related_memories(
         except Exception as e:
             logger.error(f"Failed to get related memories: {e}")
             return []
+
+
+def get_related_memories_at_time(
+    memory_id: str,
+    target_time: datetime,
+    max_hops: int = 2,
+    limit: int = 20
+) -> list[dict]:
+    """Get memories related to a given memory at a specific point in time.
+
+    This implements temporal graph traversal (Phase 2.2): only follows relationships
+    that were valid at the target_time.
+
+    A relationship is valid at time T if:
+    - valid_from <= T
+    - valid_to is NULL OR valid_to > T
+
+    Args:
+        memory_id: Starting memory ID
+        target_time: Time to query relationships
+        max_hops: Maximum relationship hops (1-3)
+        limit: Maximum results
+
+    Returns:
+        List of related memories with relationship info
+    """
+    if not is_graph_enabled():
+        return []
+
+    with get_session() as session:
+        if session is None:
+            return []
+
+        try:
+            # Traverse up to max_hops relationships, filtering by temporal validity
+            hops = min(max_hops, 3)
+            target_time_str = target_time.isoformat()
+
+            query = f"""
+                MATCH path = (start:Memory {{id: $id}})-[*1..{hops}]-(related:Memory)
+                WHERE start <> related
+                  AND ALL(r in relationships(path) WHERE
+                    datetime(r.valid_from) <= datetime($target_time)
+                    AND (r.valid_to IS NULL OR datetime(r.valid_to) > datetime($target_time))
+                  )
+                WITH related,
+                     length(path) as distance,
+                     [r in relationships(path) | type(r)] as rel_types
+                RETURN DISTINCT related.id as id,
+                       related.type as type,
+                       related.content_preview as preview,
+                       distance,
+                       rel_types
+                ORDER BY distance
+                LIMIT $limit
+            """
+            result = session.run(query, {
+                "id": memory_id,
+                "target_time": target_time_str,
+                "limit": limit
+            })
+
+            related = []
+            for record in result:
+                related.append({
+                    "id": record["id"],
+                    "type": record["type"],
+                    "preview": record["preview"],
+                    "distance": record["distance"],
+                    "relationship_path": record["rel_types"]
+                })
+
+            return related
+
+        except Exception as e:
+            logger.error(f"Failed to get temporally-filtered related memories: {e}")
+            return []
+
+
+def mark_relationship_obsolete(
+    source_id: str,
+    target_id: str,
+    relation_type: str,
+    valid_to: Optional[datetime] = None
+) -> bool:
+    """Mark a relationship as obsolete by setting valid_to.
+
+    Args:
+        source_id: Source memory ID
+        target_id: Target memory ID
+        relation_type: Type of relationship
+        valid_to: When relationship became obsolete (default: now)
+
+    Returns:
+        True if successful
+    """
+    if not is_graph_enabled():
+        return False
+
+    with get_session() as session:
+        if session is None:
+            return False
+
+        try:
+            end_time = valid_to or datetime.now(timezone.utc)
+
+            query = f"""
+                MATCH (source:Memory {{id: $source_id}})-[r:{relation_type}]->(target:Memory {{id: $target_id}})
+                SET r.valid_to = datetime($valid_to)
+                RETURN r
+            """
+
+            result = session.run(query, {
+                "source_id": source_id,
+                "target_id": target_id,
+                "valid_to": end_time.isoformat()
+            })
+
+            success = result.single() is not None
+            if success:
+                logger.info(f"Marked relationship {source_id}-[{relation_type}]->{target_id} as obsolete")
+            return success
+
+        except Exception as e:
+            logger.error(f"Failed to mark relationship obsolete: {e}")
+            return False
 
 
 def _neo4j_datetime_to_iso(dt) -> Optional[str]:
