@@ -163,6 +163,9 @@ def search_documents(
         # Format results and track accesses
         documents = []
         for point in results.points:
+            # Get current access count before tracking
+            current_count = point.payload.get("access_count", 0)
+
             # Track access for this document
             track_document_access(str(point.id))
 
@@ -176,8 +179,8 @@ def search_documents(
                 "chunk_index": point.payload.get("chunk_index", 0),
                 "total_chunks": point.payload.get("total_chunks", 1),
                 "modified_at": point.payload.get("modified_at"),
-                "access_count": point.payload.get("access_count", 0),
-                "last_accessed": point.payload.get("last_accessed")
+                "access_count": current_count + 1,  # Show incremented count
+                "last_accessed": utc_now()  # Show current timestamp
             }
             documents.append(doc)
 
