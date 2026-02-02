@@ -195,6 +195,23 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
                 # Return the existing memory
                 return get_memory(existing_id)
 
+    # Phase 1.3: Session tracking - get conversation context
+    session_id = data.session_id
+    conversation_context = data.conversation_context
+    session_sequence = data.session_sequence
+
+    # If session_id provided, get previous memories for context
+    if session_id and not conversation_context:
+        try:
+            from .session_extraction import SessionManager
+            previous_memories = SessionManager.get_session_memories(client, COLLECTION_NAME, session_id)
+            conversation_context = SessionManager.extract_conversation_context(previous_memories)
+            # Set sequence number
+            if session_sequence is None:
+                session_sequence = len(previous_memories)
+        except Exception as e:
+            logger.debug(f"Failed to extract conversation context: {e}")
+
     # Create memory object
     from .models import ChangeType
 
@@ -214,7 +231,11 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
         alternatives=data.alternatives,
         reversible=data.reversible,
         impact=data.impact,
-        resolved=data.solution is not None if data.type == MemoryType.ERROR else False
+        resolved=data.solution is not None if data.type == MemoryType.ERROR else False,
+        # Session fields
+        session_id=session_id,
+        conversation_context=conversation_context,
+        session_sequence=session_sequence
     )
 
     # Create initial version snapshot

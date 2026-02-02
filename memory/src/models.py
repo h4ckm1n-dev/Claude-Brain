@@ -110,6 +110,11 @@ class MemoryCreate(MemoryBase):
     # Optional tier specification (defaults to episodic)
     memory_tier: MemoryTier = MemoryTier.EPISODIC
 
+    # Session tracking (Phase 1.3)
+    session_id: Optional[str] = None
+    conversation_context: Optional[str] = None
+    session_sequence: Optional[int] = None
+
     @field_validator('content')
     @classmethod
     def validate_content_quality(cls, v: str) -> str:
@@ -194,6 +199,11 @@ class Memory(MemoryBase):
     memory_strength: float = 1.0   # Strength from 0.0-1.0, starts at 1.0
     decay_rate: float = 0.005      # Differential decay rate (lower = slower decay)
     last_decay_update: datetime = Field(default_factory=utc_now)
+
+    # Session-based memory extraction (Phase 1.3)
+    session_id: Optional[str] = None           # Conversation session identifier
+    conversation_context: Optional[str] = None  # Previous messages for context
+    session_sequence: Optional[int] = None      # Order within session (0, 1, 2, ...)
 
     # User Quality Ratings
     user_rating: Optional[float] = None  # Running average of user ratings (1-5 stars)

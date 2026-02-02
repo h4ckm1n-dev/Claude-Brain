@@ -46,6 +46,15 @@ def get_scheduler():
                 replace_existing=True
             )
 
+            # Add session consolidation job (Phase 1.3)
+            _scheduler.add_job(
+                run_session_consolidation,
+                trigger=IntervalTrigger(hours=12),
+                id="session_consolidation_job",
+                name="Session Consolidation",
+                replace_existing=True
+            )
+
             # Add brain intelligence jobs
             _scheduler.add_job(
                 run_relationship_inference,
@@ -448,3 +457,63 @@ def run_memory_strength_update():
 
     except Exception as e:
         logger.error(f"Scheduled memory strength update failed: {e}")
+
+
+# ============================================================================
+# Session Consolidation Scheduled Job (Phase 1.3)
+# ============================================================================
+
+
+def run_session_consolidation():
+    """Run session consolidation as a scheduled job."""
+    logger.info("Running scheduled session consolidation...")
+
+    try:
+        from .session_extraction import SessionManager
+        from . import collections
+
+        client = collections.get_client()
+
+        # Get sessions ready for consolidation
+        ready_sessions = SessionManager.get_sessions_for_consolidation(
+            client,
+            collections.COLLECTION_NAME,
+            older_than_hours=24
+        )
+
+        consolidated = 0
+        failed = 0
+
+        # Consolidate each session
+        for session_id in ready_sessions:
+            try:
+                # Infer relationships within session first
+                SessionManager.infer_session_relationships(
+                    client,
+                    collections.COLLECTION_NAME,
+                    session_id
+                )
+
+                # Consolidate into summary
+                summary_id = SessionManager.consolidate_session(
+                    client,
+                    collections.COLLECTION_NAME,
+                    session_id
+                )
+
+                if summary_id:
+                    consolidated += 1
+                else:
+                    failed += 1
+
+            except Exception as e:
+                logger.error(f"Failed to consolidate session {session_id}: {e}")
+                failed += 1
+
+        logger.info(
+            f"Scheduled session consolidation complete: "
+            f"consolidated={consolidated}, failed={failed}"
+        )
+
+    except Exception as e:
+        logger.error(f"Scheduled session consolidation failed: {e}")
