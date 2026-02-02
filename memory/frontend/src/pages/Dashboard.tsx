@@ -1,9 +1,13 @@
 import { lazy, Suspense } from 'react';
 import { useStats, useGraphStats, useMemories } from '../hooks/useMemories';
 import { useDocumentStats } from '../hooks/useDocuments';
+import { useQualityStats } from '../hooks/useQuality';
+import { useLifecycleStats } from '../hooks/useLifecycle';
+import { usePatternClusters } from '../hooks/useAnalytics';
+import { useAuditTrail } from '../hooks/useAudit';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Header } from '../components/layout/Header';
-import { Database, Archive, AlertCircle, Network, TrendingUp, Activity, FileText, Brain, Sparkles, Zap } from 'lucide-react';
+import { Database, Archive, AlertCircle, Network, TrendingUp, Activity, FileText, Brain, Sparkles, Zap, Star, GitBranch, History } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import type { Memory } from '../types/memory';
@@ -15,6 +19,9 @@ import { RecentErrors } from '../components/dashboard/RecentErrors';
 import { QuickActions } from '../components/dashboard/QuickActions';
 import { TypeBreakdown } from '../components/dashboard/TypeBreakdown';
 import { AdvancedBrainMetrics } from '../components/dashboard/AdvancedBrainMetrics';
+import { QualityBadge } from '../components/QualityBadge';
+import { StateDistribution } from '../components/StateBadge';
+import { AuditTimeline } from '../components/AuditTimeline';
 
 // Lazy load charts
 const ActivityTimeline = lazy(() => import('../components/analytics/ActivityTimeline').then(m => ({ default: m.ActivityTimeline })));
@@ -36,6 +43,12 @@ export function Dashboard() {
   const { data: documentStats } = useDocumentStats();
   const { data: recentMemories } = useMemories({ limit: 100 });
   const { data: allMemories } = useMemories({ limit: 500 });
+
+  // Phase 3-4: New hooks for quality, lifecycle, patterns, and audit
+  const { data: qualityStats } = useQualityStats();
+  const { data: lifecycleStats } = useLifecycleStats();
+  const { data: patternClusters } = usePatternClusters(3);
+  const { data: auditEntries } = useAuditTrail(undefined, 10);
 
   if (statsLoading) {
     return (
@@ -195,6 +208,172 @@ export function Dashboard() {
 
         {/* Quick Actions */}
         <QuickActions />
+
+        {/* Phase 3-4: New Intelligence Widgets */}
+        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+          {/* Widget 1: Quality Distribution Chart */}
+          <Card className="bg-[#0f0f0f] border-white/10 xl:col-span-2">
+            <CardHeader className="border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/10 rounded-lg">
+                  <Star className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-semibold text-white">Quality Distribution</CardTitle>
+                  <CardDescription className="text-white/50">Memory quality scores</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {qualityStats ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-3xl font-bold text-white">{qualityStats.avg_quality_score.toFixed(1)}%</p>
+                      <p className="text-xs text-white/50">Average Quality Score</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge className="bg-green-500/10 text-green-400 border-green-500/20">
+                        {qualityStats.high_quality_count} High
+                      </Badge>
+                      <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
+                        {qualityStats.needs_improvement_count} Need Review
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(qualityStats.quality_distribution).map(([tier, count]) => {
+                      const percentage = (count / qualityStats.total_memories) * 100;
+                      const colors: Record<string, string> = {
+                        excellent: 'bg-green-500',
+                        good: 'bg-blue-500',
+                        fair: 'bg-yellow-500',
+                        poor: 'bg-orange-500',
+                        very_poor: 'bg-red-500',
+                      };
+                      return (
+                        <div key={tier} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-white/60 capitalize">{tier.replace('_', ' ')}</span>
+                            <span className="text-white/40">{count} ({percentage.toFixed(1)}%)</span>
+                          </div>
+                          <div className="w-full bg-gray-800 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all duration-500 ${colors[tier]}`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-48 flex items-center justify-center text-white/30 text-sm">
+                  Loading quality data...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Widget 2: State Distribution Pie Chart */}
+          <Card className="bg-[#0f0f0f] border-white/10">
+            <CardHeader className="border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                  <GitBranch className="h-5 w-5 text-purple-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-semibold text-white">Memory States</CardTitle>
+                  <CardDescription className="text-white/50">Lifecycle distribution</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {lifecycleStats ? (
+                <StateDistribution
+                  distribution={lifecycleStats.state_distribution}
+                  total={lifecycleStats.total_memories}
+                  className="text-white/90"
+                />
+              ) : (
+                <div className="h-48 flex items-center justify-center text-white/30 text-sm">
+                  Loading lifecycle data...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Widget 3: Pattern Detection Highlights */}
+          <Card className="bg-[#0f0f0f] border-white/10">
+            <CardHeader className="border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                  <Sparkles className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-semibold text-white">Pattern Clusters</CardTitle>
+                  <CardDescription className="text-white/50">Detected patterns</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {patternClusters && patternClusters.length > 0 ? (
+                <div className="space-y-3">
+                  {patternClusters.slice(0, 5).map((cluster) => (
+                    <div key={cluster.cluster_id} className="p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-sm font-medium text-white">{cluster.cluster_name}</span>
+                        <QualityBadge score={cluster.avg_quality_score} size="sm" showScore={false} />
+                      </div>
+                      <p className="text-xs text-white/60 line-clamp-2 mb-2">{cluster.summary}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs border-emerald-500/20 text-emerald-400">
+                          {cluster.member_count} memories
+                        </Badge>
+                        {cluster.tags.slice(0, 2).map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-xs border-purple-500/20 text-purple-400">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center text-white/30 text-sm">
+                  <Sparkles className="h-8 w-8 mb-2 opacity-20" />
+                  <p>No patterns detected yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Widget 4: Recent Audit Activity Timeline */}
+        <Card className="bg-[#0f0f0f] border-white/10">
+          <CardHeader className="border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <History className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold text-white">Recent Activity</CardTitle>
+                <CardDescription className="text-white/50">Latest system changes</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {auditEntries && auditEntries.length > 0 ? (
+              <AuditTimeline limit={10} className="text-white/90" />
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-white/30 text-sm">
+                <History className="h-8 w-8 mb-2 opacity-20" />
+                <p>No recent activity</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Advanced Analytics */}
         <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">

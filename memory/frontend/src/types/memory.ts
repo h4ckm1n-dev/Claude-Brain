@@ -179,3 +179,204 @@ export interface ConsolidateResult {
   dry_run: boolean;
   details?: any;
 }
+
+// ============================================================================
+// Phase 3-4: Quality Tracking Types
+// ============================================================================
+
+export interface QualityStats {
+  total_memories: number;
+  avg_quality_score: number;
+  quality_distribution: {
+    excellent: number;  // 80-100
+    good: number;       // 60-80
+    fair: number;       // 40-60
+    poor: number;       // 20-40
+    very_poor: number;  // 0-20
+  };
+  high_quality_count: number;
+  promotion_eligible_count: number;
+  needs_improvement_count: number;
+}
+
+export interface QualityTrend {
+  memory_id: string;
+  trend_data: Array<{
+    timestamp: string;
+    quality_score: number;
+    reason: string;
+  }>;
+}
+
+export interface PromotionCandidate {
+  memory_id: string;
+  current_state: string;
+  quality_score: number;
+  access_count: number;
+  relationship_count: number;
+  age_days: number;
+  promotion_reason: string;
+}
+
+// ============================================================================
+// Phase 3-4: Lifecycle State Machine Types
+// ============================================================================
+
+export enum MemoryState {
+  EPISODIC = "episodic",
+  STAGING = "staging",
+  SEMANTIC = "semantic",
+  PROCEDURAL = "procedural",
+  ARCHIVED = "archived",
+  PURGED = "purged",
+}
+
+export interface LifecycleStats {
+  total_memories: number;
+  state_distribution: Record<MemoryState, number>;
+  avg_time_in_episodic_hours: number;
+  avg_time_to_semantic_hours: number;
+  transition_flow: Array<{
+    from_state: MemoryState;
+    to_state: MemoryState;
+    count: number;
+  }>;
+}
+
+export interface StateHistory {
+  memory_id: string;
+  transitions: Array<{
+    timestamp: string;
+    from_state: MemoryState;
+    to_state: MemoryState;
+    reason: string;
+    actor: string;
+  }>;
+}
+
+export interface StateTransition {
+  memory_id: string;
+  from_state: MemoryState;
+  to_state: MemoryState;
+  timestamp: string;
+  reason: string;
+  actor: string;
+}
+
+// ============================================================================
+// Phase 3-4: Audit Trail Types
+// ============================================================================
+
+export enum AuditAction {
+  CREATE = "create",
+  UPDATE = "update",
+  DELETE = "delete",
+  ARCHIVE = "archive",
+  RESTORE = "restore",
+  STATE_TRANSITION = "state_transition",
+  QUALITY_UPDATE = "quality_update",
+  CONSOLIDATION = "consolidation",
+}
+
+export interface AuditEntry {
+  id: string;
+  memory_id?: string;
+  action: AuditAction;
+  actor: string;
+  timestamp: string;
+  reason?: string;
+  changes?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface AuditStats {
+  total_entries: number;
+  by_action: Record<AuditAction, number>;
+  by_actor: Record<string, number>;
+  activity_by_day: Array<{
+    date: string;
+    count: number;
+  }>;
+  recent_activity: AuditEntry[];
+}
+
+export interface MemoryVersion {
+  version_id: string;
+  memory_id: string;
+  content: string;
+  timestamp: string;
+  actor: string;
+  change_summary: string;
+}
+
+// ============================================================================
+// Phase 3-4: Analytics & Pattern Detection Types
+// ============================================================================
+
+export interface ErrorTrend {
+  date: string;
+  error_count: number;
+  resolved_count: number;
+  avg_resolution_time_hours: number;
+}
+
+export interface PatternCluster {
+  cluster_id: string;
+  cluster_name: string;
+  member_count: number;
+  avg_quality_score: number;
+  summary: string;
+  representative_memory_ids: string[];
+  tags: string[];
+}
+
+export interface KnowledgeGap {
+  gap_id: string;
+  area: string;
+  description: string;
+  severity: "high" | "medium" | "low";
+  related_errors: string[];
+  suggested_actions: string[];
+}
+
+export interface Recommendation {
+  memory_id: string;
+  content: string;
+  reason: string;
+  relevance_score: number;
+  quality_score: number;
+  tags: string[];
+}
+
+export interface ErrorSpike {
+  date: string;
+  error_count: number;
+  spike_severity: number;
+  common_tags: string[];
+  common_errors: string[];
+}
+
+export interface RecurringError {
+  error_pattern: string;
+  occurrence_count: number;
+  first_seen: string;
+  last_seen: string;
+  memory_ids: string[];
+  resolution_rate: number;
+}
+
+export interface ResolutionTime {
+  avg_resolution_hours: number;
+  median_resolution_hours: number;
+  fastest_resolution_hours: number;
+  slowest_resolution_hours: number;
+  total_resolved: number;
+}
+
+export interface ExpertiseCluster {
+  area: string;
+  memory_count: number;
+  avg_quality: number;
+  key_contributors: string[];
+  representative_memories: string[];
+}

@@ -1,6 +1,9 @@
 import { useState, useRef, useMemo } from 'react';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMemories, useDeleteMemory, usePinMemory, useArchiveMemory } from '../hooks/useMemories';
+import { useQualityTrend } from '../hooks/useQuality';
+import { useStateHistory } from '../hooks/useLifecycle';
+import { useAuditTrail } from '../hooks/useAudit';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -8,11 +11,14 @@ import { Select } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Plus, Trash2, Pin, Archive, Edit, Search, Download, FileText, Database, Eye, Clock, TrendingUp, Zap } from 'lucide-react';
+import { Plus, Trash2, Pin, Archive, Edit, Search, Download, FileText, Database, Eye, Clock, TrendingUp, Zap, ChevronDown, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Memory, MemoryType } from '../types/memory';
 import { MemoryDialog } from '../components/memory/MemoryDialog';
 import { MemoryTypeBadge } from '../components/memory/MemoryTypeBadge';
+import { QualityBadge } from '../components/QualityBadge';
+import { StateBadge, StateTimeline } from '../components/StateBadge';
+import { AuditTimeline } from '../components/AuditTimeline';
 import { exportToCSV, exportToJSON, exportToMarkdown } from '../utils/export';
 
 export function Memories() {
@@ -24,7 +30,24 @@ export function Memories() {
   const [accessFilter, setAccessFilter] = useState<'all' | 'never' | 'recent'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [expandedTab, setExpandedTab] = useState<Record<string, 'audit' | 'state' | 'quality'>>({});
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleRowExpansion = (memoryId: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(memoryId)) {
+        next.delete(memoryId);
+      } else {
+        next.add(memoryId);
+        if (!expandedTab[memoryId]) {
+          setExpandedTab(prev => ({ ...prev, [memoryId]: 'audit' }));
+        }
+      }
+      return next;
+    });
+  };
 
   const { data: memories, isLoading } = useMemories({
     type: typeFilter || undefined,
@@ -313,7 +336,10 @@ export function Memories() {
                 <Table className="min-w-full">
                 <TableHeader>
                   <TableRow className="border-b border-white/5 hover:bg-transparent">
+                    <TableHead className="w-8"></TableHead>
                     <TableHead className="text-white/70">Type</TableHead>
+                    <TableHead className="text-white/70">State</TableHead>
+                    <TableHead className="text-white/70">Quality</TableHead>
                     <TableHead className="text-white/70">Content</TableHead>
                     <TableHead className="text-white/70">Tags</TableHead>
                     <TableHead className="text-white/70">Project</TableHead>
@@ -325,20 +351,44 @@ export function Memories() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMemories.map((memory) => (
-                    <TableRow
-                      key={memory.id}
-                      className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                    >
-                      <TableCell>
-                        <MemoryTypeBadge type={memory.type} />
-                      </TableCell>
-                      <TableCell className="max-w-md">
-                        <div className="line-clamp-2 text-white/90">
-                          {memory.pinned && <Pin className="inline h-3 w-3 mr-1 text-amber-400" />}
-                          {memory.content}
-                        </div>
-                      </TableCell>
+                  {filteredMemories.map((memory) => {
+                    const isExpanded = expandedRows.has(memory.id);
+                    const activeTab = expandedTab[memory.id] || 'audit';
+                    // Assuming memory has state and quality_score fields from backend
+                    const memoryState = (memory as any).state || 'episodic';
+                    const qualityScore = (memory as any).quality_score || 0;
+
+                    return (
+                      <>
+                        <TableRow
+                          key={memory.id}
+                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                        >
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleRowExpansion(memory.id)}
+                              className="h-6 w-6 text-white/50 hover:text-white/90"
+                            >
+                              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <MemoryTypeBadge type={memory.type} />
+                          </TableCell>
+                          <TableCell>
+                            <StateBadge state={memoryState} size="sm" />
+                          </TableCell>
+                          <TableCell>
+                            <QualityBadge score={qualityScore} size="sm" showScore={false} />
+                          </TableCell>
+                          <TableCell className="max-w-md">
+                            <div className="line-clamp-2 text-white/90">
+                              {memory.pinned && <Pin className="inline h-3 w-3 mr-1 text-amber-400" />}
+                              {memory.content}
+                            </div>
+                          </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {memory.tags.slice(0, 3).map((tag) => (
@@ -410,9 +460,59 @@ export function Memories() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Expandable Row Details */}
+                        {isExpanded && (
+                          <TableRow key={`${memory.id}-expanded`} className="border-b border-white/5">
+                            <TableCell colSpan={12} className="bg-[#0a0a0a]/50">
+                              <div className="p-4 space-y-4">
+                                {/* Tabs */}
+                                <div className="flex gap-2 border-b border-white/10 pb-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setExpandedTab(prev => ({ ...prev, [memory.id]: 'audit' }))}
+                                    className={activeTab === 'audit' ? 'bg-white/10 text-white' : 'text-white/50'}
+                                  >
+                                    Audit History
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setExpandedTab(prev => ({ ...prev, [memory.id]: 'state' }))}
+                                    className={activeTab === 'state' ? 'bg-white/10 text-white' : 'text-white/50'}
+                                  >
+                                    State History
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setExpandedTab(prev => ({ ...prev, [memory.id]: 'quality' }))}
+                                    className={activeTab === 'quality' ? 'bg-white/10 text-white' : 'text-white/50'}
+                                  >
+                                    Quality Trend
+                                  </Button>
+                                </div>
+
+                                {/* Tab Content */}
+                                {activeTab === 'audit' && (
+                                  <ExpandedAuditTab memoryId={memory.id} />
+                                )}
+                                {activeTab === 'state' && (
+                                  <ExpandedStateTab memoryId={memory.id} />
+                                )}
+                                {activeTab === 'quality' && (
+                                  <ExpandedQualityTab memoryId={memory.id} />
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </Table>
               </div>
@@ -451,6 +551,66 @@ export function Memories() {
         onClose={() => setDialogOpen(false)}
         memory={selectedMemory}
       />
+    </div>
+  );
+}
+
+// Helper Components for Expandable Tabs
+
+function ExpandedAuditTab({ memoryId }: { memoryId: string }) {
+  return (
+    <div className="max-h-[400px] overflow-y-auto">
+      <AuditTimeline memoryId={memoryId} limit={5} />
+    </div>
+  );
+}
+
+function ExpandedStateTab({ memoryId }: { memoryId: string }) {
+  const { data: stateHistory, isLoading } = useStateHistory(memoryId);
+
+  if (isLoading) {
+    return <div className="text-center py-4 text-white/50">Loading state history...</div>;
+  }
+
+  if (!stateHistory || stateHistory.transitions.length === 0) {
+    return <div className="text-center py-4 text-white/50">No state transitions recorded</div>;
+  }
+
+  return (
+    <div className="max-h-[400px] overflow-y-auto">
+      <StateTimeline transitions={stateHistory.transitions} />
+    </div>
+  );
+}
+
+function ExpandedQualityTab({ memoryId }: { memoryId: string }) {
+  const { data: qualityTrend, isLoading } = useQualityTrend(memoryId);
+
+  if (isLoading) {
+    return <div className="text-center py-4 text-white/50">Loading quality trend...</div>;
+  }
+
+  if (!qualityTrend || qualityTrend.trend_data.length === 0) {
+    return <div className="text-center py-4 text-white/50">No quality trend data available</div>;
+  }
+
+  return (
+    <div className="max-h-[400px] overflow-y-auto space-y-3">
+      {qualityTrend.trend_data.map((entry, index) => (
+        <div key={index} className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-white">
+                Quality: {entry.quality_score.toFixed(1)}%
+              </span>
+              <span className="text-xs text-white/50">
+                {new Date(entry.timestamp).toLocaleString()}
+              </span>
+            </div>
+            <p className="text-xs text-white/70">{entry.reason}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
