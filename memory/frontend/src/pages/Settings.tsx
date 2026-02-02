@@ -1046,6 +1046,79 @@ export function Settings() {
           </CardContent>
         </Card>
 
+        {/* Phase 3-4: Intelligence Settings */}
+        <Card className="bg-[#0f0f0f] border-white/10">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-purple-400" />
+              <CardTitle className="text-white">Intelligence & Analytics</CardTitle>
+            </div>
+            <CardDescription className="text-white/60">
+              Advanced memory intelligence settings (configured in backend)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Audit Trail Settings */}
+            <div className="space-y-3">
+              <Label className="text-white/90">Audit Trail Retention Period</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  defaultValue={90}
+                  disabled
+                  className="w-32 bg-[#0a0a0a] border-white/10 text-white/50"
+                />
+                <span className="text-sm text-white/50">days</span>
+              </div>
+              <p className="text-xs text-white/40">
+                Configure in backend: <code className="text-purple-400">src/config.py</code>
+              </p>
+            </div>
+
+            {/* Pattern Detection Schedule */}
+            <div className="space-y-3">
+              <Label className="text-white/90">Pattern Detection Schedule</Label>
+              <Select
+                defaultValue="12h"
+                disabled
+                className="bg-[#0a0a0a] border-white/10 text-white/50"
+              >
+                <option value="6h">Every 6 hours</option>
+                <option value="12h">Every 12 hours</option>
+                <option value="24h">Every 24 hours</option>
+              </Select>
+              <p className="text-xs text-white/40">
+                Configure in backend: <code className="text-purple-400">src/scheduler.py</code>
+              </p>
+            </div>
+
+            {/* Quality Score Update Frequency */}
+            <div className="space-y-3">
+              <Label className="text-white/90">Quality Score Update Frequency</Label>
+              <Select
+                defaultValue="12h"
+                disabled
+                className="bg-[#0a0a0a] border-white/10 text-white/50"
+              >
+                <option value="6h">Every 6 hours</option>
+                <option value="12h">Every 12 hours</option>
+                <option value="24h">Every 24 hours</option>
+              </Select>
+              <p className="text-xs text-white/40">
+                Configure in backend: <code className="text-purple-400">src/scheduler.py</code>
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <p className="text-xs text-purple-300">
+                💡 These settings control Phase 3-4 intelligence features including quality tracking,
+                pattern detection, lifecycle state machine, and audit trail. Manual triggers available
+                in Brain Intelligence page.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Advanced */}
         <Card className="bg-[#0f0f0f] border border-red-500/30 shadow-xl hover:shadow-red-500/20 transition-all">
           <CardHeader>

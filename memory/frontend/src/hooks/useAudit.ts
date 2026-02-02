@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tantml/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/audit';
 import type { AuditAction } from '../types/memory';
 
@@ -55,10 +55,10 @@ export const useRestoreMemory = () => {
       targetTimestamp: string;
       actor?: string;
     }) => api.restoreMemory(memoryId, targetTimestamp, actor),
-    onSuccess: (_, { memoryId }) => {
-      queryClient.invalidateQueries({ queryKey: auditKeys.trail(memoryId) });
-      queryClient.invalidateQueries({ queryKey: auditKeys.versions(memoryId) });
-      queryClient.invalidateQueries({ queryKey: ['memories', 'detail', memoryId] });
+    onSuccess: (_: any, variables: { memoryId: string; targetTimestamp: string; actor?: string }) => {
+      queryClient.invalidateQueries({ queryKey: auditKeys.trail(variables.memoryId) });
+      queryClient.invalidateQueries({ queryKey: auditKeys.versions(variables.memoryId) });
+      queryClient.invalidateQueries({ queryKey: ['memories', 'detail', variables.memoryId] });
       queryClient.invalidateQueries({ queryKey: ['memories', 'list'] });
     },
   });
@@ -69,10 +69,10 @@ export const useUndoLastChange = () => {
   return useMutation({
     mutationFn: ({ memoryId, actor = 'user' }: { memoryId: string; actor?: string }) =>
       api.undoLastChange(memoryId, actor),
-    onSuccess: (_, { memoryId }) => {
-      queryClient.invalidateQueries({ queryKey: auditKeys.trail(memoryId) });
-      queryClient.invalidateQueries({ queryKey: auditKeys.versions(memoryId) });
-      queryClient.invalidateQueries({ queryKey: ['memories', 'detail', memoryId] });
+    onSuccess: (_: any, variables: { memoryId: string; actor?: string }) => {
+      queryClient.invalidateQueries({ queryKey: auditKeys.trail(variables.memoryId) });
+      queryClient.invalidateQueries({ queryKey: auditKeys.versions(variables.memoryId) });
+      queryClient.invalidateQueries({ queryKey: ['memories', 'detail', variables.memoryId] });
       queryClient.invalidateQueries({ queryKey: ['memories', 'list'] });
     },
   });

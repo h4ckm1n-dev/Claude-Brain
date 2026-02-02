@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { useConsolidateMemories } from '../hooks/useMemories';
+import { useQualityStats } from '../hooks/useQuality';
+import { useLifecycleStats } from '../hooks/useLifecycle';
+import { useAuditTrail } from '../hooks/useAudit';
+import { AuditTimeline } from '../components/AuditTimeline';
 import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
-import { Archive, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
-import { ConsolidateRequest, ConsolidateResult } from '../types/memory';
+import { Archive, AlertCircle, CheckCircle, Trash2, TrendingUp, Clock } from 'lucide-react';
+import { ConsolidateRequest, ConsolidateResult, AuditAction } from '../types/memory';
 
 export function Consolidation() {
   const [request, setRequest] = useState<ConsolidateRequest>({
@@ -18,6 +22,11 @@ export function Consolidation() {
   const [result, setResult] = useState<ConsolidateResult | null>(null);
 
   const consolidate = useConsolidateMemories();
+
+  // Phase 3-4: Consolidation impact metrics
+  const { data: qualityStats } = useQualityStats();
+  const { data: lifecycleStats } = useLifecycleStats();
+  const { data: auditEntries } = useAuditTrail(undefined, 10);
 
   const handleConsolidate = async () => {
     try {
@@ -54,6 +63,85 @@ export function Consolidation() {
             Run in dry-run mode first to preview changes.
           </AlertDescription>
         </Alert>
+
+        {/* Phase 3-4: Consolidation Impact Stats */}
+        {lifecycleStats && qualityStats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-[#0f0f0f] border-white/10 border-l-4 border-l-yellow-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-white/90">Memories in Staging</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-white">
+                    {lifecycleStats.state_distribution.staging || 0}
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30">
+                    Staging ⏳
+                  </Badge>
+                </div>
+                <p className="text-xs text-white/50 mt-2">
+                  Memories under review for consolidation
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-[#0f0f0f] border-white/10 border-l-4 border-l-blue-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-white/90">Average Quality Score</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-white">
+                    {qualityStats.avg_quality_score.toFixed(1)}%
+                  </span>
+                  <TrendingUp className="h-5 w-5 text-blue-400" />
+                </div>
+                <p className="text-xs text-white/50 mt-2">
+                  Overall memory quality across system
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-[#0f0f0f] border-white/10 border-l-4 border-l-purple-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-white/90">Episodic Memories</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-white">
+                    {lifecycleStats.state_distribution.episodic || 0}
+                  </span>
+                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                    Episodic 🆕
+                  </Badge>
+                </div>
+                <p className="text-xs text-white/50 mt-2">
+                  New memories awaiting consolidation
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Phase 3-4: Recent Consolidations */}
+        <Card className="bg-[#0f0f0f] border-white/10">
+          <CardHeader className="border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-400" />
+              <CardTitle className="text-white">Recent Consolidations</CardTitle>
+            </div>
+            <CardDescription className="text-white/60">
+              Latest memory consolidation activities
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <AuditTimeline
+              limit={10}
+              filterAction={AuditAction.CONSOLIDATION}
+            />
+          </CardContent>
+        </Card>
 
         <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-rose-500/10 transition-all">
           <CardHeader>

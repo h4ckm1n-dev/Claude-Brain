@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useSuggestions } from '../hooks/useMemories';
+import { useRecommendations } from '../hooks/useAnalytics';
 import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Lightbulb, Sparkles } from 'lucide-react';
+import { Lightbulb, Sparkles, Brain } from 'lucide-react';
 import { SuggestionRequest } from '../types/memory';
+import { QualityBadge } from '../components/QualityBadge';
 
 export function Suggestions() {
   const [request, setRequest] = useState<SuggestionRequest>({
@@ -18,6 +20,9 @@ export function Suggestions() {
   const [keywordInput, setKeywordInput] = useState('');
 
   const { data: suggestionsData, refetch } = useSuggestions(request);
+
+  // Phase 3-4: Pattern-based recommendations
+  const { data: patternRecommendations } = useRecommendations(undefined, keywordInput, 10);
 
   const handleSearch = () => {
     const keywords = keywordInput.split(',').map(k => k.trim()).filter(Boolean);
@@ -140,6 +145,67 @@ export function Suggestions() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </>
+        )}
+
+        {/* Phase 3-4: Pattern-based Recommendations */}
+        {patternRecommendations && patternRecommendations.length > 0 && (
+          <>
+            <Card className="bg-[#0f0f0f] border-white/10">
+              <CardHeader className="border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-purple-400" />
+                  <CardTitle className="text-white">Pattern-based Recommendations</CardTitle>
+                </div>
+                <CardDescription className="text-white/60">
+                  High-quality memories detected through pattern analysis
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <div className="grid grid-cols-1 gap-4">
+              {patternRecommendations
+                .filter(rec => rec.quality_score > 0.7)
+                .map((rec) => (
+                  <Card
+                    key={rec.memory_id}
+                    className="bg-[#0f0f0f] border border-white/10 hover:border-purple-500/50 hover:bg-white/5 transition-all"
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Brain className="h-4 w-4 text-purple-400" />
+                          <QualityBadge score={rec.quality_score * 100} size="sm" />
+                          <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            Relevance: {rec.relevance_score.toFixed(2)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                        <p className="text-sm font-medium text-purple-300">Why recommended:</p>
+                        <p className="text-sm mt-1 text-purple-200/90">{rec.reason}</p>
+                      </div>
+
+                      <p className="text-sm text-white/90 leading-relaxed">{rec.content}</p>
+
+                      {rec.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+                          {rec.tags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/20"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
             </div>
           </>
         )}

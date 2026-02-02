@@ -6,11 +6,14 @@ import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Search as SearchIcon, Filter, Sparkles, Zap } from 'lucide-react';
+import { Search as SearchIcon, Filter, Sparkles, Zap, ChevronDown, ChevronRight } from 'lucide-react';
 import { searchMemories } from '../api/memories';
 import { useQuery } from '@tanstack/react-query';
 import { SearchQuery, MemoryType, SearchResult } from '../types/memory';
 import { formatDistanceToNow } from 'date-fns';
+import { StateBadge } from '../components/StateBadge';
+import { QualityBadge } from '../components/QualityBadge';
+import { AuditTimeline } from '../components/AuditTimeline';
 
 export function Search() {
   const [query, setQuery] = useState('');
@@ -18,6 +21,19 @@ export function Search() {
   const [typeFilter, setTypeFilter] = useState<MemoryType | ''>('');
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'memories' | 'documents'>('all');
+  const [expandedAudit, setExpandedAudit] = useState<Set<string>>(new Set());
+
+  const toggleAuditExpansion = (memoryId: string) => {
+    setExpandedAudit(prev => {
+      const next = new Set(prev);
+      if (next.has(memoryId)) {
+        next.delete(memoryId);
+      } else {
+        next.add(memoryId);
+      }
+      return next;
+    });
+  };
 
   const debouncedQuery = useDebounce(query, 500);
 
@@ -236,6 +252,8 @@ export function Search() {
                         <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
                           {result.memory.type}
                         </Badge>
+                        <StateBadge state={(result.memory as any).state || 'episodic'} size="sm" />
+                        <QualityBadge score={(result.memory as any).quality_score || 0} size="sm" showScore={false} />
                         <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                           Score: {result.score.toFixed(3)}
                         </Badge>
@@ -287,17 +305,35 @@ export function Search() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-6 text-xs text-white/40 pt-3 border-t border-white/5">
-                      <span>
-                        Importance: <span className="text-white/60">{result.memory.importance_score.toFixed(2)}</span>
-                      </span>
-                      <span>
-                        Accessed: <span className="text-white/60">{result.memory.access_count} times</span>
-                      </span>
-                      <span>
-                        Tier: <span className="text-white/60">{result.memory.memory_tier}</span>
-                      </span>
+                    <div className="flex items-center justify-between gap-6 text-xs text-white/40 pt-3 border-t border-white/5">
+                      <div className="flex items-center gap-6">
+                        <span>
+                          Importance: <span className="text-white/60">{result.memory.importance_score.toFixed(2)}</span>
+                        </span>
+                        <span>
+                          Accessed: <span className="text-white/60">{result.memory.access_count} times</span>
+                        </span>
+                        <span>
+                          Tier: <span className="text-white/60">{result.memory.memory_tier}</span>
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleAuditExpansion(result.memory.id)}
+                        className="text-xs text-white/50 hover:text-white/90"
+                      >
+                        {expandedAudit.has(result.memory.id) ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                        View History
+                      </Button>
                     </div>
+
+                    {/* Expandable Audit Info */}
+                    {expandedAudit.has(result.memory.id) && (
+                      <div className="mt-4 p-4 bg-[#0a0a0a] rounded-lg border border-white/10">
+                        <AuditTimeline memoryId={result.memory.id} limit={3} />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

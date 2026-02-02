@@ -132,12 +132,35 @@ store_memory({
 
 | Tool | When to Use |
 |------|-------------|
-| `search_memory` | Start of every session, when encountering similar problems |
-| `search_documents` | When searching codebase/files (code, markdown, PDFs) |
-| `get_context` | Start of every session (includes both memories and documents) |
-| `store_memory` | After solving problems, making decisions, discovering patterns |
-| `mark_resolved` | Mark an error memory as resolved |
-| `link_memories` | Create relationships between memories |
+| `search_memory(query, type?, tags?, limit?)` | Find past solutions, decisions, patterns |
+| `store_memory(type, content, tags, ...)` | Save errors, decisions, patterns, learnings |
+| `update_memory(id, fields)` | Modify existing memory (HTTP API: `PATCH /memories/{id}`) |
+| `search_documents(query, file_type?, limit?)` | Search codebase files (code, markdown, PDFs) |
+| `get_context(project?, hours?)` | Get recent memories + documents automatically |
+| `mark_resolved(id, solution)` | Mark error as resolved with solution |
+| `link_memories(source_id, target_id, relation)` | Create relationships between memories |
+
+**Quick Examples:**
+```javascript
+// Search for past solutions
+search_memory({query: "docker cache error", type: "error", limit: 5})
+
+// Store new learning
+store_memory({
+  type: "error",
+  content: "Frontend build fails with cache invalidation",
+  error_message: "ERROR: failed to compute cache key",
+  solution: "Used --no-cache flag and multi-stage builds",
+  tags: ["docker", "frontend", "build"],
+  project: "claude-memory"
+})
+
+// Update existing memory (HTTP API)
+curl -X PATCH http://localhost:8100/memories/{id} \
+  -d '{"solution": "Better fix: use BuildKit inline cache"}'
+```
+
+**Full API Documentation:** See memory system docs via `search_memory({query: "memory functions documentation", type: "docs"})`
 
 ### Documents vs Memories
 

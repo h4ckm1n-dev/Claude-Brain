@@ -67,7 +67,7 @@ export const useTransitionMemoryState = () => {
     onSuccess: (_, { memoryId }) => {
       queryClient.invalidateQueries({ queryKey: lifecycleKeys.stateHistory(memoryId) });
       queryClient.invalidateQueries({ queryKey: lifecycleKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: lifecycleKeys.transitions() });
+      queryClient.invalidateQueries({ queryKey: lifecycleKeys.all });
       queryClient.invalidateQueries({ queryKey: ['memories', 'detail', memoryId] });
       queryClient.invalidateQueries({ queryKey: ['audit'] });
     },

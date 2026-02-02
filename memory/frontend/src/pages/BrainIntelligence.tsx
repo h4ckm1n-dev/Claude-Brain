@@ -8,7 +8,10 @@ import {
   TrendingUp,
   RefreshCw,
   Play,
-  Info
+  Info,
+  Activity,
+  Sparkles,
+  Target
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -18,6 +21,10 @@ import { Slider } from '../components/ui/slider';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
 import { apiClient } from '../lib/api';
+import { AuditTimeline } from '../components/AuditTimeline';
+import { useUpdateQualityScores } from '../hooks/useQuality';
+import { useUpdateLifecycleStates } from '../hooks/useLifecycle';
+import { useTriggerPatternDetection } from '../hooks/useAnalytics';
 
 interface BrainStats {
   total_memories: number;
@@ -64,6 +71,11 @@ export function BrainIntelligence() {
   const [utilityThreshold, setUtilityThreshold] = useState(0.3);
   const [archiveMax, setArchiveMax] = useState(100);
   const [dryRun, setDryRun] = useState(true);
+
+  // Phase 3-4: Manual triggers for intelligence systems
+  const updateQualityScores = useUpdateQualityScores();
+  const updateLifecycleStates = useUpdateLifecycleStates();
+  const triggerPatternDetection = useTriggerPatternDetection();
 
   // Query brain stats
   const { data: brainStats, isLoading: statsLoading } = useQuery<BrainStats>({
@@ -252,6 +264,137 @@ export function BrainIntelligence() {
             </CardContent>
           </Card>
         )}
+
+        {/* Phase 3-4: Manual Triggers for Intelligence Systems */}
+        <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+          <CardHeader className="border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-400" />
+              <CardTitle className="text-white">Manual Intelligence Triggers</CardTitle>
+            </div>
+            <CardDescription className="text-white/60">
+              Manually trigger Phase 3-4 intelligence systems
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-emerald-500/10 to-green-500/10 border border-emerald-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="h-5 w-5 text-emerald-400" />
+                  <h3 className="font-medium text-white">Pattern Detection</h3>
+                </div>
+                <p className="text-xs text-white/60 mb-4">
+                  Analyze memory patterns and create clusters
+                </p>
+                <Button
+                  onClick={() => triggerPatternDetection.mutate()}
+                  disabled={triggerPatternDetection.isPending}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+                  size="sm"
+                >
+                  {triggerPatternDetection.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Run Detection
+                    </>
+                  )}
+                </Button>
+                {triggerPatternDetection.isSuccess && (
+                  <Badge className="mt-2 w-full bg-emerald-500/20 text-emerald-300">
+                    ✓ Complete
+                  </Badge>
+                )}
+              </div>
+
+              <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="h-5 w-5 text-blue-400" />
+                  <h3 className="font-medium text-white">Quality Scores</h3>
+                </div>
+                <p className="text-xs text-white/60 mb-4">
+                  Update memory quality scores system-wide
+                </p>
+                <Button
+                  onClick={() => updateQualityScores.mutate()}
+                  disabled={updateQualityScores.isPending}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  size="sm"
+                >
+                  {updateQualityScores.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Update Scores
+                    </>
+                  )}
+                </Button>
+                {updateQualityScores.isSuccess && (
+                  <Badge className="mt-2 w-full bg-blue-500/20 text-blue-300">
+                    ✓ Complete
+                  </Badge>
+                )}
+              </div>
+
+              <div className="p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Activity className="h-5 w-5 text-purple-400" />
+                  <h3 className="font-medium text-white">Memory States</h3>
+                </div>
+                <p className="text-xs text-white/60 mb-4">
+                  Update lifecycle states for all memories
+                </p>
+                <Button
+                  onClick={() => updateLifecycleStates.mutate()}
+                  disabled={updateLifecycleStates.isPending}
+                  className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+                  size="sm"
+                >
+                  {updateLifecycleStates.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Update States
+                    </>
+                  )}
+                </Button>
+                {updateLifecycleStates.isSuccess && (
+                  <Badge className="mt-2 w-full bg-purple-500/20 text-purple-300">
+                    ✓ Complete
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Phase 3-4: Recent Audit Activity */}
+        <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
+          <CardHeader className="border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-amber-400" />
+              <CardTitle className="text-white">Recent Audit Activity</CardTitle>
+            </div>
+            <CardDescription className="text-white/60">
+              Latest system changes and intelligence operations
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <AuditTimeline limit={20} />
+          </CardContent>
+        </Card>
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -95,8 +95,7 @@ export const useTriggerPatternDetection = () => {
     mutationFn: api.triggerPatternDetection,
     onSuccess: () => {
       // Invalidate pattern-related queries after manual trigger
-      queryClient.invalidateQueries({ queryKey: analyticsKeys.patternClusters() });
-      queryClient.invalidateQueries({ queryKey: analyticsKeys.knowledgeGaps() });
+      queryClient.invalidateQueries({ queryKey: analyticsKeys.all });
     },
   });
 };

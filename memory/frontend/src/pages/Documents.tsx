@@ -208,6 +208,29 @@ export default function Documents() {
           </Card>
         </div>
 
+        {/* Phase 3-4: Document Quality Metrics Placeholder */}
+        <Card className="bg-[#0f0f0f] border-white/10 border-dashed">
+          <CardHeader className="border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-amber-400 opacity-50" />
+              <CardTitle className="text-white/70">Document Quality Metrics</CardTitle>
+            </div>
+            <CardDescription className="text-white/40">
+              Coming soon...
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <p className="text-sm text-white/50 mb-3">
+                Phase 3-4 focused on memory quality tracking. Document quality metrics will be added in a future phase.
+              </p>
+              <p className="text-xs text-white/30">
+                Future features: Document quality scores, access patterns, relevance tracking, and usage analytics.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Search Card */}
         <Card className="bg-[#0f0f0f] border-white/10">
           <CardHeader className="border-b border-white/5">

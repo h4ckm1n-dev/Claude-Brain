@@ -62,7 +62,7 @@ export function AuditTimeline({
 
   return (
     <div className={cn('space-y-4', className)}>
-      {entries.map((entry, index) => (
+      {entries.map((entry: AuditEntry, index: number) => (
         <AuditEntry
           key={entry.id}
           entry={entry}
