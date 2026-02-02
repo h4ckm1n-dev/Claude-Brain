@@ -2551,6 +2551,239 @@ async def reset_co_access_tracking():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Quality Tracking Endpoints (Phase 3.2)
+
+@app.get("/quality/stats")
+async def get_quality_stats():
+    """Get quality score distribution and statistics.
+
+    Returns:
+        - Distribution across quality bins
+        - Average quality by tier
+        - Tier distribution
+    """
+    from .quality_tracking import QualityTracker
+
+    try:
+        client = collections.get_client()
+
+        distribution = QualityTracker.get_quality_distribution(
+            client,
+            collections.COLLECTION_NAME
+        )
+
+        return distribution
+
+    except Exception as e:
+        logger.error(f"Failed to get quality stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/quality/{memory_id}/trend")
+async def get_quality_trend(
+    memory_id: str,
+    days_back: int = Query(default=30, ge=1, le=90)
+):
+    """Get quality score trend for a specific memory.
+
+    Args:
+        memory_id: Memory ID
+        days_back: Number of days to look back
+
+    Returns:
+        Quality score history with timestamps
+    """
+    from .quality_tracking import QualityTracker
+
+    try:
+        # Get current memory to verify it exists
+        memory = collections.get_memory(memory_id)
+        if not memory:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        client = collections.get_client()
+
+        trend = QualityTracker.get_quality_trend(
+            client,
+            collections.COLLECTION_NAME,
+            memory_id,
+            days_back=days_back
+        )
+
+        return trend
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get quality trend: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/quality/update")
+async def trigger_quality_update():
+    """Manually trigger quality score update for all memories.
+
+    Returns:
+        Update statistics
+    """
+    from .quality_tracking import QualityTracker
+
+    try:
+        client = collections.get_client()
+
+        result = QualityTracker.update_quality_scores(
+            client,
+            collections.COLLECTION_NAME,
+            batch_size=100
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to trigger quality update: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/quality/promotion-candidates")
+async def get_promotion_candidates(
+    min_quality_threshold: float = Query(default=0.75, ge=0.0, le=1.0),
+    min_age_days: int = Query(default=7, ge=1, le=365)
+):
+    """Get list of memories eligible for tier promotion.
+
+    Args:
+        min_quality_threshold: Minimum quality score for promotion
+        min_age_days: Minimum age in days
+
+    Returns:
+        List of promotion candidates with scores
+    """
+    from .quality_tracking import TierPromotionEngine
+
+    try:
+        client = collections.get_client()
+
+        candidates = TierPromotionEngine.evaluate_promotion_candidates(
+            client,
+            collections.COLLECTION_NAME,
+            min_quality_threshold=min_quality_threshold,
+            min_age_days=min_age_days
+        )
+
+        return {
+            "total_candidates": len(candidates),
+            "candidates": candidates
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get promotion candidates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/quality/promote-batch")
+async def promote_memories_batch(
+    dry_run: bool = Query(default=False, description="Preview promotions without applying")
+):
+    """Trigger automatic tier promotion for eligible memories.
+
+    Args:
+        dry_run: If true, preview promotions without applying
+
+    Returns:
+        Promotion results with counts
+    """
+    from .quality_tracking import TierPromotionEngine
+
+    try:
+        client = collections.get_client()
+
+        result = TierPromotionEngine.auto_promote_batch(
+            client,
+            collections.COLLECTION_NAME,
+            dry_run=dry_run
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to promote memories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/quality/{memory_id}/rate")
+async def rate_memory_quality(
+    memory_id: str,
+    rating: float = Query(..., ge=0.0, le=5.0, description="Rating from 0-5")
+):
+    """Add a user rating to a memory's quality score.
+
+    Args:
+        memory_id: Memory ID
+        rating: Rating from 0-5
+
+    Returns:
+        Updated memory with new quality score
+    """
+    from .quality_tracking import QualityScoreCalculator
+    from qdrant_client.http import models
+    from datetime import datetime, timezone
+
+    try:
+        # Get current memory
+        memory = collections.get_memory(memory_id)
+        if not memory:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        client = collections.get_client()
+
+        # Update rating
+        new_rating_count = memory.user_rating_count + 1
+        new_avg_rating = (
+            (memory.user_rating * memory.user_rating_count + rating) / new_rating_count
+        )
+
+        # Recalculate quality score
+        memory_age_days = (datetime.now(timezone.utc) - memory.created_at).days
+
+        new_quality = QualityScoreCalculator.calculate_quality_score(
+            access_count=memory.access_count,
+            user_rating=new_avg_rating,
+            user_rating_count=new_rating_count,
+            relationship_count=len(memory.relationships),
+            current_version=memory.current_version,
+            memory_age_days=memory_age_days,
+            memory_tier=memory.tier
+        )
+
+        # Update Qdrant point directly
+        client.set_payload(
+            collection_name=collections.COLLECTION_NAME,
+            payload={
+                "user_rating": new_avg_rating,
+                "user_rating_count": new_rating_count,
+                "quality_score": new_quality
+            },
+            points=[memory_id]
+        )
+
+        # Get updated memory
+        updated_memory = collections.get_memory(memory_id)
+
+        return {
+            "memory_id": memory_id,
+            "new_rating": new_avg_rating,
+            "rating_count": new_rating_count,
+            "new_quality_score": new_quality,
+            "updated_memory": updated_memory.model_dump() if updated_memory else None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to rate memory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Notification Endpoints
 
 class NotificationCreate(BaseModel):

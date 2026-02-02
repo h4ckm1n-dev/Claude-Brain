@@ -55,6 +55,15 @@ def get_scheduler():
                 replace_existing=True
             )
 
+            # Add quality score update job (Phase 3.2)
+            _scheduler.add_job(
+                run_quality_score_update,
+                trigger=IntervalTrigger(hours=24),
+                id="quality_score_update_job",
+                name="Quality Score Update & Tier Promotion",
+                replace_existing=True
+            )
+
             # Add brain intelligence jobs
             _scheduler.add_job(
                 run_relationship_inference,
@@ -517,3 +526,46 @@ def run_session_consolidation():
 
     except Exception as e:
         logger.error(f"Scheduled session consolidation failed: {e}")
+
+
+# ============================================================================
+# Quality Tracking Scheduled Job (Phase 3.2)
+# ============================================================================
+
+
+def run_quality_score_update():
+    """Run quality score update and tier promotion as a scheduled job."""
+    logger.info("Running scheduled quality score update...")
+
+    try:
+        from .quality_tracking import QualityTracker, TierPromotionEngine
+        from . import collections
+
+        client = collections.get_client()
+
+        # Update quality scores for all active memories
+        update_result = QualityTracker.update_quality_scores(
+            client,
+            collections.COLLECTION_NAME,
+            batch_size=100
+        )
+
+        # Run automatic tier promotion
+        promotion_result = TierPromotionEngine.auto_promote_batch(
+            client,
+            collections.COLLECTION_NAME,
+            dry_run=False
+        )
+
+        logger.info(
+            f"Scheduled quality score update complete: "
+            f"updated={update_result['total_updated']}, "
+            f"failed={update_result['failed']}, "
+            f"avg_quality={update_result['avg_quality']:.3f}, "
+            f"promoted={promotion_result['promoted_count']} "
+            f"(episodic→semantic: {promotion_result['episodic_to_semantic']}, "
+            f"semantic→procedural: {promotion_result['semantic_to_procedural']})"
+        )
+
+    except Exception as e:
+        logger.error(f"Scheduled quality score update failed: {e}")
