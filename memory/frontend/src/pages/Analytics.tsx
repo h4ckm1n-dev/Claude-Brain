@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { useStats, useMemories } from '../hooks/useMemories';
+import { useStats, useMemories, useGraphStats } from '../hooks/useMemories';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import type { Memory } from '../types/memory';
 import { MemoryType } from '../types/memory';
@@ -10,6 +10,7 @@ import { TrendingUp, GitBranch, Zap, Target, BarChart3 } from 'lucide-react';
 export function Analytics() {
   const { data: stats } = useStats();
   const { data: memories } = useMemories({ limit: 500 });
+  const { data: graphStats } = useGraphStats();
 
   // Project breakdown data
   const projectData = useMemo(() => {
@@ -192,7 +193,7 @@ export function Analytics() {
               </CardHeader>
               <CardContent className="relative">
                 <div className="text-3xl font-bold text-white">
-                  {memories?.reduce((sum: number, m: Memory) => sum + (m.relations?.length || 0), 0) || 0}
+                  {graphStats?.relationships || 0}
                 </div>
               </CardContent>
             </Card>
