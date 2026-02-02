@@ -1,10 +1,15 @@
 import { Header } from '../components/layout/Header';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { Badge } from '../components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { getTimeline, getMemories } from '../api/memories';
-import { AlertCircle, Network } from 'lucide-react';
+import { AlertCircle, Network, Sparkles, Target } from 'lucide-react';
 import { EnhancedCytoscapeGraph } from '../components/graph/EnhancedCytoscapeGraph';
+import { useLifecycleStats } from '../hooks/useLifecycle';
+import { usePatternClusters } from '../hooks/useAnalytics';
+import { StateBadge } from '../components/StateBadge';
+import { QualityBadge } from '../components/QualityBadge';
 import { useMemo } from 'react';
 
 export function Graph() {
@@ -17,6 +22,10 @@ export function Graph() {
     queryKey: ['memories', 'all'],
     queryFn: () => getMemories({ limit: 200 }),
   });
+
+  // Phase 3-4: Lifecycle and pattern data
+  const { data: lifecycleStats } = useLifecycleStats();
+  const { data: patternClusters } = usePatternClusters(3);
 
   // Transform timeline data into Cytoscape elements
   const graphElements = useMemo(() => {
@@ -142,6 +151,93 @@ export function Graph() {
           </CardContent>
         </Card>
 
+        {/* Phase 3-4: State-Colored Graph Insights */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* State Distribution */}
+          {lifecycleStats && (
+            <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+              <CardHeader className="border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-purple-400" />
+                  <CardTitle className="text-white">Graph State Distribution</CardTitle>
+                </div>
+                <CardDescription className="text-white/60">
+                  Memory lifecycle states in the knowledge graph
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-3">
+                {Object.entries(lifecycleStats.state_distribution).map(([state, count]) => (
+                  <div key={state} className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <StateBadge state={state} size="sm" showIcon={true} />
+                    </div>
+                    <Badge className="bg-white/10 text-white/90 font-mono">
+                      {count} nodes
+                    </Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pattern Clusters */}
+          {patternClusters && patternClusters.length > 0 && (
+            <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
+              <CardHeader className="border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-amber-400" />
+                  <CardTitle className="text-white">Pattern Clusters</CardTitle>
+                </div>
+                <CardDescription className="text-white/60">
+                  Detected memory groupings by similarity
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-3">
+                {patternClusters.map((cluster, index) => (
+                  <div
+                    key={index}
+                    className="p-4 rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                          Cluster {index + 1}
+                        </Badge>
+                        <QualityBadge
+                          score={cluster.avg_quality_score * 100}
+                          size="sm"
+                          showScore={true}
+                        />
+                        <span className="text-xs text-white/60">
+                          {cluster.member_count} members
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-white/90 mb-2 font-medium">
+                      {cluster.cluster_name}
+                    </p>
+                    <p className="text-xs text-white/60 mb-2">
+                      {cluster.summary}
+                    </p>
+                    {cluster.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {cluster.tags.slice(0, 5).map((tag, i) => (
+                          <Badge
+                            key={i}
+                            className="text-xs bg-[#0a0a0a] text-white/70 border border-white/10"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         {/* Legend Card */}
         <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
           <CardHeader className="border-b border-white/10">
@@ -197,6 +293,31 @@ export function Graph() {
                   <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
                     <div className="w-8 h-1 bg-[#3b82f6] shadow-sm shadow-blue-500/30" />
                     <span className="text-sm text-white/90">Supersedes</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Phase 3-4: Memory States */}
+              <div className="border-t border-white/10 pt-4">
+                <h4 className="text-sm font-medium mb-3 text-white/90">Memory States (Phase 3-4)</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <StateBadge state="episodic" size="sm" showIcon={false} />
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <StateBadge state="staging" size="sm" showIcon={false} />
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <StateBadge state="semantic" size="sm" showIcon={false} />
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <StateBadge state="procedural" size="sm" showIcon={false} />
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <StateBadge state="archived" size="sm" showIcon={false} />
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
+                    <StateBadge state="purged" size="sm" showIcon={false} />
                   </div>
                 </div>
               </div>
