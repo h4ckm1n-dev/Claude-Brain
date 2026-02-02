@@ -37,7 +37,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Frontend build path
-FRONTEND_BUILD = os.path.join(os.path.dirname(__file__), "../frontend/dist")
+FRONTEND_BUILD = os.path.normpath(os.path.join(os.path.dirname(__file__), "../frontend/dist"))
 
 
 @asynccontextmanager

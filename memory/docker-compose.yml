@@ -49,7 +49,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./src:/app/src
-      - ./frontend/dist:/app/frontend/dist
+      # frontend/dist is built into the Docker image, no need to mount
     depends_on:
       claude-mem-qdrant:
         condition: service_started
