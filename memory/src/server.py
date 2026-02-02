@@ -1590,6 +1590,101 @@ async def reinforce_memory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Relationship Inference Endpoints (Phase 1.2)
+
+@app.post("/inference/run")
+async def run_relationship_inference(
+    inference_type: Optional[str] = Query(default="all", description="Type: all, temporal, semantic, causal, error-solution")
+):
+    """Manually trigger relationship inference.
+
+    Runs automatic relationship discovery to find and create connections between memories.
+    This implements Phase 1.2: Automatic Relationship Inference with multiple strategies:
+
+    - **temporal**: Find memories created close together in time (FOLLOWS)
+    - **semantic**: Find semantically similar memories (RELATED, SIMILAR_TO)
+    - **causal**: Detect causal patterns in text (CAUSES)
+    - **error-solution**: Link errors to their solutions (FIXES)
+    - **all**: Run all inference types
+
+    Args:
+        inference_type: Type of inference to run (default: all)
+
+    Returns:
+        Statistics about relationships created by each inference type
+    """
+    from .relationship_inference import RelationshipInference
+    import asyncio
+
+    try:
+        stats = {}
+
+        if inference_type in ["all", "error-solution"]:
+            fixes = await RelationshipInference.infer_error_solution_links(lookback_days=30)
+            stats["error_solution_links"] = fixes
+
+        if inference_type in ["all", "semantic"]:
+            related = await RelationshipInference.infer_related_links(batch_size=20)
+            stats["semantic_links"] = related
+
+        if inference_type in ["all", "temporal"]:
+            temporal = await RelationshipInference.infer_temporal_links(hours_window=2)
+            stats["temporal_links"] = temporal
+
+        if inference_type in ["all", "causal"]:
+            causal = await RelationshipInference.infer_causal_links()
+            stats["causal_links"] = causal
+
+        stats["total_created"] = sum(stats.values())
+
+        return stats
+
+    except Exception as e:
+        logger.error(f"Relationship inference failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/inference/co-access/stats")
+async def get_co_access_stats():
+    """Get statistics about co-access tracking.
+
+    Co-access tracking monitors which memories are accessed together (e.g., appearing
+    in the same search results). After a threshold number of co-accesses (default: 5),
+    a RELATED relationship is automatically inferred.
+
+    Returns:
+        Statistics including:
+        - total_pairs_tracked: Number of memory pairs being tracked
+        - pairs_above_threshold: Number of pairs that exceeded the threshold
+        - threshold: Current co-access threshold
+    """
+    from .relationship_inference import RelationshipInference
+
+    try:
+        stats = RelationshipInference.get_co_access_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Failed to get co-access stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/inference/co-access/reset")
+async def reset_co_access_tracker():
+    """Reset the co-access tracking data.
+
+    This clears all tracked co-access counts. Useful for testing or maintenance.
+    Note: In-memory tracking is lost on service restart.
+    """
+    from .relationship_inference import RelationshipInference
+
+    try:
+        RelationshipInference.reset_co_access_tracker()
+        return {"status": "reset", "message": "Co-access tracker cleared"}
+    except Exception as e:
+        logger.error(f"Failed to reset co-access tracker: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Knowledge Graph Endpoints
 
 @app.get("/graph/stats")

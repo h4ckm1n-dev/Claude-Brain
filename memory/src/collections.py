@@ -276,6 +276,26 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
         except Exception as e:
             logger.warning(f"Failed to create graph node for {memory.id}: {e}")
 
+    # Phase 1.2: On-write relationship inference
+    # Automatically infer relationships when storing new memories
+    try:
+        from .relationship_inference import RelationshipInference
+
+        inference_stats = RelationshipInference.infer_on_write(
+            memory_id=memory.id,
+            memory_type=memory.type.value,
+            memory_content=memory.content,
+            memory_tags=memory.tags,
+            memory_vector=embeddings["dense"],
+            created_at=memory.created_at,
+            project=memory.project
+        )
+
+        if inference_stats and sum(inference_stats.values()) > 0:
+            logger.info(f"On-write inference created {sum(inference_stats.values())} relationships: {inference_stats}")
+    except Exception as e:
+        logger.warning(f"On-write inference failed for {memory.id}: {e}")
+
     return memory
 
 
@@ -401,6 +421,16 @@ def search_memories(
     # Increment access counts
     for result in search_results:
         _increment_access_count(result.memory.id)
+
+    # Phase 1.2: Track co-access for relationship inference
+    # Memories accessed together in search results may be related
+    if len(search_results) >= 2:
+        try:
+            from .relationship_inference import RelationshipInference
+            memory_ids = [r.memory.id for r in search_results[:5]]  # Track top 5 results
+            RelationshipInference.track_co_access(memory_ids)
+        except Exception as e:
+            logger.debug(f"Co-access tracking failed: {e}")
 
     return search_results
 
