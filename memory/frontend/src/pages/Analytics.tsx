@@ -497,7 +497,7 @@ export function Analytics() {
             </CardHeader>
             <CardContent className="pt-6 relative">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-                {Object.entries(lifecycleStats.state_distribution).map(([state, count]) => (
+                {Object.entries(lifecycleStats.state_distribution || lifecycleStats.distribution || {}).map(([state, count]) => (
                   <div
                     key={state}
                     className="p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 text-center"

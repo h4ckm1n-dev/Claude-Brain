@@ -166,7 +166,7 @@ export function Graph() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6 space-y-3">
-                {Object.entries(lifecycleStats.state_distribution).map(([state, count]) => (
+                {Object.entries(lifecycleStats.state_distribution || lifecycleStats.distribution || {}).map(([state, count]) => (
                   <div key={state} className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
                     <div className="flex items-center gap-2">
                       <StateBadge state={state} size="sm" showIcon={true} />
