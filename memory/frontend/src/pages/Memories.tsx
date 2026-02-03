@@ -601,7 +601,7 @@ function ExpandedQualityTab({ memoryId }: { memoryId: string }) {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium text-white">
-                Quality: {entry.quality_score.toFixed(1)}%
+                Quality: {(entry.quality_score * 100).toFixed(1)}%
               </span>
               <span className="text-xs text-white/50">
                 {new Date(entry.timestamp).toLocaleString()}

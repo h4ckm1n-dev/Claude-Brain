@@ -93,7 +93,7 @@ export function Consolidation() {
               <CardContent>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-white">
-                    {qualityStats.avg_quality_score.toFixed(1)}%
+                    {(qualityStats.avg_quality_score * 100).toFixed(1)}%
                   </span>
                   <TrendingUp className="h-5 w-5 text-blue-400" />
                 </div>

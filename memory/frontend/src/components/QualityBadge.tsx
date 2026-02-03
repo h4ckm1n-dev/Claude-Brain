@@ -8,8 +8,9 @@ interface QualityBadgeProps {
 }
 
 export function QualityBadge({ score, size = 'md', showScore = true, className }: QualityBadgeProps) {
-  // Normalize score to 0-100 range
-  const normalizedScore = Math.max(0, Math.min(100, score));
+  // Backend returns scores in 0.0-1.0 range; normalize to 0-100 for display
+  const rawScore = score <= 1 && score >= 0 ? score * 100 : score;
+  const normalizedScore = Math.max(0, Math.min(100, rawScore));
 
   // Determine quality tier and color
   const getQualityTier = (score: number) => {
@@ -60,7 +61,9 @@ interface QualityProgressProps {
 }
 
 export function QualityProgress({ score, size = 40, showLabel = true, className }: QualityProgressProps) {
-  const normalizedScore = Math.max(0, Math.min(100, score));
+  // Backend returns scores in 0.0-1.0 range; normalize to 0-100 for display
+  const rawScore = score <= 1 && score >= 0 ? score * 100 : score;
+  const normalizedScore = Math.max(0, Math.min(100, rawScore));
   const circumference = 2 * Math.PI * (size / 2 - 4);
   const offset = circumference - (normalizedScore / 100) * circumference;
 
