@@ -208,26 +208,168 @@ export default function Documents() {
           </Card>
         </div>
 
-        {/* Phase 3-4: Document Quality Metrics Placeholder */}
-        <Card className="bg-[#0f0f0f] border-white/10 border-dashed">
+        {/* Document Quality Metrics */}
+        <Card className="bg-[#0f0f0f] border-white/10">
           <CardHeader className="border-b border-white/5">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-amber-400 opacity-50" />
-              <CardTitle className="text-white/70">Document Quality Metrics</CardTitle>
+              <TrendingUp className="h-5 w-5 text-amber-400" />
+              <CardTitle className="text-white">Document Quality Metrics</CardTitle>
             </div>
-            <CardDescription className="text-white/40">
-              Coming soon...
+            <CardDescription className="text-white/50">
+              Health indicators based on document access patterns and coverage
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <p className="text-sm text-white/50 mb-3">
-                Phase 3-4 focused on memory quality tracking. Document quality metrics will be added in a future phase.
-              </p>
-              <p className="text-xs text-white/30">
-                Future features: Document quality scores, access patterns, relevance tracking, and usage analytics.
-              </p>
-            </div>
+            {stats && stats.total_chunks > 0 ? (
+              <div className="space-y-6">
+                {/* Quality Gauges Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Coverage Score */}
+                  {(() => {
+                    const accessedCount = stats.total_chunks - (stats.never_accessed || 0);
+                    const coveragePercent = stats.total_chunks > 0
+                      ? Math.round((accessedCount / stats.total_chunks) * 100)
+                      : 0;
+                    return (
+                      <div className={`p-5 rounded-xl border ${
+                        coveragePercent >= 70
+                          ? 'bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20'
+                          : coveragePercent >= 40
+                          ? 'bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20'
+                          : 'bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20'
+                      }`}>
+                        <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-2">Coverage</p>
+                        <div className="flex items-end gap-2 mb-3">
+                          <span className={`text-4xl font-bold ${
+                            coveragePercent >= 70 ? 'text-emerald-400' : coveragePercent >= 40 ? 'text-amber-400' : 'text-red-400'
+                          }`}>{coveragePercent}%</span>
+                          <span className="text-xs text-white/40 mb-1">of docs accessed</span>
+                        </div>
+                        <div className="w-full h-2 bg-[#0a0a0a] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              coveragePercent >= 70 ? 'bg-emerald-500' : coveragePercent >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${coveragePercent}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-white/40 mt-2">{accessedCount} of {stats.total_chunks} chunks used</p>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Engagement Score */}
+                  {(() => {
+                    const avgAccess = stats.avg_access || 0;
+                    const isHigh = avgAccess >= 5;
+                    const isMedium = avgAccess >= 1;
+                    return (
+                      <div className={`p-5 rounded-xl border ${
+                        isHigh
+                          ? 'bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20'
+                          : isMedium
+                          ? 'bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20'
+                          : 'bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20'
+                      }`}>
+                        <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-2">Engagement</p>
+                        <div className="flex items-end gap-2 mb-3">
+                          <span className={`text-4xl font-bold ${
+                            isHigh ? 'text-emerald-400' : isMedium ? 'text-amber-400' : 'text-red-400'
+                          }`}>{avgAccess.toFixed(1)}</span>
+                          <span className="text-xs text-white/40 mb-1">avg accesses/doc</span>
+                        </div>
+                        <Badge className={
+                          isHigh
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : isMedium
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : 'bg-red-500/20 text-red-300 border-red-500/30'
+                        }>
+                          {isHigh ? 'High' : isMedium ? 'Medium' : 'Low'} Engagement
+                        </Badge>
+                        <p className="text-xs text-white/40 mt-2">{stats.total_accesses?.toLocaleString() || 0} total lookups</p>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Stale Content */}
+                  {(() => {
+                    const stalePercent = stats.total_chunks > 0
+                      ? Math.round(((stats.never_accessed || 0) / stats.total_chunks) * 100)
+                      : 0;
+                    return (
+                      <div className={`p-5 rounded-xl border ${
+                        stalePercent <= 30
+                          ? 'bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20'
+                          : stalePercent <= 60
+                          ? 'bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20'
+                          : 'bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20'
+                      }`}>
+                        <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-2">Freshness</p>
+                        <div className="flex items-end gap-2 mb-3">
+                          <span className={`text-4xl font-bold ${
+                            stalePercent <= 30 ? 'text-emerald-400' : stalePercent <= 60 ? 'text-amber-400' : 'text-red-400'
+                          }`}>{stats.never_accessed || 0}</span>
+                          <span className="text-xs text-white/40 mb-1">stale chunks</span>
+                        </div>
+                        <div className="w-full h-2 bg-[#0a0a0a] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              stalePercent <= 30 ? 'bg-emerald-500' : stalePercent <= 60 ? 'bg-amber-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${100 - stalePercent}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-white/40 mt-2">{stalePercent}% never accessed</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Overall Health Summary */}
+                {(() => {
+                  const accessedCount = stats.total_chunks - (stats.never_accessed || 0);
+                  const coveragePercent = stats.total_chunks > 0 ? (accessedCount / stats.total_chunks) * 100 : 0;
+                  const avgAccess = stats.avg_access || 0;
+                  const stalePercent = stats.total_chunks > 0 ? ((stats.never_accessed || 0) / stats.total_chunks) * 100 : 0;
+                  const healthScore = Math.round((coveragePercent * 0.4 + Math.min(avgAccess * 10, 100) * 0.3 + (100 - stalePercent) * 0.3));
+                  const healthLabel = healthScore >= 70 ? 'Healthy' : healthScore >= 40 ? 'Needs Attention' : 'Underutilized';
+                  return (
+                    <div className={`p-4 rounded-xl flex items-center justify-between border ${
+                      healthScore >= 70
+                        ? 'bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/20'
+                        : healthScore >= 40
+                        ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/20'
+                        : 'bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent border-red-500/20'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full animate-pulse ${
+                          healthScore >= 70 ? 'bg-emerald-500' : healthScore >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            Overall Document Health:{' '}
+                            <span className={
+                              healthScore >= 70 ? 'text-emerald-400' : healthScore >= 40 ? 'text-amber-400' : 'text-red-400'
+                            }>{healthLabel}</span>
+                          </p>
+                          <p className="text-xs text-white/40">Score based on coverage (40%), engagement (30%), and freshness (30%)</p>
+                        </div>
+                      </div>
+                      <span className={`text-2xl font-bold ${
+                        healthScore >= 70 ? 'text-emerald-400' : healthScore >= 40 ? 'text-amber-400' : 'text-red-400'
+                      }`}>{healthScore}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 mx-auto mb-3 text-white/20" />
+                <p className="text-sm text-white/50 mb-2">No documents indexed yet</p>
+                <p className="text-xs text-white/30">Index some files to see quality metrics here</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

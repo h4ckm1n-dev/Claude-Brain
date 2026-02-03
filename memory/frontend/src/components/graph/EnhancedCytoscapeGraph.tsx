@@ -58,7 +58,9 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
     if (!containerRef.current || !elements || elements.length === 0) return;
 
     if (cyRef.current) {
+      cyRef.current.stop(); // Stop all running animations/layouts
       cyRef.current.destroy();
+      cyRef.current = null;
     }
 
     try {
@@ -105,11 +107,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
                 return ele.data('pinned') ? '#f59e0b' : 'rgba(0, 0, 0, 0.2)';
               },
               'border-opacity': 0.8,
-              'shadow-blur': 8,
-              'shadow-color': 'rgba(0, 0, 0, 0.3)',
-              'shadow-offset-x': 2,
-              'shadow-offset-y': 2,
-              'transition-property': 'background-color, border-width, border-color, width, height, shadow-blur',
+              'transition-property': 'background-color, border-width, border-color, width, height',
               'transition-duration': '0.3s',
               'transition-timing-function': 'ease-in-out',
             }
@@ -141,9 +139,6 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
               'border-width': 6,
               'border-color': '#3b82f6',
               'border-opacity': 1,
-              'shadow-blur': 20,
-              'shadow-color': '#3b82f6',
-              'shadow-opacity': 0.6,
               'z-index': 9999,
               'overlay-opacity': 0,
             }
@@ -264,9 +259,9 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
         node.style({
           'width': baseSize * 1.3,
           'height': baseSize * 1.3,
-          'shadow-blur': 20,
-          'shadow-color': node.style('background-color'),
-          'shadow-opacity': 0.6,
+          'border-width': 4,
+          'border-color': node.style('background-color'),
+          'border-opacity': 0.8,
           'z-index': 999,
         });
 
@@ -297,9 +292,9 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
         node.style({
           'width': baseSize,
           'height': baseSize,
-          'shadow-blur': 8,
-          'shadow-color': 'rgba(0, 0, 0, 0.3)',
-          'shadow-opacity': 0.3,
+          'border-width': 2,
+          'border-color': 'rgba(0, 0, 0, 0.2)',
+          'border-opacity': 0.8,
           'z-index': 1,
         });
 
@@ -333,7 +328,9 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
 
     return () => {
       if (cyRef.current) {
+        cyRef.current.stop();
         cyRef.current.destroy();
+        cyRef.current = null;
       }
     };
   }, [elements, layout, memories]);
@@ -413,16 +410,14 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
         if (cyRef.current) {
           cyRef.current.off('pan zoom', syncViewport);
         }
+        if (minimapCyRef.current) {
+          minimapCyRef.current.destroy();
+          minimapCyRef.current = null;
+        }
       };
     } catch (error) {
       console.error('Failed to initialize minimap:', error);
     }
-
-    return () => {
-      if (minimapCyRef.current) {
-        minimapCyRef.current.destroy();
-      }
-    };
   }, [cyRef.current, elements, layout, showMinimap]);
 
   const handleLayoutChange = (newLayout: string) => {
