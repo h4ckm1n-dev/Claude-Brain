@@ -8,10 +8,10 @@ import type {
 
 // Get audit trail for a specific memory or global
 export const getAuditTrail = (memoryId?: string, limit: number = 50, action?: AuditAction, actor?: string) =>
-  apiClient.get<AuditEntry[]>(
+  apiClient.get<{ total_entries: number; offset: number; limit: number; entries: AuditEntry[] }>(
     memoryId ? `/audit/${memoryId}` : '/audit',
     { params: { limit, action, actor } }
-  ).then(r => r.data);
+  ).then(r => r.data.entries);
 
 // Get audit statistics
 export const getAuditStats = (memoryId?: string) =>
