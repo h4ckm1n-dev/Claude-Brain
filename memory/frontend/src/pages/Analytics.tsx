@@ -638,19 +638,19 @@ export function Analytics() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
                 <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
                   <div className="text-2xl font-bold text-white mb-1">
-                    {auditStats.total_entries}
+                    {auditStats.total_entries || 0}
                   </div>
                   <div className="text-xs text-blue-300">Total Entries</div>
                 </div>
                 <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
                   <div className="text-2xl font-bold text-white mb-1">
-                    {Object.values(auditStats.by_action).reduce((a, b) => a + b, 0)}
+                    {auditStats.by_action ? Object.values(auditStats.by_action).reduce((a, b) => a + b, 0) : 0}
                   </div>
                   <div className="text-xs text-emerald-300">Total Actions</div>
                 </div>
                 <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 text-center">
                   <div className="text-2xl font-bold text-white mb-1">
-                    {Object.keys(auditStats.by_actor).length}
+                    {auditStats.by_actor ? Object.keys(auditStats.by_actor).length : 0}
                   </div>
                   <div className="text-xs text-purple-300">Unique Actors</div>
                 </div>
