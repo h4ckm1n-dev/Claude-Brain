@@ -396,7 +396,18 @@ export function Analytics() {
         </Card>
 
         {/* Phase 3-4: Quality Distribution */}
-        {qualityStats && (
+        {qualityStats && (() => {
+          // Map backend field names to frontend expectations
+          const distribution: any = qualityStats.quality_distribution || qualityStats.distribution || {};
+          const qualityDist = {
+            excellent: distribution.excellent || 0,
+            good: distribution.good || 0,
+            fair: distribution.fair || distribution.moderate || 0,
+            poor: distribution.poor || 0,
+            very_poor: distribution.very_poor || distribution.low || 0,
+          };
+
+          return (
           <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-blue-500/5 pointer-events-none" />
             <CardHeader className="border-b border-white/5 relative">
@@ -414,13 +425,13 @@ export function Analytics() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-white/90">Average Quality Score</span>
                     <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                      {qualityStats.avg_quality_score.toFixed(1)}%
+                      {((qualityStats.avg_quality_score || qualityStats.average_score || 0) * 100).toFixed(1)}%
                     </Badge>
                   </div>
                   <div className="w-full bg-[#0a0a0a] rounded-full h-3 border border-white/5">
                     <div
                       className="bg-gradient-to-r from-emerald-500 to-green-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${qualityStats.avg_quality_score}%` }}
+                      style={{ width: `${(qualityStats.avg_quality_score || qualityStats.average_score || 0) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -428,35 +439,35 @@ export function Analytics() {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                   <div className="p-3 rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 text-center">
                     <div className="text-2xl font-bold text-white mb-1">
-                      {qualityStats.quality_distribution.excellent}
+                      {qualityDist.excellent}
                     </div>
                     <div className="text-xs text-green-300 mb-1">Excellent</div>
                     <div className="text-xs text-white/50">80-100%</div>
                   </div>
                   <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 text-center">
                     <div className="text-2xl font-bold text-white mb-1">
-                      {qualityStats.quality_distribution.good}
+                      {qualityDist.good}
                     </div>
                     <div className="text-xs text-blue-300 mb-1">Good</div>
                     <div className="text-xs text-white/50">60-80%</div>
                   </div>
                   <div className="p-3 rounded-lg bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 text-center">
                     <div className="text-2xl font-bold text-white mb-1">
-                      {qualityStats.quality_distribution.fair}
+                      {qualityDist.fair}
                     </div>
                     <div className="text-xs text-yellow-300 mb-1">Fair</div>
                     <div className="text-xs text-white/50">40-60%</div>
                   </div>
                   <div className="p-3 rounded-lg bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 text-center">
                     <div className="text-2xl font-bold text-white mb-1">
-                      {qualityStats.quality_distribution.poor}
+                      {qualityDist.poor}
                     </div>
                     <div className="text-xs text-orange-300 mb-1">Poor</div>
                     <div className="text-xs text-white/50">20-40%</div>
                   </div>
                   <div className="p-3 rounded-lg bg-gradient-to-br from-red-500/10 to-rose-500/10 border border-red-500/20 text-center">
                     <div className="text-2xl font-bold text-white mb-1">
-                      {qualityStats.quality_distribution.very_poor}
+                      {qualityDist.very_poor}
                     </div>
                     <div className="text-xs text-red-300 mb-1">Very Poor</div>
                     <div className="text-xs text-white/50">&lt;20%</div>
@@ -467,20 +478,21 @@ export function Analytics() {
                   <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <div className="text-xs text-white/70 mb-1">High Quality</div>
                     <div className="text-xl font-bold text-emerald-300">
-                      {qualityStats.high_quality_count}
+                      {qualityStats.high_quality_count || 0}
                     </div>
                   </div>
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <div className="text-xs text-white/70 mb-1">Needs Review</div>
                     <div className="text-xl font-bold text-amber-300">
-                      {qualityStats.needs_improvement_count}
+                      {qualityStats.needs_improvement_count || 0}
                     </div>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        )}
+          );
+        })()}
 
         {/* Phase 3-4: State Transition Flow */}
         {lifecycleStats && (
