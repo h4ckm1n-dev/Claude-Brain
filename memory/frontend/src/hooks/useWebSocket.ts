@@ -28,7 +28,11 @@ interface WebSocketMessage {
  * }
  * ```
  */
-export function useWebSocket(url: string = 'ws://localhost:8100/ws') {
+export function useWebSocket(url?: string) {
+  const wsUrl = url || (() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/ws`;
+  })();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -37,7 +41,7 @@ export function useWebSocket(url: string = 'ws://localhost:8100/ws') {
   useEffect(() => {
     const connect = () => {
       try {
-        const ws = new WebSocket(url);
+        const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
@@ -165,5 +169,5 @@ export function useWebSocket(url: string = 'ws://localhost:8100/ws') {
         wsRef.current = null;
       }
     };
-  }, [url, queryClient]);
+  }, [wsUrl, queryClient]);
 }

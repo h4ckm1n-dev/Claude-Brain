@@ -61,6 +61,8 @@ export const calculateSeverity = (errorMessage: string, context?: string) =>
 export const getExpertiseClusters = () =>
   apiClient.get<ExpertiseCluster[]>('/analytics/expertise-clusters').then(r => r.data);
 
-// Trigger pattern detection job manually
+// Trigger pattern detection manually (runs on-demand via analytics endpoint)
 export const triggerPatternDetection = () =>
-  apiClient.post('/scheduler/jobs/pattern_detection_job/trigger').then(r => r.data);
+  apiClient.get('/analytics/pattern-clusters', {
+    params: { min_cluster_size: 2 }
+  }).then(r => r.data);
