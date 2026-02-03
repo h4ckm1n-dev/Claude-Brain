@@ -239,8 +239,8 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
         session_sequence=session_sequence,
         # Temporal fields (Phase 2.2)
         event_time=data.event_time,
-        validity_start=data.validity_start,
-        validity_end=data.validity_end
+        validity_end=data.validity_end,
+        **({"validity_start": data.validity_start} if data.validity_start is not None else {})
     )
 
     # Create initial version snapshot
