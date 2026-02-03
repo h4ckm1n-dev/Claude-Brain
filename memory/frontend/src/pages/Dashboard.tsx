@@ -229,43 +229,51 @@ export function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-white">{qualityStats.avg_quality_score.toFixed(1)}%</p>
+                      <p className="text-3xl font-bold text-white">
+                        {((qualityStats.avg_quality_score || qualityStats.average_score || 0) * 100).toFixed(1)}%
+                      </p>
                       <p className="text-xs text-white/50">Average Quality Score</p>
                     </div>
                     <div className="flex gap-2">
                       <Badge className="bg-green-500/10 text-green-400 border-green-500/20">
-                        {qualityStats.high_quality_count} High
+                        {qualityStats.high_quality_count || 0} High
                       </Badge>
                       <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
-                        {qualityStats.needs_improvement_count} Need Review
+                        {qualityStats.needs_improvement_count || 0} Need Review
                       </Badge>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    {Object.entries(qualityStats.quality_distribution).map(([tier, count]) => {
-                      const percentage = (count / qualityStats.total_memories) * 100;
-                      const colors: Record<string, string> = {
-                        excellent: 'bg-green-500',
-                        good: 'bg-blue-500',
-                        fair: 'bg-yellow-500',
-                        poor: 'bg-orange-500',
-                        very_poor: 'bg-red-500',
-                      };
-                      return (
-                        <div key={tier} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-white/60 capitalize">{tier.replace('_', ' ')}</span>
-                            <span className="text-white/40">{count} ({percentage.toFixed(1)}%)</span>
+                    {(() => {
+                      const distribution = qualityStats.quality_distribution || qualityStats.distribution || {};
+                      const total = qualityStats.total_memories || qualityStats.total_count || 1;
+                      return Object.entries(distribution).map(([tier, count]) => {
+                        const percentage = (count / total) * 100;
+                        const colors: Record<string, string> = {
+                          excellent: 'bg-green-500',
+                          good: 'bg-blue-500',
+                          fair: 'bg-yellow-500',
+                          moderate: 'bg-yellow-500', // Backend uses "moderate"
+                          low: 'bg-orange-500',
+                          poor: 'bg-red-500',
+                          very_poor: 'bg-red-500',
+                        };
+                        return (
+                          <div key={tier} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-white/60 capitalize">{tier.replace('_', ' ')}</span>
+                              <span className="text-white/40">{count} ({percentage.toFixed(1)}%)</span>
+                            </div>
+                            <div className="w-full bg-gray-800 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-500 ${colors[tier] || 'bg-gray-500'}`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-gray-800 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full transition-all duration-500 ${colors[tier]}`}
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               ) : (
@@ -292,8 +300,8 @@ export function Dashboard() {
             <CardContent className="pt-6">
               {lifecycleStats ? (
                 <StateDistribution
-                  distribution={lifecycleStats.state_distribution}
-                  total={lifecycleStats.total_memories}
+                  distribution={lifecycleStats.state_distribution || lifecycleStats.distribution || {}}
+                  total={lifecycleStats.total_memories || lifecycleStats.total || 0}
                   className="text-white/90"
                 />
               ) : (

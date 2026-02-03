@@ -185,6 +185,19 @@ export interface ConsolidateResult {
 // ============================================================================
 
 export interface QualityStats {
+  // Actual backend fields
+  total_count?: number;
+  average_score?: number;
+  min_score?: number;
+  max_score?: number;
+  distribution?: {
+    excellent: number;
+    good: number;
+    moderate: number;
+    low: number;
+    poor: number;
+  };
+  // Expected frontend fields
   total_memories: number;
   avg_quality_score: number;
   quality_distribution: {
@@ -194,9 +207,9 @@ export interface QualityStats {
     poor: number;       // 20-40
     very_poor: number;  // 0-20
   };
-  high_quality_count: number;
-  promotion_eligible_count: number;
-  needs_improvement_count: number;
+  high_quality_count?: number;
+  promotion_eligible_count?: number;
+  needs_improvement_count?: number;
 }
 
 export interface QualityTrend {
@@ -232,11 +245,15 @@ export enum MemoryState {
 }
 
 export interface LifecycleStats {
+  // Actual backend fields
+  total?: number;
+  distribution?: Record<string, number>;
+  // Expected frontend fields
   total_memories: number;
   state_distribution: Record<MemoryState, number>;
-  avg_time_in_episodic_hours: number;
-  avg_time_to_semantic_hours: number;
-  transition_flow: Array<{
+  avg_time_in_episodic_hours?: number;
+  avg_time_to_semantic_hours?: number;
+  transition_flow?: Array<{
     from_state: MemoryState;
     to_state: MemoryState;
     count: number;

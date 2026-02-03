@@ -163,6 +163,36 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # Health & Status Endpoints
 
+# Analytics Endpoints
+
+# Pattern Clusters Endpoint
+@app.get("/analytics/pattern-clusters")
+async def get_pattern_clusters(min_cluster_size: int = Query(3, ge=1)):
+    """Return pattern cluster statistics.
+    Currently returns cluster errors grouped by tags using ErrorTrendAnalyzer.
+    """
+    from .analytics import ErrorTrendAnalyzer
+
+    try:
+        client = collections.get_client()
+        clusters = ErrorTrendAnalyzer.cluster_errors_by_tags(
+            client=client,
+            collection_name=collections.COLLECTION_NAME,
+            time_window_days=30,
+            min_cluster_size=min_cluster_size
+        )
+        return {"clusters": clusters}
+    except Exception as e:
+        logger.error(f"Failed to get pattern clusters: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# End of analytics endpoints
+
+# Health & Status Endpoints
+
+# Health & Status Endpoints
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Check service health and Qdrant connection."""

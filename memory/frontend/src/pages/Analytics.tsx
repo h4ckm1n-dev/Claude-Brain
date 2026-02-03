@@ -536,13 +536,13 @@ export function Analytics() {
                   <div>
                     <div className="text-white/70 mb-1">Avg Time in Episodic</div>
                     <div className="text-lg font-bold text-white">
-                      {lifecycleStats.avg_time_in_episodic_hours.toFixed(1)}h
+                      {(lifecycleStats.avg_time_in_episodic_hours || 0).toFixed(1)}h
                     </div>
                   </div>
                   <div>
                     <div className="text-white/70 mb-1">Avg Time to Semantic</div>
                     <div className="text-lg font-bold text-white">
-                      {lifecycleStats.avg_time_to_semantic_hours.toFixed(1)}h
+                      {(lifecycleStats.avg_time_to_semantic_hours || 0).toFixed(1)}h
                     </div>
                   </div>
                 </div>
