@@ -13,11 +13,20 @@ export const getAuditTrail = (memoryId?: string, limit: number = 50, action?: Au
     { params: { limit, action, actor } }
   ).then(r => r.data.entries);
 
-// Get audit statistics
+// Get audit statistics - normalize response since backend may return incomplete data
 export const getAuditStats = (memoryId?: string) =>
-  apiClient.get<AuditStats>('/audit/stats', {
+  apiClient.get<any>('/audit/stats', {
     params: { memory_id: memoryId }
-  }).then(r => r.data);
+  }).then(r => {
+    const data = r.data || {};
+    return {
+      total_entries: data.total_entries || 0,
+      by_action: data.by_action || {},
+      by_actor: data.by_actor || {},
+      activity_by_day: data.activity_by_day || [],
+      recent_activity: data.recent_activity || data.entries || [],
+    } as AuditStats;
+  });
 
 // Get version history for a memory
 export const getVersionHistory = (memoryId: string) =>

@@ -6,9 +6,16 @@ import type {
   MemoryState,
 } from '../types/memory';
 
-// Get lifecycle statistics
+// Get lifecycle statistics - normalize backend field names
 export const getLifecycleStats = () =>
-  apiClient.get<LifecycleStats>('/lifecycle/stats').then(r => r.data);
+  apiClient.get<any>('/lifecycle/stats').then(r => {
+    const data = r.data || {};
+    return {
+      ...data,
+      total_memories: data.total_memories || data.total || 0,
+      state_distribution: data.state_distribution || data.distribution || {},
+    } as LifecycleStats;
+  });
 
 // Trigger lifecycle state updates for all memories
 export const updateLifecycleStates = () =>
