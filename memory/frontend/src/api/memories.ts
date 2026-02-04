@@ -207,7 +207,17 @@ export const triggerForgettingUpdate = (maxUpdates?: number) =>
 export const getQualityLeaderboard = (limit?: number, memoryType?: string) =>
   apiClient.get('/memories/quality-leaderboard', {
     params: { limit, memory_type: memoryType }
-  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.leaderboard || []) as QualityLeaderboardEntry[]; });
+  }).then(r => {
+    const d = r.data;
+    const entries = Array.isArray(d) ? d : d.leaderboard || [];
+    return entries.map((e: any) => ({
+      id: e.id,
+      content: e.content,
+      type: e.type,
+      quality_score: e.quality_score ?? (e.user_rating != null ? e.user_rating / 5 : 0),
+      access_count: e.access_count ?? e.rating_count ?? 0,
+    })) as QualityLeaderboardEntry[];
+  });
 
 // Quality report
 export const getQualityReport = () =>
@@ -215,7 +225,7 @@ export const getQualityReport = () =>
     const d = r.data;
     return {
       total_memories: d.total_memories ?? 0,
-      avg_quality: d.avg_quality ?? d.avg_rating ?? d.coverage ?? 0,
+      avg_quality: d.avg_quality ?? (d.avg_rating != null ? d.avg_rating / 5 : d.coverage != null ? d.coverage / 100 : 0),
       distribution: d.distribution ?? d.rating_distribution ?? {},
       top_issues: d.top_issues || [],
       recommendations: d.recommendations || [],
