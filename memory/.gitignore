@@ -64,6 +64,10 @@ coverage/
 .DS_Store
 Thumbs.db
 
+# Development docs (phase plans, test reports, feature notes)
+docs/
+CLAUDE_DESKTOP_SETUP.md
+
 # Temporary documentation and implementation summaries
 *_SUMMARY.md
 *_GUIDE.md
