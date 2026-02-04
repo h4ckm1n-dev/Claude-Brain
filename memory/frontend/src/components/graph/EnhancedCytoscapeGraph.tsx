@@ -50,6 +50,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
   const minimapRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<any>(null);
   const minimapCyRef = useRef<any>(null);
+  const layoutRef = useRef<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [layout, setLayout] = useState<string>('cose');
   const [showMinimap, setShowMinimap] = useState(true);
@@ -57,9 +58,17 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
   useEffect(() => {
     if (!containerRef.current || !elements || elements.length === 0) return;
 
+    // Robust cleanup: stop layout, then destroy instance
+    if (layoutRef.current) {
+      try { layoutRef.current.stop(); } catch (_) {}
+      layoutRef.current = null;
+    }
     if (cyRef.current) {
-      cyRef.current.stop(); // Stop all running animations/layouts
-      cyRef.current.destroy();
+      try {
+        cyRef.current.stop();
+        cyRef.current.unmount();  // Detach from DOM before destroy
+        cyRef.current.destroy();
+      } catch (_) {}
       cyRef.current = null;
     }
 
@@ -201,9 +210,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
         ],
         layout: {
           name: layout,
-          animate: true,
-          animationDuration: 1000,
-          animationEasing: 'ease-out',
+          animate: false,  // No animation on initial render to prevent destroy race condition
           idealEdgeLength: 150,
           nodeOverlap: 30,
           refresh: 20,
@@ -327,9 +334,16 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
     }
 
     return () => {
+      if (layoutRef.current) {
+        try { layoutRef.current.stop(); } catch (_) {}
+        layoutRef.current = null;
+      }
       if (cyRef.current) {
-        cyRef.current.stop();
-        cyRef.current.destroy();
+        try {
+          cyRef.current.stop();
+          cyRef.current.unmount();
+          cyRef.current.destroy();
+        } catch (_) {}
         cyRef.current = null;
       }
     };
