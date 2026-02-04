@@ -103,16 +103,34 @@ export function SystemAdmin() {
                 <p className="text-xs text-white/40">Uptime: {health?.uptime ?? '...'}</p>
               </div>
               <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
-                <span className="text-sm text-white/60">Qdrant</span>
-                <pre className="text-xs text-white/70 mt-1 overflow-auto max-h-20">
-                  {JSON.stringify(health?.qdrant ?? {}, null, 2)}
-                </pre>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-white/60">Qdrant</span>
+                  <Badge className={
+                    health?.qdrant?.status === 'healthy'
+                      ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                      : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                  }>
+                    {health?.qdrant?.status ?? 'unknown'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-white/50">
+                  {health?.qdrant?.details?.points_count ?? '?'} points
+                </p>
               </div>
               <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
-                <span className="text-sm text-white/60">Neo4j</span>
-                <pre className="text-xs text-white/70 mt-1 overflow-auto max-h-20">
-                  {JSON.stringify(health?.neo4j ?? {}, null, 2)}
-                </pre>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-white/60">Neo4j</span>
+                  <Badge className={
+                    health?.neo4j?.status === 'healthy'
+                      ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                      : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                  }>
+                    {health?.neo4j?.status ?? 'unknown'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-white/50">
+                  {health?.neo4j?.details?.memory_nodes ?? '?'} nodes, {health?.neo4j?.details?.relationships ?? '?'} relationships
+                </p>
               </div>
             </div>
           </CardContent>
@@ -177,11 +195,22 @@ export function SystemAdmin() {
                   <p className="text-lg font-bold text-white">{dbStats?.total_relationships ?? 0}</p>
                 </div>
               </div>
-              <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
-                <pre className="text-xs text-white/60 overflow-auto max-h-20">
-                  {JSON.stringify(dbStats?.qdrant ?? {}, null, 2)}
-                </pre>
-              </div>
+              {dbStats?.neo4j && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="p-2 rounded bg-[#0a0a0a] border border-white/5 text-center">
+                    <p className="text-xs text-white/40">Memory Nodes</p>
+                    <p className="text-sm font-bold text-blue-300">{dbStats.neo4j.memory_nodes ?? 0}</p>
+                  </div>
+                  <div className="p-2 rounded bg-[#0a0a0a] border border-white/5 text-center">
+                    <p className="text-xs text-white/40">Projects</p>
+                    <p className="text-sm font-bold text-green-300">{dbStats.neo4j.project_nodes ?? 0}</p>
+                  </div>
+                  <div className="p-2 rounded bg-[#0a0a0a] border border-white/5 text-center">
+                    <p className="text-xs text-white/40">Tags</p>
+                    <p className="text-sm font-bold text-purple-300">{dbStats.neo4j.tag_nodes ?? 0}</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

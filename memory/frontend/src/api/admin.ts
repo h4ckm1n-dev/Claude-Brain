@@ -69,7 +69,14 @@ export interface JobInfo {
 
 // Cache
 export const getCacheStats = () =>
-  apiClient.get<CacheStats>('/cache/stats').then(r => r.data);
+  apiClient.get('/cache/stats').then(r => {
+    const d = r.data;
+    return {
+      total_entries: d.total_entries ?? d.stores ?? d.total_queries ?? 0,
+      hit_rate: d.hit_rate ?? 0,
+      memory_usage: d.memory_usage ?? `${d.stores ?? 0}/${d.max_size ?? 0}`,
+    } as CacheStats;
+  });
 
 export const clearCache = () =>
   apiClient.post('/cache/clear').then(r => r.data);
@@ -86,14 +93,47 @@ export const cancelJob = (jobId: string) =>
 
 // Scheduler
 export const getSchedulerStatus = () =>
-  apiClient.get<SchedulerStatus>('/scheduler/status').then(r => r.data);
+  apiClient.get('/scheduler/status').then(r => {
+    const d = r.data;
+    const jobs = (d.jobs || []).map((j: any) => ({
+      id: j.id,
+      name: j.name,
+      next_run: j.next_run ?? null,
+      last_run: j.last_run ?? null,
+      status: j.status ?? (d.running ? 'scheduled' : 'paused'),
+    }));
+    return { running: d.running ?? false, jobs } as SchedulerStatus;
+  });
 
 export const triggerScheduledJob = (jobId: string) =>
   apiClient.post(`/scheduler/jobs/${jobId}/trigger`).then(r => r.data);
 
-// Database
-export const getDatabaseStats = () =>
-  apiClient.get<DatabaseStats>('/database/stats').then(r => r.data);
+// Database — combine /database/stats with /health/detailed for full picture
+export const getDatabaseStats = async (): Promise<DatabaseStats> => {
+  const [dbRes, healthRes] = await Promise.all([
+    apiClient.get('/database/stats').catch(() => ({ data: {} })),
+    apiClient.get('/health/detailed').catch(() => ({ data: {} })),
+  ]);
+  const db = dbRes.data;
+  const deps = healthRes.data?.dependencies || {};
+  const qdrantDetails = deps.qdrant?.details || {};
+  const neo4jDetails = deps.neo4j?.details || {};
+  return {
+    total_memories: db.points_count ?? qdrantDetails.points_count ?? 0,
+    total_relationships: neo4jDetails.relationships ?? 0,
+    qdrant: {
+      status: db.status ?? deps.qdrant?.status ?? 'unknown',
+      collection: db.collection_name ?? qdrantDetails.collection ?? '',
+      points: db.points_count ?? qdrantDetails.points_count ?? 0,
+    },
+    neo4j: {
+      memory_nodes: neo4jDetails.memory_nodes ?? 0,
+      project_nodes: neo4jDetails.project_nodes ?? 0,
+      tag_nodes: neo4jDetails.tag_nodes ?? 0,
+      relationships: neo4jDetails.relationships ?? 0,
+    },
+  };
+};
 
 // Notifications
 export const clearAllNotifications = () =>
@@ -114,9 +154,21 @@ export const submitSuggestionFeedback = (userId: string, wasUseful: boolean) =>
   }).then(r => r.data);
 
 export const getSuggestionStats = (userId?: string) =>
-  apiClient.get<SuggestionStats>('/suggestions/stats', {
+  apiClient.get('/suggestions/stats', {
     params: { user_id: userId }
-  }).then(r => r.data);
+  }).then(r => {
+    const d = r.data;
+    const totalShown = d.total_shown ?? d.total_suggestions ?? 0;
+    const totalUseful = d.total_useful ?? 0;
+    const totalNotUseful = d.total_not_useful ?? 0;
+    const total = totalUseful + totalNotUseful;
+    return {
+      total_shown: totalShown,
+      total_useful: totalUseful,
+      total_not_useful: totalNotUseful,
+      usefulness_rate: d.usefulness_rate ?? (total > 0 ? totalUseful / total : 0),
+    } as SuggestionStats;
+  });
 
 // Export & Backup
 export const exportMemories = (params?: {
@@ -138,7 +190,22 @@ export const listBackups = () =>
 
 // Health
 export const getDetailedHealth = () =>
-  apiClient.get<DetailedHealth>('/health/detailed').then(r => r.data);
+  apiClient.get('/health/detailed').then(r => {
+    const d = r.data;
+    const deps = d.dependencies || {};
+    const uptimeSec = d.uptime_seconds ?? 0;
+    const hours = Math.floor(uptimeSec / 3600);
+    const mins = Math.floor((uptimeSec % 3600) / 60);
+    return {
+      status: d.status ?? 'unknown',
+      qdrant: deps.qdrant ?? d.qdrant ?? {},
+      neo4j: deps.neo4j ?? d.neo4j ?? {},
+      scheduler: d.scheduler ?? {},
+      uptime: d.uptime ?? (uptimeSec > 0 ? `${hours}h ${mins}m` : 'Just started'),
+      features: d.features ?? {},
+      performance: d.performance ?? {},
+    } as DetailedHealth;
+  });
 
 // Indexing
 export const triggerReindex = (folders?: string) =>
