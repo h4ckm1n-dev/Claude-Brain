@@ -11,7 +11,7 @@ import { Input } from '../components/ui/input';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Archive, AlertCircle, CheckCircle, Trash2, TrendingUp, Clock } from 'lucide-react';
-import { ConsolidateRequest, ConsolidateResult, AuditAction } from '../types/memory';
+import { ConsolidateRequest, ConsolidateResult } from '../types/memory';
 
 export function Consolidation() {
   const [request, setRequest] = useState<ConsolidateRequest>({
@@ -138,7 +138,6 @@ export function Consolidation() {
           <CardContent className="pt-6">
             <AuditTimeline
               limit={10}
-              filterAction={AuditAction.CONSOLIDATION}
             />
           </CardContent>
         </Card>

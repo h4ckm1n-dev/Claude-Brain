@@ -150,7 +150,17 @@ export const getPreventivePatterns = (searchQuery?: string, queryTags?: string[]
 export const getDocumentationTopics = (project?: string, limit?: number) =>
   apiClient.get('/recommendations/documentation-topics', {
     params: { project, limit }
-  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.topics || []) as DocumentationTopic[]; });
+  }).then(r => {
+    const d = r.data;
+    const raw = Array.isArray(d) ? d : d.topics || [];
+    const priorityMap: Record<string, number> = { high: 0.9, medium: 0.5, low: 0.2 };
+    return raw.map((t: any) => ({
+      topic: t.topic || t.topic_tag || '',
+      priority: typeof t.priority === 'number' ? t.priority : (priorityMap[t.priority] ?? 0.5),
+      related_memories: t.related_memories ?? t.error_learning_count ?? 0,
+      coverage_gap: t.coverage_gap ?? (t.is_documented === false ? 0.8 : t.is_documented === true ? 0.2 : 0.5),
+    })) as DocumentationTopic[];
+  });
 
 // Get recommendation co-access stats
 export const getRecommendationCoAccessStats = () =>

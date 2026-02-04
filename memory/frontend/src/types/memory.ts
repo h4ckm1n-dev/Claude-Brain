@@ -296,10 +296,14 @@ export enum AuditAction {
   UPDATE = "update",
   DELETE = "delete",
   ARCHIVE = "archive",
-  RESTORE = "restore",
+  RESOLVE = "resolve",
+  PIN = "pin",
+  UNPIN = "unpin",
+  RATE = "rate",
+  REINFORCE = "reinforce",
   STATE_TRANSITION = "state_transition",
+  TIER_PROMOTION = "tier_promotion",
   QUALITY_UPDATE = "quality_update",
-  CONSOLIDATION = "consolidation",
 }
 
 export interface AuditEntry {

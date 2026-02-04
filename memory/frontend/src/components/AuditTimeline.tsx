@@ -202,9 +202,29 @@ function getActionConfig(action: AuditAction) {
       icon: '📦',
       color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
     },
-    [AuditAction.RESTORE]: {
-      label: 'Restored',
-      icon: '↩️',
+    [AuditAction.RESOLVE]: {
+      label: 'Resolved',
+      icon: '✅',
+      color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',
+    },
+    [AuditAction.PIN]: {
+      label: 'Pinned',
+      icon: '📌',
+      color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+    },
+    [AuditAction.UNPIN]: {
+      label: 'Unpinned',
+      icon: '📌',
+      color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    },
+    [AuditAction.RATE]: {
+      label: 'Rated',
+      icon: '⭐',
+      color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+    },
+    [AuditAction.REINFORCE]: {
+      label: 'Reinforced',
+      icon: '💪',
       color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
     },
     [AuditAction.STATE_TRANSITION]: {
@@ -212,15 +232,15 @@ function getActionConfig(action: AuditAction) {
       icon: '🔄',
       color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
     },
+    [AuditAction.TIER_PROMOTION]: {
+      label: 'Tier Promoted',
+      icon: '🏆',
+      color: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
+    },
     [AuditAction.QUALITY_UPDATE]: {
       label: 'Quality Updated',
       icon: '⭐',
       color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
-    },
-    [AuditAction.CONSOLIDATION]: {
-      label: 'Consolidated',
-      icon: '🔗',
-      color: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
     },
   };
 
