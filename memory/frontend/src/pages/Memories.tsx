@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 // import { useVirtualizer } from '@tanstack/react-virtual';
-import { useMemories, useDeleteMemory, usePinMemory, useArchiveMemory } from '../hooks/useMemories';
+import { useMemories, useDeleteMemory, usePinMemory, useArchiveMemory, useReinforceMemory, useDraftMemory, useBulkStore, useForgettingStats, useWeakMemories, useQualityLeaderboard, useQualityReport } from '../hooks/useMemories';
 import { useQualityTrend } from '../hooks/useQuality';
 import { useStateHistory } from '../hooks/useLifecycle';
 import { useAuditTrail } from '../hooks/useAudit';
@@ -10,8 +10,8 @@ import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Plus, Trash2, Pin, Archive, Edit, Search, Download, FileText, Database, Eye, Clock, TrendingUp, Zap, ChevronDown, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Plus, Trash2, Pin, Archive, Edit, Search, Download, FileText, Database, Eye, Clock, TrendingUp, Zap, ChevronDown, ChevronRight, Upload, Award, AlertTriangle, BarChart3 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Memory, MemoryType } from '../types/memory';
 import { MemoryDialog } from '../components/memory/MemoryDialog';
@@ -544,6 +544,10 @@ export function Memories() {
             </Button>
           </div>
         </div>
+
+        {/* Forgetting Curve & Quality Sections */}
+        <ForgettingCurveSection />
+        <QualityLeaderboardSection />
       </div>
 
       <MemoryDialog
@@ -612,5 +616,122 @@ function ExpandedQualityTab({ memoryId }: { memoryId: string }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// --- New Memory Feature Sections ---
+
+function ForgettingCurveSection() {
+  const { data: stats } = useForgettingStats();
+  const { data: weakMemories } = useWeakMemories(0.3, 20);
+  const reinforce = useReinforceMemory();
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-amber-400" />
+          <CardTitle className="text-white">Forgetting Curve</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">Weak memories needing reinforcement</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {stats && (
+          <div className="grid grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
+              <p className="text-xs text-white/50">Total</p>
+              <p className="text-lg font-bold text-white">{stats.total_memories}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
+              <p className="text-xs text-white/50">Avg Strength</p>
+              <p className="text-lg font-bold text-white">{(stats.avg_strength * 100).toFixed(0)}%</p>
+            </div>
+            <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
+              <p className="text-xs text-white/50">Weak</p>
+              <p className="text-lg font-bold text-amber-400">{stats.weak_count}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
+              <p className="text-xs text-white/50">Decay</p>
+              <p className="text-lg font-bold text-white">{stats.decay_rate.toFixed(3)}</p>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {weakMemories?.map((memory) => (
+            <div key={memory.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
+              <div className="flex-1 min-w-0 mr-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">{memory.type}</Badge>
+                  <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full" style={{ width: `${memory.strength * 100}%` }} />
+                  </div>
+                  <span className="text-xs text-white/40">{(memory.strength * 100).toFixed(0)}%</span>
+                </div>
+                <p className="text-sm text-white/70 line-clamp-1">{memory.content}</p>
+              </div>
+              <Button size="sm" onClick={() => reinforce.mutate({ id: memory.id, boostAmount: 0.2 })} disabled={reinforce.isPending}
+                className="bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30">
+                <Zap className="h-3 w-3 mr-1" /> Reinforce
+              </Button>
+            </div>
+          ))}
+          {(!weakMemories || weakMemories.length === 0) && (
+            <p className="text-white/50 text-center py-4">No weak memories found</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QualityLeaderboardSection() {
+  const { data: leaderboard } = useQualityLeaderboard(20);
+  const { data: report } = useQualityReport();
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Award className="h-5 w-5 text-yellow-400" />
+          <CardTitle className="text-white">Quality Leaderboard</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">Top-rated memories by quality</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {report && (
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
+              <p className="text-xs text-white/50">Avg Quality</p>
+              <p className="text-lg font-bold text-white">{(report.avg_quality * 100).toFixed(0)}%</p>
+            </div>
+            <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
+              <p className="text-xs text-white/50">Total</p>
+              <p className="text-lg font-bold text-white">{report.total_memories}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
+              <p className="text-xs text-white/50">Issues</p>
+              <p className="text-lg font-bold text-amber-400">{report.top_issues.length}</p>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {leaderboard?.map((entry, i) => (
+            <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
+              <span className={`text-lg font-bold w-8 text-center ${
+                i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-white/30'
+              }`}>{i + 1}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs">{entry.type}</Badge>
+                  <QualityBadge score={entry.quality_score * 100} size="sm" />
+                </div>
+                <p className="text-sm text-white/70 line-clamp-1">{entry.content}</p>
+              </div>
+              <span className="text-xs text-white/40">{entry.access_count} views</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

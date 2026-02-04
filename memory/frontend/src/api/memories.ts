@@ -80,3 +80,126 @@ export const getRelatedMemories = (memoryId: string, maxHops?: number, limit?: n
 
 export const getTimeline = (project?: string, memoryType?: string, limit?: number) =>
   apiClient.get<any>('/graph/timeline', { params: { project, memory_type: memoryType, limit } }).then(r => r.data);
+
+// --- New Memory Endpoints ---
+
+export interface DraftResult {
+  preview: Memory;
+  quality_score: number;
+  quality_details: Record<string, number>;
+  suggestions: string[];
+}
+
+export interface MemoryVersion {
+  version: number;
+  content: string;
+  changed_at: string;
+  changes: string[];
+}
+
+export interface VersionDiff {
+  version_a: number;
+  version_b: number;
+  changes: Array<{ field: string; old_value: any; new_value: any }>;
+}
+
+export interface ForgettingStats {
+  total_memories: number;
+  avg_strength: number;
+  weak_count: number;
+  decay_rate: number;
+  last_update: string;
+}
+
+export interface WeakMemory {
+  id: string;
+  content: string;
+  type: string;
+  strength: number;
+  last_accessed: string;
+  access_count: number;
+}
+
+export interface QualityLeaderboardEntry {
+  id: string;
+  content: string;
+  type: string;
+  quality_score: number;
+  access_count: number;
+}
+
+export interface QualityReport {
+  total_memories: number;
+  avg_quality: number;
+  distribution: Record<string, number>;
+  top_issues: string[];
+  recommendations: string[];
+}
+
+export interface ConsolidationPreview {
+  candidates: Array<{ id: string; content: string; reason: string }>;
+  estimated_consolidations: number;
+  estimated_archives: number;
+}
+
+// Draft a memory (preview quality before saving)
+export const draftMemory = (data: MemoryCreate) =>
+  apiClient.post<DraftResult>('/memories/draft', data).then(r => r.data);
+
+// Bulk store memories
+export const bulkStoreMemories = (memories: MemoryCreate[]) =>
+  apiClient.post<Memory[]>('/memories/bulk', memories).then(r => r.data);
+
+// Reinforce a memory
+export const reinforceMemory = (id: string, boostAmount?: number) =>
+  apiClient.post(`/memories/${id}/reinforce`, null, {
+    params: { boost_amount: boostAmount }
+  }).then(r => r.data);
+
+// Get memory versions
+export const getMemoryVersions = (id: string) =>
+  apiClient.get<MemoryVersion[]>(`/memories/${id}/versions`).then(r => r.data);
+
+// Get specific version
+export const getSpecificVersion = (id: string, version: number) =>
+  apiClient.get<MemoryVersion>(`/memories/${id}/versions/${version}`).then(r => r.data);
+
+// Restore a version
+export const restoreVersion = (id: string, version: number) =>
+  apiClient.post(`/memories/${id}/versions/${version}/restore`).then(r => r.data);
+
+// Diff two versions
+export const diffVersions = (id: string, v1: number, v2: number) =>
+  apiClient.get<VersionDiff>(`/memories/${id}/versions/${v1}/diff/${v2}`).then(r => r.data);
+
+// Consolidation preview
+export const getConsolidationPreview = (olderThanDays?: number) =>
+  apiClient.get<ConsolidationPreview>('/consolidate/preview', {
+    params: { older_than_days: olderThanDays }
+  }).then(r => r.data);
+
+// Forgetting stats
+export const getForgettingStats = () =>
+  apiClient.get<ForgettingStats>('/forgetting/stats').then(r => r.data);
+
+// Get weak memories
+export const getWeakMemories = (strengthThreshold?: number, limit?: number) =>
+  apiClient.get<WeakMemory[]>('/forgetting/weak', {
+    params: { strength_threshold: strengthThreshold, limit }
+  }).then(r => r.data);
+
+// Trigger forgetting update
+export const triggerForgettingUpdate = (maxUpdates?: number) =>
+  apiClient.post('/forgetting/update', null, {
+    params: { max_updates: maxUpdates }
+  }).then(r => r.data);
+
+// Quality leaderboard
+export const getQualityLeaderboard = (limit?: number, memoryType?: string) =>
+  apiClient.get<QualityLeaderboardEntry[]>('/memories/quality-leaderboard', {
+    params: { limit, memory_type: memoryType }
+  }).then(r => r.data);
+
+// Quality report
+export const getQualityReport = () =>
+  apiClient.get<QualityReport>('/memories/quality-report').then(r => r.data);

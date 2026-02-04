@@ -92,3 +92,135 @@ export const runConflictDetection = (limit: number = 50) =>
 // Manually trigger meta-learning
 export const runMetaLearning = () =>
   apiClient.post<MetaLearningResult>('/brain/meta-learning').then(r => r.data);
+
+// --- New Brain Endpoints ---
+
+export interface SpacedRepetitionItem {
+  id: string;
+  content: string;
+  type: string;
+  next_review: string;
+  strength: number;
+  review_count: number;
+}
+
+export interface Topic {
+  name: string;
+  size: number;
+  keywords: string[];
+  memories: string[];
+}
+
+export interface TopicTimelineEntry {
+  date: string;
+  count: number;
+  memories: Array<{ id: string; content: string }>;
+}
+
+export interface ReplayResult {
+  success: boolean;
+  replayed: number;
+  memories: Array<{ id: string; content: string; type: string }>;
+}
+
+export interface DreamResult {
+  success: boolean;
+  connections_found: number;
+  insights: string[];
+  duration_seconds: number;
+}
+
+export interface InferenceResult {
+  success: boolean;
+  relationships_inferred: number;
+  details: Array<{ source: string; target: string; relation: string; confidence: number }>;
+}
+
+export interface CoAccessStats {
+  total_pairs: number;
+  top_pairs: Array<{ memory_a: string; memory_b: string; co_access_count: number }>;
+}
+
+// Reconsolidate a memory
+export const reconsolidateMemory = (memoryId: string, accessContext?: string, coAccessedIds?: string[]) =>
+  apiClient.post(`/brain/reconsolidate/${memoryId}`, null, {
+    params: { access_context: accessContext, co_accessed_ids: coAccessedIds?.join(',') }
+  }).then(r => r.data);
+
+// Get spaced repetition items
+export const getSpacedRepetition = (limit: number = 20) =>
+  apiClient.get<SpacedRepetitionItem[]>('/brain/spaced-repetition', {
+    params: { limit }
+  }).then(r => r.data);
+
+// Get discovered topics
+export const getTopics = (minClusterSize?: number, maxTopics?: number) =>
+  apiClient.get<Topic[]>('/brain/topics', {
+    params: { min_cluster_size: minClusterSize, max_topics: maxTopics }
+  }).then(r => r.data);
+
+// Get topic timeline
+export const getTopicTimeline = (topicName: string, limit: number = 50) =>
+  apiClient.get<TopicTimelineEntry[]>(`/brain/topics/timeline/${encodeURIComponent(topicName)}`, {
+    params: { limit }
+  }).then(r => r.data);
+
+// Trigger memory replay
+export const triggerReplay = (count?: number, importanceThreshold?: number) =>
+  apiClient.post<ReplayResult>('/brain/replay', null, {
+    params: { count, importance_threshold: importanceThreshold }
+  }).then(r => r.data);
+
+// Trigger project replay
+export const triggerProjectReplay = (project: string, count?: number) =>
+  apiClient.post<ReplayResult>(`/brain/replay/project/${encodeURIComponent(project)}`, null, {
+    params: { count }
+  }).then(r => r.data);
+
+// Trigger underutilized replay
+export const triggerUnderutilizedReplay = (days?: number, count?: number) =>
+  apiClient.post<ReplayResult>('/brain/replay/underutilized', null, {
+    params: { days, count }
+  }).then(r => r.data);
+
+// Trigger dream mode
+export const triggerDream = (duration?: number) =>
+  apiClient.post<DreamResult>('/brain/dream', null, {
+    params: { duration }
+  }).then(r => r.data);
+
+// Run relationship inference
+export const runInference = (inferenceType?: string) =>
+  apiClient.post<InferenceResult>('/inference/run', null, {
+    params: { inference_type: inferenceType }
+  }).then(r => r.data);
+
+// Get co-access stats
+export const getCoAccessStats = () =>
+  apiClient.get<CoAccessStats>('/inference/co-access/stats').then(r => r.data);
+
+// Reset co-access tracker
+export const resetCoAccess = () =>
+  apiClient.post('/inference/co-access/reset').then(r => r.data);
+
+// Brain stats
+export const getBrainStats = () =>
+  apiClient.get('/brain/stats').then(r => r.data);
+
+// Infer relationships
+export const inferRelationships = (lookbackDays: number = 7) =>
+  apiClient.post('/brain/infer-relationships', null, {
+    params: { lookback_days: lookbackDays }
+  }).then(r => r.data);
+
+// Update importance scores
+export const updateImportance = (limit: number = 100) =>
+  apiClient.post('/brain/update-importance', null, {
+    params: { limit }
+  }).then(r => r.data);
+
+// Archive low utility memories
+export const archiveLowUtility = (threshold?: number, maxArchive?: number, dryRun?: boolean) =>
+  apiClient.post('/brain/archive-low-utility', null, {
+    params: { threshold, max_archive: maxArchive, dry_run: dryRun }
+  }).then(r => r.data);

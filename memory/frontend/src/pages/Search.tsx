@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { Header } from '../components/layout/Header';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Search as SearchIcon, Filter, Sparkles, Zap, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search as SearchIcon, Filter, Sparkles, Zap, ChevronDown, ChevronRight, Wand2, Globe } from 'lucide-react';
 import { searchMemories } from '../api/memories';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { SearchQuery, MemoryType, SearchResult } from '../types/memory';
 import { formatDistanceToNow } from 'date-fns';
 import { StateBadge } from '../components/StateBadge';
 import { QualityBadge } from '../components/QualityBadge';
 import { AuditTimeline } from '../components/AuditTimeline';
+import { unifiedSearch, enhanceQuery } from '../api/search';
 
 export function Search() {
   const [query, setQuery] = useState('');
@@ -34,6 +35,11 @@ export function Search() {
       return next;
     });
   };
+
+  // Query enhancement
+  const enhanceMutation = useMutation({
+    mutationFn: (q: string) => enhanceQuery({ query: q, expand_synonyms: true, correct_typos: true }),
+  });
 
   const debouncedQuery = useDebounce(query, 500);
 
@@ -105,6 +111,17 @@ export function Search() {
               </div>
               <Button
                 variant="outline"
+                onClick={() => {
+                  if (query) enhanceMutation.mutate(query);
+                }}
+                disabled={!query || enhanceMutation.isPending}
+                className="bg-[#0a0a0a] border-white/10 text-white/90 hover:bg-white/5 hover:border-emerald-500/50"
+              >
+                <Wand2 className="mr-2 h-4 w-4 text-emerald-400" />
+                Enhance
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
                 className={`bg-[#0a0a0a] border-white/10 text-white/90 hover:bg-white/5 transition-all ${
                   showFilters ? 'border-purple-500/50 bg-purple-500/10' : 'hover:border-purple-500/50'
@@ -153,6 +170,31 @@ export function Search() {
             )}
           </CardContent>
         </Card>
+
+        {/* Query Enhancement Result */}
+        {enhanceMutation.data && (
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+            <div className="flex items-center gap-2 mb-2">
+              <Wand2 className="h-4 w-4 text-emerald-400" />
+              <span className="text-sm font-medium text-emerald-300">Enhanced Query</span>
+            </div>
+            <p className="text-sm text-white/80 mb-2">{enhanceMutation.data.enhanced}</p>
+            <div className="flex flex-wrap gap-2">
+              {enhanceMutation.data.synonyms?.map((s, i) => (
+                <Badge key={i} className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs cursor-pointer"
+                  onClick={() => setQuery(s)}>
+                  {s}
+                </Badge>
+              ))}
+              {enhanceMutation.data.corrections?.map((c, i) => (
+                <Badge key={i} className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs cursor-pointer"
+                  onClick={() => setQuery(c)}>
+                  fix: {c}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Result Tabs */}
         {debouncedQuery.length > 0 && (

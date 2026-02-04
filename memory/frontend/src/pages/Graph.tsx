@@ -1,16 +1,19 @@
+import { useState, useMemo } from 'react';
 import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { useQuery } from '@tanstack/react-query';
 import { getTimeline, getMemories } from '../api/memories';
-import { AlertCircle, Network, Sparkles, Target } from 'lucide-react';
+import { AlertCircle, Network, Sparkles, Target, Filter, AlertTriangle, Lightbulb } from 'lucide-react';
 import { EnhancedCytoscapeGraph } from '../components/graph/EnhancedCytoscapeGraph';
 import { useLifecycleStats } from '../hooks/useLifecycle';
 import { usePatternClusters } from '../hooks/useAnalytics';
 import { StateBadge } from '../components/StateBadge';
 import { QualityBadge } from '../components/QualityBadge';
-import { useMemo } from 'react';
+import { getProjectGraph, getContradictions, findSolutions, getGraphRecommendations } from '../api/graph';
 
 export function Graph() {
   const { data: timelineData, isLoading, error } = useQuery({
@@ -352,7 +355,106 @@ export function Graph() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Contradictions Panel */}
+        <ContradictionsPanel />
+
+        {/* Graph Solutions Finder */}
+        <GraphSolutionsFinder />
       </div>
     </div>
+  );
+}
+
+function ContradictionsPanel() {
+  const { data: contradictions, isLoading } = useQuery({
+    queryKey: ['graph', 'contradictions'],
+    queryFn: getContradictions,
+    staleTime: 300000,
+  });
+
+  if (isLoading || !contradictions || contradictions.length === 0) return null;
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-red-500 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-red-400" />
+          <CardTitle className="text-white">Contradictions</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Memory pairs that contain conflicting information
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 max-h-[300px] overflow-y-auto">
+        {contradictions.map((c, i) => (
+          <div key={i} className="p-3 rounded-lg bg-[#0a0a0a] border border-red-500/20">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-2 rounded bg-white/5">
+                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs mb-1">{c.memory_a.type}</Badge>
+                <p className="text-xs text-white/70 line-clamp-2">{c.memory_a.content}</p>
+              </div>
+              <div className="p-2 rounded bg-white/5">
+                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs mb-1">{c.memory_b.type}</Badge>
+                <p className="text-xs text-white/70 line-clamp-2">{c.memory_b.content}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GraphSolutionsFinder() {
+  const [errorId, setErrorId] = useState('');
+  const { data: solutions, refetch } = useQuery({
+    queryKey: ['graph', 'solutions', errorId],
+    queryFn: () => findSolutions(errorId),
+    enabled: false,
+  });
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-green-400" />
+          <CardTitle className="text-white">Find Solutions</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Enter an error memory ID to find linked solutions
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-2">
+          <Input
+            value={errorId}
+            onChange={(e) => setErrorId(e.target.value)}
+            placeholder="Error memory ID"
+            className="bg-[#0a0a0a] border-white/10 text-white"
+          />
+          <Button
+            onClick={() => refetch()}
+            disabled={!errorId}
+            className="bg-green-500 hover:bg-green-600 text-white"
+          >
+            Find
+          </Button>
+        </div>
+        {solutions?.solutions && solutions.solutions.length > 0 && (
+          <div className="space-y-2">
+            {solutions.solutions.map((sol) => (
+              <div key={sol.id} className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge className="bg-green-500/20 text-green-300 border border-green-500/30 text-xs">{sol.relation}</Badge>
+                  <span className="text-xs text-white/40">score: {sol.score.toFixed(2)}</span>
+                </div>
+                <p className="text-sm text-white/80">{sol.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

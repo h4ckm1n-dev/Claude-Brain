@@ -8,20 +8,43 @@ import {
   BarChart3,
   Brain,
   Lightbulb,
-  Settings
+  Settings,
+  Combine,
+  Clock,
+  History,
+  Shield,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Memories', href: '/memories', icon: Database },
-  { name: 'Documents', href: '/documents', icon: FileText },
-  { name: 'Search', href: '/search', icon: Search },
-  { name: 'Graph', href: '/graph', icon: Network },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Brain Intelligence', href: '/brain', icon: Brain },
-  { name: 'Suggestions', href: '/suggestions', icon: Lightbulb },
-  { name: 'Settings', href: '/settings', icon: Settings },
+const navigationGroups = [
+  {
+    label: 'Core',
+    items: [
+      { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { name: 'Memories', href: '/memories', icon: Database },
+      { name: 'Documents', href: '/documents', icon: FileText },
+      { name: 'Search', href: '/search', icon: Search },
+      { name: 'Graph', href: '/graph', icon: Network },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+      { name: 'Brain', href: '/brain', icon: Brain },
+      { name: 'Suggestions', href: '/suggestions', icon: Lightbulb },
+      { name: 'Consolidation', href: '/consolidation', icon: Combine },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { name: 'Sessions', href: '/sessions', icon: Clock },
+      { name: 'Temporal', href: '/temporal', icon: History },
+      { name: 'Settings', href: '/settings', icon: Settings },
+      { name: 'Admin', href: '/admin', icon: Shield },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -57,26 +80,35 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           Claude Brain
         </h1>
       </div>
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {navigation.map((item) => {
-          const isActive = location.pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              to={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
-                isActive
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-105"
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              {item.name}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+        {navigationGroups.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 mb-1 text-[10px] uppercase tracking-wider text-white/30 font-semibold">
+              {group.label}
+            </p>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                      isActive
+                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-105"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
       <div className="border-t p-4">
         <div className="text-xs text-muted-foreground">

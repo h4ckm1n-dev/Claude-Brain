@@ -11,7 +11,12 @@ import {
   Info,
   Activity,
   Sparkles,
-  Target
+  Target,
+  Clock,
+  Repeat,
+  Moon,
+  Layers,
+  Network,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -25,6 +30,18 @@ import { AuditTimeline } from '../components/AuditTimeline';
 import { useUpdateQualityScores } from '../hooks/useQuality';
 import { useUpdateLifecycleStates } from '../hooks/useLifecycle';
 import { useTriggerPatternDetection } from '../hooks/useAnalytics';
+import {
+  useSpacedRepetition,
+  useTopics,
+  useTopicTimeline,
+  useReplay,
+  useProjectReplay,
+  useUnderutilizedReplay,
+  useDream,
+  useCoAccessStats,
+  useResetCoAccess,
+  useReconsolidate,
+} from '../hooks/useBrain';
 
 interface BrainStats {
   total_memories: number;
@@ -620,6 +637,18 @@ export function BrainIntelligence() {
           </Card>
         </div>
 
+        {/* Spaced Repetition Section */}
+        <SpacedRepetitionSection />
+
+        {/* Topic Discovery Section */}
+        <TopicDiscoverySection />
+
+        {/* Memory Replay Section */}
+        <MemoryReplaySection />
+
+        {/* Co-Access Intelligence Section */}
+        <CoAccessSection />
+
         {/* Info Card */}
         <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-blue-500 shadow-xl hover:shadow-blue-500/10 transition-all">
           <CardHeader>
@@ -653,5 +682,273 @@ export function BrainIntelligence() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Sub-components for new brain features
+
+function SpacedRepetitionSection() {
+  const { data: items, isLoading } = useSpacedRepetition(20);
+  const reconsolidate = useReconsolidate();
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-green-400" />
+          <CardTitle className="text-white">Spaced Repetition</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Memories due for review to strengthen retention
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 max-h-[400px] overflow-y-auto">
+        {isLoading && <p className="text-white/50">Loading...</p>}
+        {items?.map((item) => (
+          <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
+            <div className="flex-1 min-w-0 mr-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge className="bg-green-500/20 text-green-300 border border-green-500/30 text-xs">
+                  {item.type}
+                </Badge>
+                <span className="text-xs text-white/40">
+                  strength: {(item.strength * 100).toFixed(0)}%
+                </span>
+                <span className="text-xs text-white/40">
+                  reviews: {item.review_count}
+                </span>
+              </div>
+              <p className="text-sm text-white/80 line-clamp-1">{item.content}</p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => reconsolidate.mutate({ memoryId: item.id, accessContext: 'spaced-repetition-review' })}
+              disabled={reconsolidate.isPending}
+              className="bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30"
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Review
+            </Button>
+          </div>
+        ))}
+        {items?.length === 0 && (
+          <p className="text-white/50 text-center py-4">No memories due for review</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TopicDiscoverySection() {
+  const [selectedTopic, setSelectedTopic] = useState<string>('');
+  const { data: topics, isLoading } = useTopics();
+  const { data: timeline } = useTopicTimeline(selectedTopic, 30);
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Layers className="h-5 w-5 text-purple-400" />
+          <CardTitle className="text-white">Topic Discovery</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Automatically discovered topic clusters from your memories
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading && <p className="text-white/50">Loading topics...</p>}
+        <div className="flex flex-wrap gap-2">
+          {topics?.map((topic) => (
+            <button
+              key={topic.name}
+              onClick={() => setSelectedTopic(selectedTopic === topic.name ? '' : topic.name)}
+              className={`px-3 py-2 rounded-lg text-sm transition-all ${
+                selectedTopic === topic.name
+                  ? 'bg-purple-500/30 text-purple-200 border border-purple-500/50'
+                  : 'bg-[#0a0a0a] text-white/60 border border-white/10 hover:border-purple-500/30'
+              }`}
+            >
+              {topic.name}
+              <Badge className="ml-2 bg-white/10 text-white/50 border-0 text-xs">{topic.size}</Badge>
+            </button>
+          ))}
+        </div>
+        {topics?.length === 0 && (
+          <p className="text-white/50 text-center py-4">No topics discovered yet</p>
+        )}
+
+        {selectedTopic && timeline && timeline.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <h4 className="text-sm font-medium text-purple-300">Timeline: {selectedTopic}</h4>
+            {timeline.map((entry, i) => (
+              <div key={i} className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-white/40">{new Date(entry.date).toLocaleDateString()}</span>
+                  <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs">
+                    {entry.count} memories
+                  </Badge>
+                </div>
+                {entry.memories.slice(0, 2).map((m) => (
+                  <p key={m.id} className="text-xs text-white/60 line-clamp-1">{m.content}</p>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MemoryReplaySection() {
+  const [replayProject, setReplayProject] = useState('');
+  const replay = useReplay();
+  const projectReplay = useProjectReplay();
+  const underutilizedReplay = useUnderutilizedReplay();
+  const dream = useDream();
+
+  const lastResult = replay.data || projectReplay.data || underutilizedReplay.data;
+  const isPending = replay.isPending || projectReplay.isPending || underutilizedReplay.isPending || dream.isPending;
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Repeat className="h-5 w-5 text-amber-400" />
+          <CardTitle className="text-white">Memory Replay</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Replay memories to strengthen connections and discover new insights
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Button
+            onClick={() => replay.mutate({})}
+            disabled={isPending}
+            className="bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Random Replay
+          </Button>
+          <Button
+            onClick={() => underutilizedReplay.mutate({})}
+            disabled={isPending}
+            className="bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Underutilized Replay
+          </Button>
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            value={replayProject}
+            onChange={(e) => setReplayProject(e.target.value)}
+            placeholder="Project name for replay"
+            className="flex-1 px-3 py-2 rounded-lg bg-[#0a0a0a] border border-white/10 text-white text-sm"
+          />
+          <Button
+            onClick={() => projectReplay.mutate({ project: replayProject })}
+            disabled={isPending || !replayProject}
+            className="bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30"
+          >
+            Project Replay
+          </Button>
+        </div>
+
+        <Button
+          onClick={() => dream.mutate(60)}
+          disabled={isPending}
+          className="w-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30"
+        >
+          <Moon className="h-4 w-4 mr-2" />
+          {dream.isPending ? 'Dreaming...' : 'Dream Mode (60s)'}
+        </Button>
+
+        {dream.data && (
+          <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/30">
+            <p className="text-sm text-indigo-200">
+              Found {dream.data.connections_found} new connections in {dream.data.duration_seconds}s
+            </p>
+            {dream.data.insights.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {dream.data.insights.map((insight, i) => (
+                  <li key={i} className="text-xs text-indigo-300/80">- {insight}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {lastResult && lastResult.memories && lastResult.memories.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm text-amber-300">Replayed {lastResult.replayed} memories:</p>
+            {lastResult.memories.slice(0, 5).map((m) => (
+              <div key={m.id} className="p-2 rounded bg-[#0a0a0a] border border-white/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">{m.type}</Badge>
+                </div>
+                <p className="text-xs text-white/70 line-clamp-1">{m.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CoAccessSection() {
+  const { data: stats, isLoading } = useCoAccessStats();
+  const resetCoAccess = useResetCoAccess();
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Network className="h-5 w-5 text-cyan-400" />
+            <CardTitle className="text-white">Co-Access Intelligence</CardTitle>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => resetCoAccess.mutate()}
+            disabled={resetCoAccess.isPending}
+            variant="outline"
+            className="border-red-500/30 text-red-300 hover:bg-red-500/20"
+          >
+            Reset
+          </Button>
+        </div>
+        <CardDescription className="text-white/60">
+          Memories frequently accessed together may have implicit relationships
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && <p className="text-white/50">Loading...</p>}
+        <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
+          <p className="text-sm text-white/60">Total Co-Access Pairs</p>
+          <p className="text-2xl font-bold text-white">{stats?.total_pairs ?? 0}</p>
+        </div>
+        {stats?.top_pairs && stats.top_pairs.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm text-cyan-300">Top Co-Accessed Pairs:</p>
+            {stats.top_pairs.slice(0, 5).map((pair, i) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded bg-[#0a0a0a] border border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-white/60">{pair.memory_a.slice(0, 8)}</span>
+                  <span className="text-xs text-cyan-400">---</span>
+                  <span className="text-xs font-mono text-white/60">{pair.memory_b.slice(0, 8)}</span>
+                </div>
+                <Badge className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs">
+                  {pair.co_access_count}x
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

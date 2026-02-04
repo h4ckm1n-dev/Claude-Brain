@@ -6,13 +6,21 @@ import { useStats, useMemories, useGraphStats } from '../hooks/useMemories';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, Sankey, Rectangle } from 'recharts';
 import type { Memory } from '../types/memory';
 import { MemoryType } from '../types/memory';
-import { TrendingUp, GitBranch, Zap, Target, BarChart3, Award, Activity, Brain, Calendar } from 'lucide-react';
+import { TrendingUp, GitBranch, Zap, Target, BarChart3, Award, Activity, Brain, Calendar, AlertTriangle, BookOpen, Search, Lightbulb, Radar } from 'lucide-react';
 import { useQualityStats } from '../hooks/useQuality';
 import { useLifecycleStats } from '../hooks/useLifecycle';
 import { usePatternClusters } from '../hooks/useAnalytics';
 import { useAuditStats } from '../hooks/useAudit';
 import { QualityBadge } from '../components/QualityBadge';
 import { AuditTimeline } from '../components/AuditTimeline';
+import {
+  useInsightsSummary,
+  useExpertiseProfile,
+  useAnomalies,
+  useRecurringPatterns,
+  useDocumentationTopics,
+  useComprehensiveAnalytics,
+} from '../hooks/useAnalytics';
 
 export function Analytics() {
   const { data: stats } = useStats();
@@ -709,7 +717,242 @@ export function Analytics() {
             </CardContent>
           </Card>
         )}
+
+        {/* New Intelligence Sections */}
+        <InsightsSummarySection />
+        <ExpertiseProfileSection />
+        <AnomalySection />
+        <RecurringPatternsSection />
+        <DocumentationGapsSection />
       </div>
     </div>
+  );
+}
+
+// --- New Analytics Sub-Components ---
+
+function InsightsSummarySection() {
+  const { data: summary, isLoading } = useInsightsSummary();
+
+  if (isLoading || !summary) return null;
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-green-500 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-green-400" />
+          <CardTitle className="text-white">Intelligence Summary</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Key findings and recommendations from the analysis engine
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+          <span className="text-sm text-green-300">Health Score</span>
+          <span className="text-2xl font-bold text-white">{summary.health_score}/100</span>
+        </div>
+        {summary.key_findings.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium text-white/80 mb-2">Key Findings</h4>
+            <ul className="space-y-1">
+              {summary.key_findings.map((finding, i) => (
+                <li key={i} className="text-sm text-white/60 flex items-start gap-2">
+                  <span className="text-green-400 mt-1">-</span> {finding}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {summary.recommendations.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium text-white/80 mb-2">Recommendations</h4>
+            <ul className="space-y-1">
+              {summary.recommendations.map((rec, i) => (
+                <li key={i} className="text-sm text-amber-300/80 flex items-start gap-2">
+                  <span className="text-amber-400 mt-1">-</span> {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExpertiseProfileSection() {
+  const { data: profile, isLoading } = useExpertiseProfile();
+
+  if (isLoading || !profile) return null;
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Radar className="h-5 w-5 text-purple-400" />
+          <CardTitle className="text-white">Expertise Profile</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Technical skill areas based on stored knowledge
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-4 mb-4">
+          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+            <p className="text-xs text-white/50">Strongest</p>
+            <p className="text-sm font-bold text-green-300">{profile.strongest}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <p className="text-xs text-white/50">Needs Growth</p>
+            <p className="text-sm font-bold text-amber-300">{profile.weakest}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+            <p className="text-xs text-white/50">Total Score</p>
+            <p className="text-sm font-bold text-blue-300">{profile.total_score}</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {profile.areas.map((area) => (
+            <div key={area.name} className="flex items-center gap-3">
+              <span className="text-sm text-white/60 w-32 truncate">{area.name}</span>
+              <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(area.level * 10, 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-white/40 w-16 text-right">{area.memory_count} mem</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AnomalySection() {
+  const { data: anomalies, isLoading } = useAnomalies();
+
+  if (isLoading || !anomalies || anomalies.length === 0) return null;
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-red-500 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-red-400" />
+          <CardTitle className="text-white">Anomaly Detection</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Flagged memories with unusual characteristics
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
+        {anomalies.map((anomaly) => (
+          <div key={anomaly.id} className="p-3 rounded-lg bg-[#0a0a0a] border border-red-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge className="bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
+                {anomaly.anomaly_type}
+              </Badge>
+              <Badge className="bg-white/10 text-white/50 border border-white/10 text-xs">
+                severity: {anomaly.severity}
+              </Badge>
+              <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs">
+                {anomaly.type}
+              </Badge>
+            </div>
+            <p className="text-sm text-white/70 line-clamp-1">{anomaly.content}</p>
+            <p className="text-xs text-red-300/70 mt-1">{anomaly.reason}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecurringPatternsSection() {
+  const { data: patterns, isLoading } = useRecurringPatterns(15);
+
+  if (isLoading || !patterns || patterns.length === 0) return null;
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Search className="h-5 w-5 text-amber-400" />
+          <CardTitle className="text-white">Recurring Patterns</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Error-to-solution patterns that appear repeatedly
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
+        {patterns.map((pattern, i) => (
+          <div key={i} className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-white/80">{pattern.pattern}</span>
+              <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">
+                {pattern.occurrences}x
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-white/40">
+              <span>First: {new Date(pattern.first_seen).toLocaleDateString()}</span>
+              <span>-</span>
+              <span>Last: {new Date(pattern.last_seen).toLocaleDateString()}</span>
+            </div>
+            {pattern.suggested_solution && (
+              <p className="text-xs text-green-300/70 mt-1">Fix: {pattern.suggested_solution}</p>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DocumentationGapsSection() {
+  const { data: topics, isLoading } = useDocumentationTopics();
+
+  if (isLoading || !topics || topics.length === 0) return null;
+
+  return (
+    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-blue-400" />
+          <CardTitle className="text-white">Documentation Gaps</CardTitle>
+        </div>
+        <CardDescription className="text-white/60">
+          Topics that need more documentation based on memory analysis
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
+        {topics.map((topic, i) => (
+          <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
+            <div>
+              <p className="text-sm text-white/80">{topic.topic}</p>
+              <p className="text-xs text-white/40">{topic.related_memories} related memories</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full"
+                  style={{ width: `${(1 - topic.coverage_gap) * 100}%` }}
+                />
+              </div>
+              <Badge className={`text-xs ${
+                topic.priority > 0.7
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                  : topic.priority > 0.4
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-green-500/20 text-green-300 border border-green-500/30'
+              }`}>
+                P{Math.ceil(topic.priority * 3)}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

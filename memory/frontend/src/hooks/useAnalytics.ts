@@ -99,3 +99,67 @@ export const useTriggerPatternDetection = () => {
     },
   });
 };
+
+// --- New Analytics Hooks ---
+
+export const useComprehensiveAnalytics = () =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'comprehensive'],
+    queryFn: api.getComprehensiveAnalytics,
+    staleTime: 10 * 60 * 1000,
+  });
+
+export const useRecurringPatterns = (limit: number = 20) =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'recurring-patterns', limit],
+    queryFn: () => api.getRecurringPatterns(limit),
+    staleTime: 10 * 60 * 1000,
+  });
+
+export const useExpertiseProfile = () =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'expertise-profile'],
+    queryFn: api.getExpertiseProfile,
+    staleTime: 10 * 60 * 1000,
+  });
+
+export const useAnomalies = () =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'anomalies'],
+    queryFn: api.getAnomalies,
+    staleTime: 5 * 60 * 1000,
+  });
+
+export const useInsightErrorTrends = (days: number = 30) =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'insight-error-trends', days],
+    queryFn: () => api.getInsightErrorTrends(days),
+    staleTime: 10 * 60 * 1000,
+  });
+
+export const useInsightsSummary = (limit: number = 5) =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'insights-summary', limit],
+    queryFn: () => api.getInsightsSummary(limit),
+    staleTime: 10 * 60 * 1000,
+  });
+
+export const useDocumentationTopics = (project?: string, limit?: number) =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'documentation-topics', project, limit],
+    queryFn: () => api.getDocumentationTopics(project, limit),
+    staleTime: 10 * 60 * 1000,
+  });
+
+export const usePreventivePatterns = (searchQuery?: string, queryTags?: string[], limit?: number) =>
+  useQuery({
+    queryKey: [...analyticsKeys.all, 'preventive-patterns', searchQuery, queryTags, limit],
+    queryFn: () => api.getPreventivePatterns(searchQuery, queryTags, limit),
+    enabled: !!searchQuery,
+    staleTime: 5 * 60 * 1000,
+  });
+
+export const usePatternsForError = () =>
+  useMutation({
+    mutationFn: api.getPatternsForError,
+  });
