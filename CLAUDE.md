@@ -97,15 +97,50 @@ Quality scoring weights: content richness (30%), access frequency (25%), maturit
 
 ## API Patterns
 
-- Memory CRUD: `/memories`, `/memories/{id}` (GET/POST/PATCH/DELETE)
-- Brain intelligence: `/brain/*` (infer-relationships, update-importance, archive-low-utility, dream, replay, etc.)
-- Quality system: `/quality/*` (stats, update, promote-batch, rate)
-- Lifecycle states: `/lifecycle/*` (stats, update, transitions)
-- Audit trail: `/audit/*` (history, stats, undo, restore)
-- Analytics: `/analytics/*` (error-trends, pattern-clusters, knowledge-gaps)
-- Graph: `/graph/*` (stats, related, solutions, timeline)
+Full OpenAPI spec: http://localhost:8100/docs
+
+### Core
+- Memory CRUD + actions: `/memories/*` (CRUD, draft, bulk, search, suggest, link, pin, unpin, resolve, rate, reinforce, archive, versions, state, undo, restore, quality-leaderboard, quality-report)
+- Context: `/context`, `/context/{project}`
+- Search: `/search/unified`, `/query/enhance`
+- Consolidation: `/consolidate`, `/consolidate/preview`
+
+### Intelligence
+- Brain: `/brain/*` (infer-relationships, update-importance, archive-low-utility, dream, replay, replay/project, replay/underutilized, reconsolidate, spaced-repetition, topics, emotional-analysis, detect-conflicts, meta-learning, performance-metrics, stats)
+- Inference: `/inference/*` (run, co-access/stats, co-access/reset)
+- Forgetting: `/forgetting/*` (update, stats, weak)
+
+### Analytics & Insights
+- Analytics: `/analytics/*` (error-trends, pattern-clusters, knowledge-gaps, comprehensive)
+- Recommendations: `/recommendations/*` (patterns-for-error, preventive-patterns, documentation-topics, co-access, {memory_id})
+- Insights: `/insights/*` (recurring-patterns, expertise-profile, anomalies, error-trends, summary)
+
+### Quality & Lifecycle
+- Quality: `/quality/*` (stats, update, promote-batch, promotion-candidates, {id}/rate, {id}/trend)
+- Lifecycle: `/lifecycle/*` (stats, update, transitions)
+- Audit: `/audit`, `/audit/{memory_id}`, `/audit/stats`
+
+### Knowledge Graph & Temporal
+- Graph: `/graph/*` (stats, related, solutions, timeline, project/{name}, contradictions, recommendations/{id})
+- Temporal: `/temporal/*` (valid-at, obsolete, stats, mark-obsolete, related-at)
+
+### Sessions & Documents
+- Sessions: `/sessions/*` (stats, new, {id}/memories, {id}/consolidate, consolidate/batch)
+- Documents: `/documents/*` (insert, search, stats, reset, {file_path} DELETE)
+- Indexing: `/indexing/*` (folders GET/POST, reindex)
+
+### Admin & Operations
+- Health: `/health`, `/health/detailed`
 - Scheduler: `/scheduler/status`, `/scheduler/jobs/{id}/trigger`
-- Documents: `/documents/*` (insert, search, stats)
+- Notifications: `/notifications/*` (CRUD, mark-read, stats)
+- Export/Backup: `/export/memories`, `/backup`, `/backups`
+- Cache: `/cache/stats`, `/cache/clear`
+- Jobs: `/jobs/*` (list, prune, tag, {id}/cancel)
+- Settings: `/settings` (GET/POST)
+- Suggestions: `/suggestions/*` (should-show, feedback, stats)
+- Database: `/database/stats`, `/database/reset`
+- Processes: `/processes/watcher/*` (status, start, stop)
+- Logs: `/logs/{name}` (read, clear)
 
 ## Development Notes
 
