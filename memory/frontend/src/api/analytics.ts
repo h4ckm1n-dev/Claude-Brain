@@ -148,9 +148,9 @@ export const getPreventivePatterns = (searchQuery?: string, queryTags?: string[]
 
 // Get documentation topics
 export const getDocumentationTopics = (project?: string, limit?: number) =>
-  apiClient.get<DocumentationTopic[]>('/recommendations/documentation-topics', {
+  apiClient.get('/recommendations/documentation-topics', {
     params: { project, limit }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.topics || []) as DocumentationTopic[]; });
 
 // Get recommendation co-access stats
 export const getRecommendationCoAccessStats = () =>

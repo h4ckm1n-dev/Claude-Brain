@@ -752,11 +752,11 @@ function InsightsSummarySection() {
           <span className="text-sm text-green-300">Health Score</span>
           <span className="text-2xl font-bold text-white">{summary.health_score}/100</span>
         </div>
-        {summary.key_findings.length > 0 && (
+        {(summary.key_findings || []).length > 0 && (
           <div>
             <h4 className="text-sm font-medium text-white/80 mb-2">Key Findings</h4>
             <ul className="space-y-1">
-              {summary.key_findings.map((finding, i) => (
+              {(summary.key_findings || []).map((finding, i) => (
                 <li key={i} className="text-sm text-white/60 flex items-start gap-2">
                   <span className="text-green-400 mt-1">-</span> {finding}
                 </li>
@@ -764,11 +764,11 @@ function InsightsSummarySection() {
             </ul>
           </div>
         )}
-        {summary.recommendations.length > 0 && (
+        {(summary.recommendations || []).length > 0 && (
           <div>
             <h4 className="text-sm font-medium text-white/80 mb-2">Recommendations</h4>
             <ul className="space-y-1">
-              {summary.recommendations.map((rec, i) => (
+              {(summary.recommendations || []).map((rec, i) => (
                 <li key={i} className="text-sm text-amber-300/80 flex items-start gap-2">
                   <span className="text-amber-400 mt-1">-</span> {rec}
                 </li>
@@ -927,7 +927,7 @@ function DocumentationGapsSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
-        {topics.map((topic, i) => (
+        {(Array.isArray(topics) ? topics : []).map((topic, i) => (
           <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5">
             <div>
               <p className="text-sm text-white/80">{topic.topic}</p>
