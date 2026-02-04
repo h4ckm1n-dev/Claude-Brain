@@ -576,7 +576,7 @@ function ExpandedStateTab({ memoryId }: { memoryId: string }) {
     return <div className="text-center py-4 text-white/50">Loading state history...</div>;
   }
 
-  if (!stateHistory || stateHistory.transitions.length === 0) {
+  if (!stateHistory?.transitions?.length) {
     return <div className="text-center py-4 text-white/50">No state transitions recorded</div>;
   }
 
@@ -594,7 +594,7 @@ function ExpandedQualityTab({ memoryId }: { memoryId: string }) {
     return <div className="text-center py-4 text-white/50">Loading quality trend...</div>;
   }
 
-  if (!qualityTrend || qualityTrend.trend_data.length === 0) {
+  if (!qualityTrend?.trend_data?.length) {
     return <div className="text-center py-4 text-white/50">No quality trend data available</div>;
   }
 

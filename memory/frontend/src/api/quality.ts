@@ -25,8 +25,18 @@ export const getQualityStats = () =>
   });
 
 // Get quality trend for a specific memory
+// Backend endpoint may not be implemented; return empty trend on error
 export const getQualityTrend = (memoryId: string) =>
-  apiClient.get<QualityTrend>(`/quality/${memoryId}/trend`).then(r => r.data);
+  apiClient.get<any>(`/quality/${memoryId}/trend`).then(r => {
+    const data = r.data || {};
+    return {
+      memory_id: data.memory_id || memoryId,
+      trend_data: data.trend_data || data.trend || [],
+    } as QualityTrend;
+  }).catch(() => ({
+    memory_id: memoryId,
+    trend_data: [],
+  } as QualityTrend));
 
 // Trigger quality score update for all memories
 export const updateQualityScores = () =>

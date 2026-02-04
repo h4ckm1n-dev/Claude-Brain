@@ -33,8 +33,16 @@ export const transitionMemoryState = (
   }).then(r => r.data);
 
 // Get state history for a specific memory
+// Backend returns { memory_id, current_state, state_changed_at, state_history: [] }
+// Frontend expects { memory_id, transitions: [] }
 export const getStateHistory = (memoryId: string) =>
-  apiClient.get<StateHistory>(`/memories/${memoryId}/state-history`).then(r => r.data);
+  apiClient.get<any>(`/memories/${memoryId}/state-history`).then(r => {
+    const data = r.data || {};
+    return {
+      memory_id: data.memory_id || memoryId,
+      transitions: data.transitions || data.state_history || [],
+    } as StateHistory;
+  });
 
 // Get recent state transitions
 export const getRecentTransitions = (limit: number = 20) =>
