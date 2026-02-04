@@ -222,9 +222,9 @@ export function Graph() {
                     <p className="text-xs text-white/60 mb-2">
                       {cluster.summary}
                     </p>
-                    {cluster.tags.length > 0 && (
+                    {cluster.tags?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {cluster.tags.slice(0, 5).map((tag, i) => (
+                        {cluster.tags?.slice(0, 5).map((tag, i) => (
                           <Badge
                             key={i}
                             className="text-xs bg-[#0a0a0a] text-white/70 border border-white/10"

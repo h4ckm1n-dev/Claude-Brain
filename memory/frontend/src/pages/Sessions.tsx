@@ -233,9 +233,9 @@ export function Sessions() {
                           </span>
                         </div>
                         <p className="text-sm text-white/80 line-clamp-2">{memory.content}</p>
-                        {memory.tags.length > 0 && (
+                        {memory.tags?.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {memory.tags.slice(0, 5).map((tag) => (
+                            {memory.tags?.slice(0, 5).map((tag) => (
                               <Badge key={tag} className="text-xs bg-white/5 text-white/50 border border-white/10">
                                 {tag}
                               </Badge>

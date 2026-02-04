@@ -871,7 +871,7 @@ function MemoryReplaySection() {
             <p className="text-sm text-indigo-200">
               Found {dream.data.connections_found} new connections in {dream.data.duration_seconds}s
             </p>
-            {dream.data.insights.length > 0 && (
+            {dream.data.insights?.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {dream.data.insights.map((insight, i) => (
                   <li key={i} className="text-xs text-indigo-300/80">- {insight}</li>

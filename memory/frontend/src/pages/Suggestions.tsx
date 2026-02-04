@@ -126,9 +126,9 @@ export function Suggestions() {
 
                     <p className="text-sm text-white/90 leading-relaxed">{suggestion.content}</p>
 
-                    {suggestion.tags.length > 0 && (
+                    {suggestion.tags?.length > 0 && (
                       <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
-                        {suggestion.tags.map((tag) => (
+                        {suggestion.tags?.map((tag) => (
                           <Badge
                             key={tag}
                             className="text-xs bg-[#0a0a0a] text-white/70 border border-white/10 hover:border-amber-500/30 transition-colors"
@@ -191,9 +191,9 @@ export function Suggestions() {
 
                       <p className="text-sm text-white/90 leading-relaxed">{rec.content}</p>
 
-                      {rec.tags.length > 0 && (
+                      {rec.tags?.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
-                          {rec.tags.map((tag) => (
+                          {rec.tags?.map((tag) => (
                             <Badge
                               key={tag}
                               className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/20"

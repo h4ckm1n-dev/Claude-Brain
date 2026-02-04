@@ -136,7 +136,7 @@ export function Analytics() {
 
     const tagMap = new Map<string, number>();
     memories.forEach((memory: Memory) => {
-      memory.tags.forEach(tag => {
+      memory.tags?.forEach(tag => {
         tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
       });
     });
@@ -610,9 +610,9 @@ export function Analytics() {
                         <p className="text-sm text-white/70">{cluster.summary}</p>
                       </div>
                     </div>
-                    {cluster.tags.length > 0 && (
+                    {cluster.tags?.length > 0 && (
                       <div className="flex flex-wrap gap-2 pt-3 border-t border-white/10">
-                        {cluster.tags.map((tag, i) => (
+                        {cluster.tags?.map((tag, i) => (
                           <Badge
                             key={i}
                             className="text-xs bg-[#0a0a0a] text-white/70 border border-white/10"

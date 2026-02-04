@@ -313,9 +313,9 @@ export function Search() {
                   <CardContent className="pt-6 space-y-4">
                     <p className="text-sm text-white/90 leading-relaxed">{result.memory.content}</p>
 
-                    {result.memory.tags.length > 0 && (
+                    {result.memory.tags?.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {result.memory.tags.map((tag) => (
+                        {result.memory.tags?.map((tag) => (
                           <Badge
                             key={tag}
                             className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20 transition-colors"

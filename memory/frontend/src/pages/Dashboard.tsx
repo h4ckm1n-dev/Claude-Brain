@@ -339,7 +339,7 @@ export function Dashboard() {
                         <Badge variant="outline" className="text-xs border-emerald-500/20 text-emerald-400">
                           {cluster.member_count} memories
                         </Badge>
-                        {cluster.tags.slice(0, 2).map((tag) => (
+                        {cluster.tags?.slice(0, 2).map((tag) => (
                           <Badge key={tag} variant="outline" className="text-xs border-purple-500/20 text-purple-400">
                             {tag}
                           </Badge>

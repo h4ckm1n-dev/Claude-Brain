@@ -62,7 +62,7 @@ export function Memories() {
   const filteredMemories = useMemo(() => {
     let filtered = memories?.filter((m: Memory) =>
       !searchQuery || m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      m.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
     ) || [];
 
     // Apply access filter
@@ -391,14 +391,14 @@ export function Memories() {
                           </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {memory.tags.slice(0, 3).map((tag) => (
+                          {memory.tags?.slice(0, 3).map((tag) => (
                             <Badge key={tag} className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/20">
                               {tag}
                             </Badge>
                           ))}
-                          {memory.tags.length > 3 && (
+                          {memory.tags?.length > 3 && (
                             <Badge className="text-xs bg-white/5 text-white/50 border-white/10">
-                              +{memory.tags.length - 3}
+                              +{(memory.tags?.length ?? 0) - 3}
                             </Badge>
                           )}
                         </div>
@@ -710,7 +710,7 @@ function QualityLeaderboardSection() {
             </div>
             <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
               <p className="text-xs text-white/50">Issues</p>
-              <p className="text-lg font-bold text-amber-400">{report.top_issues.length}</p>
+              <p className="text-lg font-bold text-amber-400">{report.top_issues?.length ?? 0}</p>
             </div>
           </div>
         )}
