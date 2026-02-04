@@ -50,7 +50,7 @@ async def get_quality_trend(
     Returns:
         Quality score history with timestamps
     """
-    from ..quality_tracking import QualityTracker
+    from ..quality_tracking import get_memory_quality_trend
 
     try:
         # Get current memory to verify it exists
@@ -60,12 +60,14 @@ async def get_quality_trend(
 
         client = collections.get_client()
 
-        trend = QualityTracker.get_quality_trend(
+        trend = get_memory_quality_trend(
             client,
             collections.COLLECTION_NAME,
-            memory_id,
-            days_back=days_back
+            memory_id
         )
+
+        if "error" in trend:
+            raise HTTPException(status_code=500, detail=trend["error"])
 
         return trend
 
