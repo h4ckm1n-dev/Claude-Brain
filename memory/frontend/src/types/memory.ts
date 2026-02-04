@@ -170,6 +170,13 @@ export interface ConsolidateRequest {
   dry_run?: boolean;
 }
 
+export interface ConsolidationDetail {
+  cluster_id: string;
+  memory_ids: string[];
+  action: string;
+  reason: string;
+}
+
 export interface ConsolidateResult {
   analyzed: number;
   consolidated: number;
@@ -177,7 +184,7 @@ export interface ConsolidateResult {
   deleted: number;
   kept: number;
   dry_run: boolean;
-  details?: any;
+  details?: ConsolidationDetail[];
 }
 
 // ============================================================================
@@ -201,11 +208,11 @@ export interface QualityStats {
   total_memories: number;
   avg_quality_score: number;
   quality_distribution: {
-    excellent: number;  // 80-100
-    good: number;       // 60-80
-    fair: number;       // 40-60
-    poor: number;       // 20-40
-    very_poor: number;  // 0-20
+    excellent: number;  // 0.8-1.0
+    good: number;       // 0.6-0.8
+    fair: number;       // 0.4-0.6
+    poor: number;       // 0.2-0.4
+    very_poor: number;  // 0.0-0.2
   };
   high_quality_count?: number;
   promotion_eligible_count?: number;

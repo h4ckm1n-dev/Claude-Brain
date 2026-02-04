@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from './components/layout/AppLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Dashboard } from './pages/Dashboard';
 import { Memories } from './pages/Memories';
 import { Search } from './pages/Search';
@@ -34,15 +35,15 @@ function AppContent() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<AppLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="memories" element={<Memories />} />
-          <Route path="documents" element={<Documents />} />
-          <Route path="search" element={<Search />} />
-          <Route path="graph" element={<Graph />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="brain" element={<BrainIntelligence />} />
-          <Route path="suggestions" element={<Suggestions />} />
-          <Route path="settings" element={<Settings />} />
+          <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+          <Route path="memories" element={<ErrorBoundary><Memories /></ErrorBoundary>} />
+          <Route path="documents" element={<ErrorBoundary><Documents /></ErrorBoundary>} />
+          <Route path="search" element={<ErrorBoundary><Search /></ErrorBoundary>} />
+          <Route path="graph" element={<ErrorBoundary><Graph /></ErrorBoundary>} />
+          <Route path="analytics" element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+          <Route path="brain" element={<ErrorBoundary><BrainIntelligence /></ErrorBoundary>} />
+          <Route path="suggestions" element={<ErrorBoundary><Suggestions /></ErrorBoundary>} />
+          <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
         </Route>
       </Routes>
     </BrowserRouter>

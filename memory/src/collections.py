@@ -461,9 +461,9 @@ def search_memories(
         ]
         store_cache(client, query_embeddings["dense"], query.query, cache_data)
 
-    # Increment access counts
-    for result in search_results:
-        _increment_access_count(result.memory.id)
+    # Track access and reinforce strength for top results
+    for result in search_results[:5]:
+        track_access(result.memory.id)
 
     # Phase 1.2: Track co-access for relationship inference
     # Memories accessed together in search results may be related
@@ -1144,7 +1144,8 @@ def migrate_collection() -> dict:
 def track_access(memory_id: str) -> bool:
     """
     Update access tracking for a memory.
-    Increments access_count and updates last_accessed timestamp.
+    Increments access_count, updates last_accessed timestamp,
+    and reinforces memory strength to prevent decay.
     """
     client = get_client()
 
@@ -1168,6 +1169,13 @@ def track_access(memory_id: str) -> bool:
             },
             points=[memory_id]
         )
+
+        # Reinforce memory strength on access to prevent monotonic decay
+        try:
+            from .forgetting import reinforce_memory
+            reinforce_memory(client, COLLECTION_NAME, memory_id, boost_amount=0.1)
+        except Exception as e:
+            logger.debug(f"Memory reinforcement failed for {memory_id}: {e}")
 
         logger.debug(f"Tracked access for memory {memory_id}, count: {current_access_count + 1}")
         return True

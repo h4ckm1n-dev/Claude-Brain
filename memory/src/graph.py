@@ -735,6 +735,155 @@ def reset_graph() -> dict:
             return {"enabled": True, "error": str(e)}
 
 
+# ============================================================================
+# Graph Query Cache
+# ============================================================================
+
+_graph_cache: dict[str, tuple[float, object]] = {}
+_GRAPH_CACHE_TTL = 300  # 5 minutes
+
+
+def _get_cached_graph_query(cache_key: str):
+    """Get cached graph query result if not expired."""
+    import time
+    if cache_key in _graph_cache:
+        cached_time, cached_result = _graph_cache[cache_key]
+        if time.time() - cached_time < _GRAPH_CACHE_TTL:
+            return cached_result
+        del _graph_cache[cache_key]
+    return None
+
+
+def _set_graph_cache(cache_key: str, result):
+    """Cache a graph query result."""
+    import time
+    # Evict oldest if too many entries
+    if len(_graph_cache) > 100:
+        oldest_key = min(_graph_cache, key=lambda k: _graph_cache[k][0])
+        del _graph_cache[oldest_key]
+    _graph_cache[cache_key] = (time.time(), result)
+
+
+# ============================================================================
+# Contradiction Detection
+# ============================================================================
+
+def detect_contradictions(limit: int = 50) -> list[dict]:
+    """Find contradicting memory pairs using graph cycles.
+
+    Detects cases like: A SUPPORTS B, B CONTRADICTS A
+    or: A SUPPORTS B, B SUPPORTS C, C CONTRADICTS A
+
+    Returns:
+        List of contradiction pairs with details
+    """
+    if not is_graph_enabled():
+        return []
+
+    cache_key = f"contradictions:{limit}"
+    cached = _get_cached_graph_query(cache_key)
+    if cached is not None:
+        return cached
+
+    with get_session() as session:
+        if session is None:
+            return []
+
+        try:
+            # Find direct contradictions
+            result = session.run("""
+                MATCH (a:Memory)-[:SUPPORTS]->(b:Memory)-[:CONTRADICTS]->(a)
+                RETURN a.id as memory_a_id, a.content_preview as memory_a,
+                       b.id as memory_b_id, b.content_preview as memory_b,
+                       'supports_then_contradicts' as pattern
+                LIMIT $limit
+                UNION
+                MATCH (a:Memory)-[:CONTRADICTS]->(b:Memory)-[:SUPPORTS]->(a)
+                RETURN a.id as memory_a_id, a.content_preview as memory_a,
+                       b.id as memory_b_id, b.content_preview as memory_b,
+                       'contradicts_then_supports' as pattern
+                LIMIT $limit
+            """, {"limit": limit})
+
+            contradictions = []
+            for record in result:
+                contradictions.append({
+                    "memory_a_id": record["memory_a_id"],
+                    "memory_a_preview": record["memory_a"],
+                    "memory_b_id": record["memory_b_id"],
+                    "memory_b_preview": record["memory_b"],
+                    "pattern": record["pattern"]
+                })
+
+            _set_graph_cache(cache_key, contradictions)
+            return contradictions
+
+        except Exception as e:
+            logger.error(f"Failed to detect contradictions: {e}")
+            return []
+
+
+# ============================================================================
+# Graph-Based Recommendations
+# ============================================================================
+
+def get_recommendations(memory_id: str, limit: int = 10) -> list[dict]:
+    """Recommend related memories using shared relationship patterns.
+
+    Finds memories that share similar relationship patterns with the given memory,
+    even if they are not directly connected.
+
+    Returns:
+        List of recommended memories with reasoning
+    """
+    if not is_graph_enabled():
+        return []
+
+    cache_key = f"recommendations:{memory_id}:{limit}"
+    cached = _get_cached_graph_query(cache_key)
+    if cached is not None:
+        return cached
+
+    with get_session() as session:
+        if session is None:
+            return []
+
+        try:
+            # Find memories that share neighbors (collaborative filtering on graph)
+            result = session.run("""
+                MATCH (source:Memory {id: $id})-[r1]-(shared)-[r2]-(recommended:Memory)
+                WHERE source <> recommended
+                AND NOT (source)-[]-(recommended)
+                WITH recommended,
+                     count(DISTINCT shared) as shared_connections,
+                     collect(DISTINCT type(r1) + ' via ' + COALESCE(shared.content_preview, shared.id)) as paths
+                ORDER BY shared_connections DESC
+                LIMIT $limit
+                RETURN recommended.id as id,
+                       recommended.type as type,
+                       recommended.content_preview as preview,
+                       shared_connections,
+                       paths
+            """, {"id": memory_id, "limit": limit})
+
+            recommendations = []
+            for record in result:
+                recommendations.append({
+                    "id": record["id"],
+                    "type": record["type"],
+                    "preview": record["preview"],
+                    "shared_connections": record["shared_connections"],
+                    "reasoning": record["paths"][:3]  # Top 3 paths
+                })
+
+            _set_graph_cache(cache_key, recommendations)
+            return recommendations
+
+        except Exception as e:
+            logger.error(f"Failed to get recommendations: {e}")
+            return []
+
+
 def close_driver():
     """Close the Neo4j driver."""
     global _driver

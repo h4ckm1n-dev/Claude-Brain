@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration from environment
 QUALITY_ENFORCEMENT = os.getenv("MEMORY_QUALITY_ENFORCEMENT", "warn")  # strict|warn|off
-MIN_QUALITY_SCORE = int(os.getenv("MEMORY_MIN_QUALITY_SCORE", "50"))
+# Quality scores are 0.0-1.0 (unified with quality_tracking.py)
+MIN_QUALITY_SCORE = float(os.getenv("MEMORY_MIN_QUALITY_SCORE", "0.5"))
 REQUIRE_CONTEXT_FOR_DECISIONS = os.getenv("MEMORY_REQUIRE_CONTEXT_FOR_DECISIONS", "true").lower() == "true"
 REQUIRE_CONTEXT_FOR_PATTERNS = os.getenv("MEMORY_REQUIRE_CONTEXT_FOR_PATTERNS", "true").lower() == "true"
 REQUIRE_CONTEXT_FOR_ERRORS = os.getenv("MEMORY_REQUIRE_CONTEXT_FOR_ERRORS", "true").lower() == "true"
@@ -26,16 +27,18 @@ MIN_WORDS = int(os.getenv("MEMORY_MIN_WORDS", "5"))
 
 class QualityValidationError(Exception):
     """Raised when memory quality is too low."""
-    def __init__(self, score: int, warnings: list[str]):
+    def __init__(self, score: float, warnings: list[str]):
         self.score = score
         self.warnings = warnings
-        message = f"Memory quality too low ({score}/100). Issues:\n" + "\n".join(f"  - {w}" for w in warnings)
+        message = f"Memory quality too low ({score:.2f}/1.0). Issues:\n" + "\n".join(f"  - {w}" for w in warnings)
         super().__init__(message)
 
 
-def calculate_quality_score(memory: MemoryCreate) -> tuple[int, list[str]]:
+def calculate_quality_score(memory: MemoryCreate) -> tuple[float, list[str]]:
     """
-    Calculate quality score (0-100) and return warnings.
+    Calculate quality score (0.0-1.0) and return warnings.
+
+    Uses 0.0-1.0 scale consistent with quality_tracking.py.
 
     Args:
         memory: Memory to validate
@@ -43,7 +46,7 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[int, list[str]]:
     Returns:
         tuple: (score, warnings)
     """
-    score = 100
+    score = 1.0
     warnings = []
 
     content = memory.content.strip()
@@ -53,25 +56,25 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[int, list[str]]:
 
     # Minimum content length
     if len(content) < MIN_CONTENT_LENGTH:
-        score -= 30
+        score -= 0.30
         warnings.append(f"Content too short ({len(content)} chars, need {MIN_CONTENT_LENGTH}+)")
 
     # Minimum word count
     if word_count < MIN_WORDS:
-        score -= 25
+        score -= 0.25
         warnings.append(f"Content has only {word_count} words (need {MIN_WORDS}+)")
 
     # Placeholder/test content
     placeholder_phrases = {'test', 'todo', 'placeholder', 'tbd', 'fixme', 'xxx'}
     if content.lower() in placeholder_phrases:
-        score -= 50
+        score -= 0.50
         warnings.append("Content is a placeholder - provide actual information")
 
     # Generic/useless tags
     if memory.tags:
         useless_tags = {'test', 'todo', 'temp', 'misc', 'other', 'general'}
         if all(tag.lower() in useless_tags for tag in memory.tags):
-            score -= 30
+            score -= 0.30
             warnings.append("All tags are generic - use descriptive tags")
 
     # ===== IMPORTANT ISSUES (Medium penalty) =====
@@ -79,7 +82,7 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[int, list[str]]:
     # Tag count
     tag_count = len(memory.tags) if memory.tags else 0
     if tag_count < MIN_TAGS:
-        score -= 20
+        score -= 0.20
         warnings.append(f"Only {tag_count} tags (need {MIN_TAGS}+ for searchability)")
 
     # Vague content (short + contains trigger words)
@@ -87,7 +90,7 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[int, list[str]]:
     content_lower = content.lower()
     has_vague_words = any(phrase in content_lower for phrase in vague_phrases)
     if has_vague_words and len(content) < 80:
-        score -= 20
+        score -= 0.20
         warnings.append("Content seems vague - explain HOW and WHY, not just WHAT")
 
     # ===== TYPE-SPECIFIC VALIDATION =====
@@ -95,63 +98,63 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[int, list[str]]:
     # DECISION memories
     if memory.type == MemoryType.DECISION:
         if not memory.rationale:
-            score -= 30
+            score -= 0.30
             warnings.append("Decision must include rationale explaining WHY this was chosen")
 
         if not memory.alternatives:
-            score -= 10
+            score -= 0.10
             warnings.append("Decision should list alternatives that were considered")
 
         if REQUIRE_CONTEXT_FOR_DECISIONS and not memory.context:
-            score -= 15
+            score -= 0.15
             warnings.append("Decision should include context explaining the situation")
 
     # ERROR memories
     elif memory.type == MemoryType.ERROR:
         if not memory.solution and not memory.prevention:
-            score -= 25
+            score -= 0.25
             warnings.append("Error should include either solution (how it was fixed) or prevention (how to avoid)")
 
         if not memory.error_message:
-            score -= 10
+            score -= 0.10
             warnings.append("Error should include the actual error message")
 
         if REQUIRE_CONTEXT_FOR_ERRORS and not memory.context:
-            score -= 10
+            score -= 0.10
             warnings.append("Error should include context about when/why it occurred")
 
     # PATTERN memories
     elif memory.type == MemoryType.PATTERN:
         if REQUIRE_CONTEXT_FOR_PATTERNS and not memory.context:
-            score -= 15
+            score -= 0.15
             warnings.append("Pattern should include context explaining when to use this pattern")
 
         if len(content) < 100:
-            score -= 10
+            score -= 0.10
             warnings.append("Pattern should be detailed enough to be reusable (100+ chars)")
 
     # DOCS memories
     elif memory.type == MemoryType.DOCS:
         if not memory.source:
-            score -= 5
+            score -= 0.05
             warnings.append("Docs should include source URL or reference")
 
     # ===== MINOR ISSUES (Low penalty) =====
 
     # No project specified (for project-specific knowledge)
     if not memory.project and memory.type in [MemoryType.DECISION, MemoryType.PATTERN]:
-        score -= 5
+        score -= 0.05
         warnings.append("Consider adding project name for project-specific knowledge")
 
     # Short content for detailed types
     if memory.type in [MemoryType.DECISION, MemoryType.PATTERN] and len(content) < 50:
-        score -= 10
+        score -= 0.10
         warnings.append(f"{memory.type.value} should be more detailed (50+ chars)")
 
-    return max(0, score), warnings
+    return max(0.0, round(score, 2)), warnings
 
 
-def validate_memory_quality(memory: MemoryCreate) -> tuple[bool, int, list[str]]:
+def validate_memory_quality(memory: MemoryCreate) -> tuple[bool, float, list[str]]:
     """
     Validate memory quality and optionally raise exception.
 
@@ -173,7 +176,7 @@ def validate_memory_quality(memory: MemoryCreate) -> tuple[bool, int, list[str]]
     # Log results
     if warnings:
         log_level = logging.WARNING if not is_valid else logging.INFO
-        logger.log(log_level, f"Memory quality score: {score}/100 (type={memory.type.value})")
+        logger.log(log_level, f"Memory quality score: {score:.2f}/1.0 (type={memory.type.value})")
         for warning in warnings:
             logger.log(log_level, f"  - {warning}")
 
@@ -185,7 +188,7 @@ def validate_memory_quality(memory: MemoryCreate) -> tuple[bool, int, list[str]]
     elif QUALITY_ENFORCEMENT == "warn":
         # Warn but allow
         if not is_valid:
-            logger.warning(f"LOW QUALITY MEMORY (but allowed): score={score}, threshold={MIN_QUALITY_SCORE}")
+            logger.warning(f"LOW QUALITY MEMORY (but allowed): score={score:.2f}, threshold={MIN_QUALITY_SCORE:.2f}")
         return True, score, warnings
 
     elif QUALITY_ENFORCEMENT == "strict":

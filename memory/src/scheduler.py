@@ -1,11 +1,14 @@
 """Background job scheduler for memory maintenance tasks.
 
 Runs periodic consolidation and cleanup jobs.
+Uses job locking to prevent race conditions between conflicting jobs.
 """
 
 import logging
 import os
 from typing import Optional
+
+from .job_lock import job_lock, LOCK_QUALITY, LOCK_CONSOLIDATION, LOCK_STRENGTH, LOCK_GRAPH
 
 logger = logging.getLogger(__name__)
 
@@ -180,24 +183,27 @@ def run_scheduled_consolidation():
     logger.info("Running scheduled consolidation...")
 
     try:
-        from .consolidation import run_consolidation
-        from . import collections
+        with job_lock(LOCK_CONSOLIDATION):
+            from .consolidation import run_consolidation
+            from . import collections
 
-        client = collections.get_client()
-        result = run_consolidation(
-            client,
-            collections.COLLECTION_NAME,
-            older_than_days=CONSOLIDATION_OLDER_THAN_DAYS,
-            dry_run=False
-        )
+            client = collections.get_client()
+            result = run_consolidation(
+                client,
+                collections.COLLECTION_NAME,
+                older_than_days=CONSOLIDATION_OLDER_THAN_DAYS,
+                dry_run=False
+            )
 
-        logger.info(
-            f"Scheduled consolidation complete: "
-            f"analyzed={result.analyzed}, "
-            f"consolidated={result.consolidated}, "
-            f"archived={result.archived}"
-        )
+            logger.info(
+                f"Scheduled consolidation complete: "
+                f"analyzed={result.analyzed}, "
+                f"consolidated={result.consolidated}, "
+                f"archived={result.archived}"
+            )
 
+    except RuntimeError:
+        logger.info("Skipping consolidation - another consolidation job is running")
     except Exception as e:
         logger.error(f"Scheduled consolidation failed: {e}")
 
@@ -258,30 +264,25 @@ def run_relationship_inference():
     logger.info("Running scheduled relationship inference...")
 
     try:
-        from .relationship_inference import RelationshipInference
-        import asyncio
+        with job_lock(LOCK_GRAPH):
+            from .relationship_inference import RelationshipInference
+            import asyncio
 
-        # Run async inference functions
-        async def infer_all():
-            # Infer error→solution links
-            fixes = await RelationshipInference.infer_error_solution_links(lookback_days=30)
+            async def infer_all():
+                fixes = await RelationshipInference.infer_error_solution_links(lookback_days=30)
+                related = await RelationshipInference.infer_related_links(batch_size=20)
+                temporal = await RelationshipInference.infer_temporal_links(hours_window=2)
+                return fixes, related, temporal
 
-            # Infer related links
-            related = await RelationshipInference.infer_related_links(batch_size=20)
+            fixes, related, temporal = asyncio.run(infer_all())
 
-            # Infer temporal links
-            temporal = await RelationshipInference.infer_temporal_links(hours_window=2)
+            logger.info(
+                f"Scheduled relationship inference complete: "
+                f"fixes={fixes}, related={related}, temporal={temporal}"
+            )
 
-            return fixes, related, temporal
-
-        # Run in event loop
-        fixes, related, temporal = asyncio.run(infer_all())
-
-        logger.info(
-            f"Scheduled relationship inference complete: "
-            f"fixes={fixes}, related={related}, temporal={temporal}"
-        )
-
+    except RuntimeError:
+        logger.info("Skipping relationship inference - another graph job is running")
     except Exception as e:
         logger.error(f"Scheduled relationship inference failed: {e}")
 
@@ -312,20 +313,23 @@ def run_utility_archival():
     logger.info("Running scheduled utility-based archival...")
 
     try:
-        from .consolidation import archive_low_utility_memories
-        from . import collections
+        with job_lock(LOCK_STRENGTH):
+            from .consolidation import archive_low_utility_memories
+            from . import collections
 
-        client = collections.get_client()
-        archived = archive_low_utility_memories(
-            client,
-            collections.COLLECTION_NAME,
-            utility_threshold=0.3,
-            max_archive=100,
-            dry_run=False
-        )
+            client = collections.get_client()
+            archived = archive_low_utility_memories(
+                client,
+                collections.COLLECTION_NAME,
+                utility_threshold=0.3,
+                max_archive=100,
+                dry_run=False
+            )
 
-        logger.info(f"Scheduled utility archival complete: archived={archived}")
+            logger.info(f"Scheduled utility archival complete: archived={archived}")
 
+    except RuntimeError:
+        logger.info("Skipping utility archival - another strength/archival job is running")
     except Exception as e:
         logger.error(f"Scheduled utility archival failed: {e}")
 
@@ -453,26 +457,29 @@ def run_memory_strength_update():
     logger.info("Running scheduled memory strength update...")
 
     try:
-        from .forgetting import update_all_memory_strengths
-        from . import collections
+        with job_lock(LOCK_STRENGTH):
+            from .forgetting import update_all_memory_strengths
+            from . import collections
 
-        client = collections.get_client()
-        result = update_all_memory_strengths(
-            client,
-            collections.COLLECTION_NAME,
-            batch_size=100,
-            max_updates=None  # Update all memories
-        )
+            client = collections.get_client()
+            result = update_all_memory_strengths(
+                client,
+                collections.COLLECTION_NAME,
+                batch_size=100,
+                max_updates=None
+            )
 
-        logger.info(
-            f"Scheduled memory strength update complete: "
-            f"processed={result['total_processed']}, "
-            f"updated={result['updated']}, "
-            f"archived={result['archived']}, "
-            f"purged={result['purged']}, "
-            f"avg_strength={result['avg_strength']:.3f}"
-        )
+            logger.info(
+                f"Scheduled memory strength update complete: "
+                f"processed={result['total_processed']}, "
+                f"updated={result['updated']}, "
+                f"archived={result['archived']}, "
+                f"purged={result['purged']}, "
+                f"avg_strength={result['avg_strength']:.3f}"
+            )
 
+    except RuntimeError:
+        logger.info("Skipping strength update - another strength/archival job is running")
     except Exception as e:
         logger.error(f"Scheduled memory strength update failed: {e}")
 
@@ -487,52 +494,53 @@ def run_session_consolidation():
     logger.info("Running scheduled session consolidation...")
 
     try:
-        from .session_extraction import SessionManager
-        from . import collections
+        with job_lock(LOCK_CONSOLIDATION):
+            from .session_extraction import SessionManager
+            from . import collections
 
-        client = collections.get_client()
+            client = collections.get_client()
 
-        # Get sessions ready for consolidation
-        ready_sessions = SessionManager.get_sessions_for_consolidation(
-            client,
-            collections.COLLECTION_NAME,
-            older_than_hours=24
-        )
+            # Get sessions ready for consolidation
+            ready_sessions = SessionManager.get_sessions_for_consolidation(
+                client,
+                collections.COLLECTION_NAME,
+                older_than_hours=24
+            )
 
-        consolidated = 0
-        failed = 0
+            consolidated = 0
+            failed = 0
 
-        # Consolidate each session
-        for session_id in ready_sessions:
-            try:
-                # Infer relationships within session first
-                SessionManager.infer_session_relationships(
-                    client,
-                    collections.COLLECTION_NAME,
-                    session_id
-                )
+            # Consolidate each session
+            for session_id in ready_sessions:
+                try:
+                    SessionManager.infer_session_relationships(
+                        client,
+                        collections.COLLECTION_NAME,
+                        session_id
+                    )
 
-                # Consolidate into summary
-                summary_id = SessionManager.consolidate_session(
-                    client,
-                    collections.COLLECTION_NAME,
-                    session_id
-                )
+                    summary_id = SessionManager.consolidate_session(
+                        client,
+                        collections.COLLECTION_NAME,
+                        session_id
+                    )
 
-                if summary_id:
-                    consolidated += 1
-                else:
+                    if summary_id:
+                        consolidated += 1
+                    else:
+                        failed += 1
+
+                except Exception as e:
+                    logger.error(f"Failed to consolidate session {session_id}: {e}")
                     failed += 1
 
-            except Exception as e:
-                logger.error(f"Failed to consolidate session {session_id}: {e}")
-                failed += 1
+            logger.info(
+                f"Scheduled session consolidation complete: "
+                f"consolidated={consolidated}, failed={failed}"
+            )
 
-        logger.info(
-            f"Scheduled session consolidation complete: "
-            f"consolidated={consolidated}, failed={failed}"
-        )
-
+    except RuntimeError:
+        logger.info("Skipping session consolidation - another consolidation job is running")
     except Exception as e:
         logger.error(f"Scheduled session consolidation failed: {e}")
 
@@ -543,39 +551,36 @@ def run_session_consolidation():
 
 
 def run_quality_score_update():
-    """Run quality score update and tier promotion as a scheduled job."""
+    """Run quality score update as a scheduled job.
+
+    Note: Tier promotion is handled exclusively by run_state_machine_update()
+    to prevent race conditions from duplicate promotion logic.
+    """
     logger.info("Running scheduled quality score update...")
 
     try:
-        from .quality_tracking import QualityTracker, TierPromotionEngine
-        from . import collections
+        with job_lock(LOCK_QUALITY):
+            from .quality_tracking import QualityTracker
+            from . import collections
 
-        client = collections.get_client()
+            client = collections.get_client()
 
-        # Update quality scores for all active memories
-        update_result = QualityTracker.update_quality_scores(
-            client,
-            collections.COLLECTION_NAME,
-            batch_size=100
-        )
+            # Update quality scores for all active memories
+            update_result = QualityTracker.update_quality_scores(
+                client,
+                collections.COLLECTION_NAME,
+                batch_size=100
+            )
 
-        # Run automatic tier promotion
-        promotion_result = TierPromotionEngine.auto_promote_batch(
-            client,
-            collections.COLLECTION_NAME,
-            dry_run=False
-        )
+            logger.info(
+                f"Scheduled quality score update complete: "
+                f"updated={update_result['total_updated']}, "
+                f"failed={update_result['failed']}, "
+                f"avg_quality={update_result['avg_quality']:.3f}"
+            )
 
-        logger.info(
-            f"Scheduled quality score update complete: "
-            f"updated={update_result['total_updated']}, "
-            f"failed={update_result['failed']}, "
-            f"avg_quality={update_result['avg_quality']:.3f}, "
-            f"promoted={promotion_result['promoted_count']} "
-            f"(episodic→semantic: {promotion_result['episodic_to_semantic']}, "
-            f"semantic→procedural: {promotion_result['semantic_to_procedural']})"
-        )
-
+    except RuntimeError:
+        logger.info("Skipping quality update - another quality/promotion job is running")
     except Exception as e:
         logger.error(f"Scheduled quality score update failed: {e}")
 
@@ -586,36 +591,41 @@ def run_quality_score_update():
 
 
 def run_state_machine_update():
-    """Run memory state machine updates as a scheduled job."""
+    """Run memory state machine updates as a scheduled job.
+
+    This job owns all tier promotions (episodic -> semantic -> procedural).
+    """
     logger.info("Running scheduled state machine update...")
 
     try:
-        from .lifecycle import update_memory_states
-        from . import collections
+        with job_lock(LOCK_QUALITY):
+            from .lifecycle import update_memory_states
+            from . import collections
 
-        client = collections.get_client()
+            client = collections.get_client()
 
-        # Update memory states based on lifecycle rules
-        result = update_memory_states(
-            client,
-            collections.COLLECTION_NAME,
-            batch_size=100,
-            max_updates=None  # Process all memories
-        )
+            # Update memory states based on lifecycle rules
+            result = update_memory_states(
+                client,
+                collections.COLLECTION_NAME,
+                batch_size=100,
+                max_updates=None
+            )
 
-        logger.info(
-            f"Scheduled state machine update complete: "
-            f"processed={result['total_processed']}, "
-            f"transitions={result['transitions']}, "
-            f"failed={result['failed']}"
-        )
+            logger.info(
+                f"Scheduled state machine update complete: "
+                f"processed={result['total_processed']}, "
+                f"transitions={result['transitions']}, "
+                f"failed={result['failed']}"
+            )
 
-        # Log transition details
-        if result.get("by_transition"):
-            transitions_str = ", ".join([
-                f"{k}: {v}" for k, v in result["by_transition"].items()
-            ])
-            logger.info(f"Transitions: {transitions_str}")
+            if result.get("by_transition"):
+                transitions_str = ", ".join([
+                    f"{k}: {v}" for k, v in result["by_transition"].items()
+                ])
+                logger.info(f"Transitions: {transitions_str}")
 
+    except RuntimeError:
+        logger.info("Skipping state machine update - another quality/promotion job is running")
     except Exception as e:
         logger.error(f"Scheduled state machine update failed: {e}")

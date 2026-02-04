@@ -472,6 +472,314 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {},
         },
       },
+
+      // === Memory Management Tools ===
+      {
+        name: "reinforce_memory",
+        description:
+          "Boost a useful memory's strength to prevent it from decaying. " +
+          "Use when a memory proves particularly valuable during a session.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            memory_id: {
+              type: "string",
+              description: "ID of the memory to reinforce",
+            },
+            boost_amount: {
+              type: "number",
+              description: "Amount to boost strength (0.0-0.5, default: 0.2)",
+            },
+          },
+          required: ["memory_id"],
+        },
+      },
+      {
+        name: "pin_memory",
+        description:
+          "Pin a memory so it never decays. Use for critical decisions, patterns, or knowledge that must persist indefinitely.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            memory_id: {
+              type: "string",
+              description: "ID of the memory to pin",
+            },
+          },
+          required: ["memory_id"],
+        },
+      },
+      {
+        name: "unpin_memory",
+        description: "Unpin a memory to allow it to decay normally again.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            memory_id: {
+              type: "string",
+              description: "ID of the memory to unpin",
+            },
+          },
+          required: ["memory_id"],
+        },
+      },
+      {
+        name: "get_weak_memories",
+        description:
+          "Get memories with low strength that are fading and may be archived soon. " +
+          "Use to review what knowledge is being lost and decide whether to reinforce or let go.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            strength_threshold: {
+              type: "number",
+              description: "Strength threshold (0.0-1.0, default: 0.3)",
+            },
+            limit: {
+              type: "number",
+              description: "Maximum results (default: 50)",
+            },
+          },
+        },
+      },
+      {
+        name: "export_memories",
+        description: "Export memories as JSON, CSV, or Obsidian-compatible markdown for backup.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            format: {
+              type: "string",
+              enum: ["json", "csv", "obsidian"],
+              description: "Export format (default: json)",
+            },
+            type: {
+              type: "string",
+              description: "Filter by memory type",
+            },
+            project: {
+              type: "string",
+              description: "Filter by project",
+            },
+          },
+        },
+      },
+
+      // === Brain Intelligence Tools ===
+      {
+        name: "brain_dream",
+        description:
+          "Trigger dream mode - rapid random memory replay to discover unexpected connections. " +
+          "Simulates REM sleep consolidation.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            duration: {
+              type: "number",
+              description: "Duration in seconds (10-300, default: 30)",
+            },
+          },
+        },
+      },
+      {
+        name: "brain_detect_conflicts",
+        description:
+          "Find contradicting memories and resolve conflicts via SUPERSEDES relationships. " +
+          "Use to maintain knowledge consistency.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            limit: {
+              type: "number",
+              description: "Maximum memories to check (default: 50)",
+            },
+          },
+        },
+      },
+      {
+        name: "brain_replay",
+        description:
+          "Replay important memories to strengthen them. " +
+          "Simulates how brains consolidate memories during rest.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            count: {
+              type: "number",
+              description: "Number of memories to replay (default: 10)",
+            },
+            importance_threshold: {
+              type: "number",
+              description: "Only replay above this importance (0.0-1.0, default: 0.5)",
+            },
+          },
+        },
+      },
+      {
+        name: "run_inference",
+        description:
+          "Discover new relationships between memories automatically. " +
+          "Runs temporal, semantic, causal, and error-solution inference.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            inference_type: {
+              type: "string",
+              enum: ["all", "temporal", "semantic", "causal", "error-solution"],
+              description: "Type of inference to run (default: all)",
+            },
+          },
+        },
+      },
+
+      // === Temporal & Analytics Tools ===
+      {
+        name: "temporal_query",
+        description:
+          "Query what was known at a specific point in time. " +
+          "Answers: 'What did I know about X on date Y?'",
+        inputSchema: {
+          type: "object",
+          properties: {
+            target_time: {
+              type: "string",
+              description: "ISO 8601 timestamp (e.g., 2024-01-15T12:00:00Z)",
+            },
+            project: {
+              type: "string",
+              description: "Filter by project",
+            },
+            limit: {
+              type: "number",
+              description: "Maximum results (default: 50)",
+            },
+          },
+          required: ["target_time"],
+        },
+      },
+      {
+        name: "error_trends",
+        description:
+          "Analyze recurring error patterns, detect error spikes, and identify error clusters. " +
+          "Use to find systematic issues.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            time_window_days: {
+              type: "number",
+              description: "Time window in days (default: 30)",
+            },
+            min_cluster_size: {
+              type: "number",
+              description: "Minimum errors to form a cluster (default: 2)",
+            },
+          },
+        },
+      },
+      {
+        name: "knowledge_gaps",
+        description:
+          "Detect areas with thin knowledge: topics with errors but no patterns, " +
+          "projects with low documentation, and expertise gaps.",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+      },
+      {
+        name: "query_enhance",
+        description:
+          "Improve a search query with synonym expansion and typo correction. " +
+          "Use before search_memory for better results on vague or misspelled queries.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "Search query to enhance",
+            },
+            expand_synonyms: {
+              type: "boolean",
+              description: "Add synonyms for better recall (default: true)",
+            },
+            correct_typos: {
+              type: "boolean",
+              description: "Suggest typo corrections (default: true)",
+            },
+          },
+          required: ["query"],
+        },
+      },
+
+      // === Session Management Tools ===
+      {
+        name: "new_session",
+        description:
+          "Create a new conversation session context. " +
+          "Use at the start of a focused work session to group related memories.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            project: {
+              type: "string",
+              description: "Project name to associate with session",
+            },
+          },
+        },
+      },
+      {
+        name: "consolidate_session",
+        description:
+          "Consolidate all memories from a session into a summary. " +
+          "Creates a summary memory and links all session memories together.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            session_id: {
+              type: "string",
+              description: "Session ID to consolidate",
+            },
+          },
+          required: ["session_id"],
+        },
+      },
+
+      // === Graph Enhancement Tools ===
+      {
+        name: "graph_contradictions",
+        description:
+          "Find contradicting memory pairs in the knowledge graph. " +
+          "Detects cycles like A supports B but B contradicts A.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            limit: {
+              type: "number",
+              description: "Maximum contradictions to find (default: 50)",
+            },
+          },
+        },
+      },
+      {
+        name: "graph_recommendations",
+        description:
+          "Get recommended memories based on shared graph relationship patterns. " +
+          "Finds memories similar to the given one via collaborative filtering on the knowledge graph.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            memory_id: {
+              type: "string",
+              description: "Memory ID to get recommendations for",
+            },
+            limit: {
+              type: "number",
+              description: "Maximum recommendations (default: 10)",
+            },
+          },
+          required: ["memory_id"],
+        },
+      },
     ],
   };
 });
@@ -1060,6 +1368,556 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 `Collection: ${result.collection}\n` +
                 `Total Chunks: ${result.total_chunks}\n` +
                 `Status: ${result.status}`,
+            },
+          ],
+        };
+      }
+
+      // === Memory Management Tools ===
+      case "reinforce_memory": {
+        const { memory_id, boost_amount = 0.2 } = args as {
+          memory_id: string;
+          boost_amount?: number;
+        };
+
+        const result = await apiCall<{
+          status: string;
+          id: string;
+          new_strength: number;
+          boost_amount: number;
+        }>(`/memories/${memory_id}/reinforce?boost_amount=${boost_amount}`, {
+          method: "POST",
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Reinforced memory ${result.id}\nNew strength: ${result.new_strength.toFixed(3)}\nBoost: +${result.boost_amount}`,
+            },
+          ],
+        };
+      }
+
+      case "pin_memory": {
+        const { memory_id } = args as { memory_id: string };
+        await apiCall(`/memories/${memory_id}/pin`, { method: "POST" });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Pinned memory ${memory_id} - it will never decay.`,
+            },
+          ],
+        };
+      }
+
+      case "unpin_memory": {
+        const { memory_id } = args as { memory_id: string };
+        await apiCall(`/memories/${memory_id}/unpin`, { method: "POST" });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Unpinned memory ${memory_id} - normal decay resumed.`,
+            },
+          ],
+        };
+      }
+
+      case "get_weak_memories": {
+        const { strength_threshold = 0.3, limit = 50 } = args as {
+          strength_threshold?: number;
+          limit?: number;
+        };
+
+        const result = await apiCall<
+          Array<{
+            id: string;
+            content: string;
+            type: string;
+            memory_strength: number;
+            access_count: number;
+            created_at: string;
+          }>
+        >(
+          `/forgetting/weak?strength_threshold=${strength_threshold}&limit=${limit}`
+        );
+
+        if (result.length === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No weak memories found - all memories are strong.",
+              },
+            ],
+          };
+        }
+
+        const formatted = result
+          .map(
+            (m, i) =>
+              `${i + 1}. [${m.type}] strength: ${(m.memory_strength ?? 0).toFixed(3)}\n` +
+              `   ID: ${m.id}\n` +
+              `   ${m.content.substring(0, 150)}${m.content.length > 150 ? "..." : ""}\n` +
+              `   Accessed: ${m.access_count}x`
+          )
+          .join("\n\n");
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Weak memories (${result.length}, threshold: ${strength_threshold}):\n\n${formatted}`,
+            },
+          ],
+        };
+      }
+
+      case "export_memories": {
+        const { format = "json", type: memType, project } = args as {
+          format?: string;
+          type?: string;
+          project?: string;
+        };
+
+        const params = new URLSearchParams({ format });
+        if (memType) params.append("type", memType);
+        if (project) params.append("project", project);
+
+        const result = await apiCall<unknown>(
+          `/export/memories?${params.toString()}`
+        );
+
+        const exportStr =
+          typeof result === "string"
+            ? result
+            : JSON.stringify(result, null, 2).substring(0, 5000);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Export (${format}):\n\n${exportStr}${
+                exportStr.length >= 5000 ? "\n\n... (truncated)" : ""
+              }`,
+            },
+          ],
+        };
+      }
+
+      // === Brain Intelligence Tools ===
+      case "brain_dream": {
+        const { duration = 30 } = args as { duration?: number };
+
+        const result = await apiCall<{
+          replayed: number;
+          connections_found: number;
+          duration_seconds: number;
+        }>(`/brain/dream?duration=${duration}`, { method: "POST" });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Dream mode complete:\n\n` +
+                `Memories replayed: ${result.replayed}\n` +
+                `Connections found: ${result.connections_found}\n` +
+                `Duration: ${result.duration_seconds}s`,
+            },
+          ],
+        };
+      }
+
+      case "brain_detect_conflicts": {
+        const { limit = 50 } = args as { limit?: number };
+
+        const result = await apiCall<{
+          success: boolean;
+          conflicts_detected: number;
+          conflicts_resolved: number;
+        }>(`/brain/detect-conflicts?limit=${limit}`, { method: "POST" });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Conflict detection complete:\n\n` +
+                `Conflicts detected: ${result.conflicts_detected}\n` +
+                `Conflicts resolved: ${result.conflicts_resolved}`,
+            },
+          ],
+        };
+      }
+
+      case "brain_replay": {
+        const { count = 10, importance_threshold = 0.5 } = args as {
+          count?: number;
+          importance_threshold?: number;
+        };
+
+        const result = await apiCall<{
+          replayed: number;
+          strengthened: number;
+        }>(
+          `/brain/replay?count=${count}&importance_threshold=${importance_threshold}`,
+          { method: "POST" }
+        );
+
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Memory replay complete:\n\n` +
+                `Replayed: ${result.replayed}\n` +
+                `Strengthened: ${result.strengthened ?? result.replayed}`,
+            },
+          ],
+        };
+      }
+
+      case "run_inference": {
+        const { inference_type = "all" } = args as {
+          inference_type?: string;
+        };
+
+        const result = await apiCall<Record<string, unknown>>(
+          `/inference/run?inference_type=${inference_type}`,
+          { method: "POST" }
+        );
+
+        const summary = Object.entries(result)
+          .filter(([k]) => k !== "inference_type")
+          .map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)
+          .join("\n");
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Relationship inference (${inference_type}):\n\n${summary}`,
+            },
+          ],
+        };
+      }
+
+      // === Temporal & Analytics Tools ===
+      case "temporal_query": {
+        const { target_time, project, limit = 50 } = args as {
+          target_time: string;
+          project?: string;
+          limit?: number;
+        };
+
+        const params = new URLSearchParams({
+          target_time,
+          limit: String(limit),
+        });
+        if (project) params.append("project", project);
+
+        const result = await apiCall<{
+          target_time: string;
+          memories: Array<{
+            id: string;
+            type: string;
+            content: string;
+            created_at: string;
+          }>;
+          count: number;
+        }>(`/temporal/valid-at?${params.toString()}`);
+
+        if (result.count === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `No memories were valid at ${target_time}`,
+              },
+            ],
+          };
+        }
+
+        const formatted = result.memories
+          .map(
+            (m, i) =>
+              `${i + 1}. [${m.type}] ${m.content.substring(0, 200)}`
+          )
+          .join("\n\n");
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Memories valid at ${target_time} (${result.count}):\n\n${formatted}`,
+            },
+          ],
+        };
+      }
+
+      case "error_trends": {
+        const { time_window_days = 30, min_cluster_size = 2 } = args as {
+          time_window_days?: number;
+          min_cluster_size?: number;
+        };
+
+        const result = await apiCall<{
+          clusters: Array<{ tags: string[]; count: number }>;
+          spikes: Array<{ date: string; count: number }>;
+          recurring: Array<{
+            error_message: string;
+            occurrences: number;
+          }>;
+          time_window_days: number;
+        }>(
+          `/analytics/error-trends?time_window_days=${time_window_days}&min_cluster_size=${min_cluster_size}`
+        );
+
+        let text = `Error Trends (last ${result.time_window_days} days):\n\n`;
+
+        if (result.clusters?.length > 0) {
+          text += `Clusters:\n`;
+          text += result.clusters
+            .map((c) => `  [${c.tags.join(", ")}]: ${c.count} errors`)
+            .join("\n");
+          text += "\n\n";
+        }
+
+        if (result.recurring?.length > 0) {
+          text += `Recurring:\n`;
+          text += result.recurring
+            .map(
+              (r) => `  "${r.error_message}" (${r.occurrences}x)`
+            )
+            .join("\n");
+          text += "\n\n";
+        }
+
+        if (result.spikes?.length > 0) {
+          text += `Spikes:\n`;
+          text += result.spikes
+            .map((s) => `  ${s.date}: ${s.count} errors`)
+            .join("\n");
+        }
+
+        return {
+          content: [{ type: "text", text }],
+        };
+      }
+
+      case "knowledge_gaps": {
+        const result = await apiCall<{
+          errors_without_patterns: unknown[];
+          low_documentation_projects: unknown[];
+        }>("/analytics/knowledge-gaps");
+
+        let text = `Knowledge Gap Analysis:\n\n`;
+
+        const errGaps = result.errors_without_patterns || [];
+        text += `Errors without patterns: ${errGaps.length}\n`;
+        if (errGaps.length > 0) {
+          text += errGaps
+            .slice(0, 10)
+            .map((e: unknown) => `  - ${JSON.stringify(e).substring(0, 120)}`)
+            .join("\n");
+          text += "\n\n";
+        }
+
+        const lowDocs = result.low_documentation_projects || [];
+        text += `Low documentation projects: ${lowDocs.length}\n`;
+        if (lowDocs.length > 0) {
+          text += lowDocs
+            .slice(0, 10)
+            .map((p: unknown) => `  - ${JSON.stringify(p).substring(0, 120)}`)
+            .join("\n");
+        }
+
+        return {
+          content: [{ type: "text", text }],
+        };
+      }
+
+      case "query_enhance": {
+        const {
+          query,
+          expand_synonyms = true,
+          correct_typos = true,
+        } = args as {
+          query: string;
+          expand_synonyms?: boolean;
+          correct_typos?: boolean;
+        };
+
+        const result = await apiCall<{
+          original_query: string;
+          enhanced_query: string;
+          corrections: Array<{ original: string; suggestion: string }>;
+          expansions: string[];
+        }>(
+          `/query/enhance?query=${encodeURIComponent(query)}&expand_synonyms=${expand_synonyms}&correct_typos=${correct_typos}`,
+          { method: "POST" }
+        );
+
+        let text = `Query Enhancement:\n\n`;
+        text += `Original: "${result.original_query}"\n`;
+        text += `Enhanced: "${result.enhanced_query}"\n`;
+
+        if (result.corrections?.length > 0) {
+          text += `\nCorrections:\n`;
+          text += result.corrections
+            .map((c) => `  "${c.original}" → "${c.suggestion}"`)
+            .join("\n");
+        }
+
+        if (result.expansions?.length > 0) {
+          text += `\nExpansions: ${result.expansions.join(", ")}`;
+        }
+
+        return {
+          content: [{ type: "text", text }],
+        };
+      }
+
+      // === Session Management Tools ===
+      case "new_session": {
+        const { project } = args as { project?: string };
+
+        const params = project ? `?project=${encodeURIComponent(project)}` : "";
+        const result = await apiCall<{
+          session_id: string;
+          project: string | null;
+          created_at: string;
+        }>(`/sessions/new${params}`, { method: "POST" });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `New session created:\n\n` +
+                `Session ID: ${result.session_id}\n` +
+                `Project: ${result.project || "none"}\n` +
+                `Created: ${result.created_at}`,
+            },
+          ],
+        };
+      }
+
+      case "consolidate_session": {
+        const { session_id } = args as { session_id: string };
+
+        const result = await apiCall<{
+          session_id: string;
+          summary_memory_id: string;
+          links_created: number;
+        }>(`/sessions/${session_id}/consolidate`, { method: "POST" });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Session consolidated:\n\n` +
+                `Session: ${result.session_id}\n` +
+                `Summary memory: ${result.summary_memory_id}\n` +
+                `Links created: ${result.links_created}`,
+            },
+          ],
+        };
+      }
+
+      // === Graph Enhancement Tools ===
+      case "graph_contradictions": {
+        const { limit = 50 } = args as { limit?: number };
+
+        const result = await apiCall<{
+          contradictions: Array<{
+            memory_a_id: string;
+            memory_a_preview: string;
+            memory_b_id: string;
+            memory_b_preview: string;
+            pattern: string;
+          }>;
+          count: number;
+        }>(`/graph/contradictions?limit=${limit}`);
+
+        if (result.count === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No contradictions found in the knowledge graph.",
+              },
+            ],
+          };
+        }
+
+        const formatted = result.contradictions
+          .map(
+            (c, i) =>
+              `${i + 1}. ${c.pattern}\n` +
+              `   A: [${c.memory_a_id}] ${c.memory_a_preview}\n` +
+              `   B: [${c.memory_b_id}] ${c.memory_b_preview}`
+          )
+          .join("\n\n");
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Contradictions found (${result.count}):\n\n${formatted}`,
+            },
+          ],
+        };
+      }
+
+      case "graph_recommendations": {
+        const { memory_id, limit = 10 } = args as {
+          memory_id: string;
+          limit?: number;
+        };
+
+        const result = await apiCall<{
+          memory_id: string;
+          recommendations: Array<{
+            id: string;
+            type: string;
+            preview: string;
+            shared_connections: number;
+            reasoning: string[];
+          }>;
+          count: number;
+        }>(`/graph/recommendations/${memory_id}?limit=${limit}`);
+
+        if (result.count === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `No recommendations found for memory ${memory_id}`,
+              },
+            ],
+          };
+        }
+
+        const formatted = result.recommendations
+          .map(
+            (r, i) =>
+              `${i + 1}. [${r.type}] ${r.preview}\n` +
+              `   ID: ${r.id}\n` +
+              `   Shared connections: ${r.shared_connections}\n` +
+              `   Via: ${r.reasoning.join(", ")}`
+          )
+          .join("\n\n");
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Recommendations for ${memory_id} (${result.count}):\n\n${formatted}`,
             },
           ],
         };
