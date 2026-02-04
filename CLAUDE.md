@@ -58,11 +58,30 @@ IMPORTANT: These tools are available in every session. Use them actively.
 | `memory_timeline` | `project?`, `memory_type?`, `limit?` | Viewing memories chronologically with relationships |
 | `consolidate_memories` | `older_than_days?` (default 7), `dry_run?` | Merging similar old memories, archiving low-value ones |
 
-### Session Workflow
+### Session Workflow (MANDATORY)
 
-1. **Start:** `get_context(project="claude-memory")` + review `<system-reminder>` suggestions
-2. **During:** `search_memory(query="relevant keywords")` when encountering familiar problems
-3. **End:** `store_memory()` for every error fixed, decision made, or pattern discovered
+**ALWAYS do these steps. No exceptions.**
+
+1. **Session Start — ALWAYS search brain first:**
+   - `get_context(project="claude-memory")` to load recent work
+   - `search_memory(query="[task keywords]")` for past solutions to the current problem
+   - `suggest_memories(keywords=["relevant", "terms"])` for proactive context
+   - Review any `<system-reminder>` suggestions provided automatically
+   - Do NOT start coding until you have checked what the brain already knows
+
+2. **During Work — search before solving:**
+   - `search_memory(query="relevant keywords")` whenever encountering familiar problems
+   - `search_documents(query="implementation details")` when looking for code patterns
+   - Check brain BEFORE writing new code for any non-trivial problem
+
+3. **Session End — ALWAYS save findings:**
+   - `store_memory(type="error", ...)` for every error encountered and fixed
+   - `store_memory(type="decision", ...)` for every architecture/design choice made
+   - `store_memory(type="pattern", ...)` for reusable patterns discovered
+   - `store_memory(type="docs", ...)` for any documentation researched or referenced online
+   - `store_memory(type="learning", ...)` for insights gained during the session
+   - `link_memories(...)` to connect related findings to existing knowledge
+   - If you searched for external documentation, store a summary of what you found
 
 ## Memory Quality Rules
 
