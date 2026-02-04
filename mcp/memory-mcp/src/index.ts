@@ -348,6 +348,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                   content: { type: "string" },
                   tags: { type: "array", items: { type: "string" } },
                   project: { type: "string" },
+                  context: { type: "string" },
+                  error_message: { type: "string" },
+                  solution: { type: "string" },
+                  prevention: { type: "string" },
+                  decision: { type: "string" },
+                  rationale: { type: "string" },
+                  alternatives: { type: "array", items: { type: "string" } },
                 },
                 required: ["type", "content"],
               },
@@ -813,6 +820,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             content: string;
             tags?: string[];
             project?: string;
+            context?: string;
+            error_message?: string;
+            solution?: string;
+            prevention?: string;
+            decision?: string;
+            rationale?: string;
+            alternatives?: string[];
           }>;
         };
 
