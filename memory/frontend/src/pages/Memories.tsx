@@ -409,7 +409,7 @@ export function Memories() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm font-medium text-white/90">
-                          {memory.importance_score.toFixed(2)}
+                          {(memory.importance_score ?? 0).toFixed(2)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -605,7 +605,7 @@ function ExpandedQualityTab({ memoryId }: { memoryId: string }) {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium text-white">
-                Quality: {(entry.quality_score * 100).toFixed(1)}%
+                Quality: {((entry.quality_score ?? 0) * 100).toFixed(1)}%
               </span>
               <span className="text-xs text-white/50">
                 {new Date(entry.timestamp).toLocaleString()}
@@ -644,7 +644,7 @@ function ForgettingCurveSection() {
             </div>
             <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
               <p className="text-xs text-white/50">Avg Strength</p>
-              <p className="text-lg font-bold text-white">{(stats.avg_strength * 100).toFixed(0)}%</p>
+              <p className="text-lg font-bold text-white">{((stats.avg_strength ?? 0) * 100).toFixed(0)}%</p>
             </div>
             <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
               <p className="text-xs text-white/50">Weak</p>

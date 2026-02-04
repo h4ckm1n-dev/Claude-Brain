@@ -297,7 +297,7 @@ export function Search() {
                         <StateBadge state={(result.memory as any).state || 'episodic'} size="sm" />
                         <QualityBadge score={(result.memory as any).quality_score || 0} size="sm" showScore={false} />
                         <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                          Score: {result.score.toFixed(3)}
+                          Score: {(result.score ?? 0).toFixed(3)}
                         </Badge>
                         {result.memory.pinned && (
                           <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20">
@@ -350,7 +350,7 @@ export function Search() {
                     <div className="flex items-center justify-between gap-6 text-xs text-white/40 pt-3 border-t border-white/5">
                       <div className="flex items-center gap-6">
                         <span>
-                          Importance: <span className="text-white/60">{result.memory.importance_score.toFixed(2)}</span>
+                          Importance: <span className="text-white/60">{(result.memory.importance_score ?? 0).toFixed(2)}</span>
                         </span>
                         <span>
                           Accessed: <span className="text-white/60">{result.memory.access_count} times</span>
@@ -397,7 +397,7 @@ export function Search() {
                         </Badge>
                       )}
                       <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                        Score: {doc.score.toFixed(3)}
+                        Score: {(doc.score ?? 0).toFixed(3)}
                       </Badge>
                     </div>
                     <span className="text-xs text-white/40 mt-2 font-mono">{doc.file_path}</span>

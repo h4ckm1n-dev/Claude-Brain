@@ -712,7 +712,7 @@ function SpacedRepetitionSection() {
                   {item.type}
                 </Badge>
                 <span className="text-xs text-white/40">
-                  strength: {(item.strength * 100).toFixed(0)}%
+                  strength: {((item.strength ?? 0) * 100).toFixed(0)}%
                 </span>
                 <span className="text-xs text-white/40">
                   reviews: {item.review_count}

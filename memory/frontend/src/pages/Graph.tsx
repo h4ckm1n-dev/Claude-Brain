@@ -447,7 +447,7 @@ function GraphSolutionsFinder() {
               <div key={sol.id} className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
                 <div className="flex items-center gap-2 mb-1">
                   <Badge className="bg-green-500/20 text-green-300 border border-green-500/30 text-xs">{sol.relation}</Badge>
-                  <span className="text-xs text-white/40">score: {sol.score.toFixed(2)}</span>
+                  <span className="text-xs text-white/40">score: {(sol.score ?? 0).toFixed(2)}</span>
                 </div>
                 <p className="text-sm text-white/80">{sol.content}</p>
               </div>

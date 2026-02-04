@@ -240,7 +240,7 @@ export function Temporal() {
                         {rel.type}
                       </Badge>
                       <span className="text-xs text-white/40 ml-auto">
-                        score: {rel.score.toFixed(2)}
+                        score: {(rel.score ?? 0).toFixed(2)}
                       </span>
                     </div>
                     <p className="text-sm text-white/70 line-clamp-2">{rel.content}</p>

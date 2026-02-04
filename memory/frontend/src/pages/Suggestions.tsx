@@ -113,7 +113,7 @@ export function Suggestions() {
                           {suggestion.type}
                         </Badge>
                         <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                          Score: {suggestion.combined_score.toFixed(2)}
+                          Score: {(suggestion.combined_score ?? 0).toFixed(2)}
                         </Badge>
                       </div>
                     </div>
@@ -176,9 +176,9 @@ export function Suggestions() {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Brain className="h-4 w-4 text-purple-400" />
-                          <QualityBadge score={rec.quality_score * 100} size="sm" />
+                          <QualityBadge score={(rec.quality_score ?? 0) * 100} size="sm" />
                           <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                            Relevance: {rec.relevance_score.toFixed(2)}
+                            Relevance: {(rec.relevance_score ?? 0).toFixed(2)}
                           </Badge>
                         </div>
                       </div>
