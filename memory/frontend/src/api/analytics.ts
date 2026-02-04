@@ -200,7 +200,18 @@ export const getExpertiseProfile = () =>
 
 // Get anomalies
 export const getAnomalies = () =>
-  apiClient.get('/insights/anomalies').then(r => { const d = r.data; return (Array.isArray(d) ? d : d.anomalies || []) as Anomaly[]; });
+  apiClient.get('/insights/anomalies').then(r => {
+    const d = r.data;
+    const raw = Array.isArray(d) ? d : d.anomalies || [];
+    return raw.map((a: any) => ({
+      id: a.id || a.memory_id || '',
+      content: a.content || a.content_preview || '',
+      type: a.type || '',
+      anomaly_type: a.anomaly_type || (Array.isArray(a.anomaly_reasons) ? a.anomaly_reasons.join(', ') : ''),
+      severity: a.severity ?? a.importance ?? 0,
+      reason: a.reason || a.suggested_action || '',
+    })) as Anomaly[];
+  });
 
 // Get insight error trends
 export const getInsightErrorTrends = (days: number = 30) =>
@@ -216,7 +227,14 @@ export const getInsightsSummary = (limit: number = 5) =>
     const d = r.data;
     // API returns {insights: [...], count} but we need InsightsSummary shape
     if (d.insights && !d.key_findings) {
-      return { key_findings: d.insights || [], recommendations: [], health_score: 0, trends: {} } as InsightsSummary;
+      // Derive health score from insights content
+      let healthScore = d.health_score ?? 0;
+      if (!healthScore && Array.isArray(d.insights)) {
+        const text = d.insights.join(' ');
+        const rateMatch = text.match(/resolution rate is (\d+)%/);
+        healthScore = rateMatch ? parseInt(rateMatch[1], 10) : Math.min(d.insights.length * 15, 85);
+      }
+      return { key_findings: d.insights, recommendations: [], health_score: healthScore, trends: {} } as InsightsSummary;
     }
     return d as InsightsSummary;
   });

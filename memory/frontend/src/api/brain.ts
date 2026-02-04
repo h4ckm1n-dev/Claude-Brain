@@ -157,13 +157,39 @@ export const getSpacedRepetition = (limit: number = 20) =>
 export const getTopics = (minClusterSize?: number, maxTopics?: number) =>
   apiClient.get('/brain/topics', {
     params: { min_cluster_size: minClusterSize, max_topics: maxTopics }
-  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.topics || []) as Topic[]; });
+  }).then(r => {
+    const d = r.data;
+    const raw = Array.isArray(d) ? d : d.topics || [];
+    return raw.map((t: any) => ({
+      name: t.name || t.topic || t.representative_term || '',
+      size: t.size ?? 0,
+      keywords: t.keywords || t.sample_content || [],
+      memories: t.memories || t.memory_ids || [],
+    })) as Topic[];
+  });
 
 // Get topic timeline
 export const getTopicTimeline = (topicName: string, limit: number = 50) =>
   apiClient.get(`/brain/topics/timeline/${encodeURIComponent(topicName)}`, {
     params: { limit }
-  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.timeline || d.entries || []) as TopicTimelineEntry[]; });
+  }).then(r => {
+    const d = r.data;
+    const raw = Array.isArray(d) ? d : d.timeline || d.entries || [];
+    // API returns flat entries {id, content, created_at, type, importance}
+    // Group by date for the expected TopicTimelineEntry shape
+    if (raw.length > 0 && raw[0].created_at && !raw[0].memories) {
+      const grouped: Record<string, { id: string; content: string }[]> = {};
+      for (const entry of raw) {
+        const date = (entry.created_at || entry.date || '').split('T')[0];
+        if (!grouped[date]) grouped[date] = [];
+        grouped[date].push({ id: entry.id || '', content: entry.content || '' });
+      }
+      return Object.entries(grouped)
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([date, memories]) => ({ date, count: memories.length, memories })) as TopicTimelineEntry[];
+    }
+    return raw as TopicTimelineEntry[];
+  });
 
 // Trigger memory replay
 export const triggerReplay = (count?: number, importanceThreshold?: number) =>
