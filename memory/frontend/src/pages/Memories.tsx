@@ -652,7 +652,7 @@ function ForgettingCurveSection() {
             </div>
             <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
               <p className="text-xs text-white/50">Decay</p>
-              <p className="text-lg font-bold text-white">{stats.decay_rate.toFixed(3)}</p>
+              <p className="text-lg font-bold text-white">{(stats.decay_rate ?? 0).toFixed(3)}</p>
             </div>
           </div>
         )}
@@ -665,7 +665,7 @@ function ForgettingCurveSection() {
                   <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
                     <div className="h-full bg-amber-500 rounded-full" style={{ width: `${memory.strength * 100}%` }} />
                   </div>
-                  <span className="text-xs text-white/40">{(memory.strength * 100).toFixed(0)}%</span>
+                  <span className="text-xs text-white/40">{((memory.strength ?? 0) * 100).toFixed(0)}%</span>
                 </div>
                 <p className="text-sm text-white/70 line-clamp-1">{memory.content}</p>
               </div>
@@ -702,7 +702,7 @@ function QualityLeaderboardSection() {
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
               <p className="text-xs text-white/50">Avg Quality</p>
-              <p className="text-lg font-bold text-white">{(report.avg_quality * 100).toFixed(0)}%</p>
+              <p className="text-lg font-bold text-white">{((report.avg_quality ?? 0) * 100).toFixed(0)}%</p>
             </div>
             <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
               <p className="text-xs text-white/50">Total</p>

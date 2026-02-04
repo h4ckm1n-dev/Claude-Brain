@@ -275,7 +275,7 @@ export default function Documents() {
                         <div className="flex items-end gap-2 mb-3">
                           <span className={`text-4xl font-bold ${
                             isHigh ? 'text-emerald-400' : isMedium ? 'text-amber-400' : 'text-red-400'
-                          }`}>{avgAccess.toFixed(1)}</span>
+                          }`}>{(avgAccess ?? 0).toFixed(1)}</span>
                           <span className="text-xs text-white/40 mb-1">avg accesses/doc</span>
                         </div>
                         <Badge className={
