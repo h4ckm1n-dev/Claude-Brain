@@ -170,10 +170,30 @@ export const getRecurringPatterns = (limit: number = 20) =>
 export const getExpertiseProfile = () =>
   apiClient.get('/insights/expertise-profile').then(r => {
     const d = r.data;
+    const levelMap: Record<string, number> = { expert: 10, proficient: 7, familiar: 4, beginner: 1 };
+    let areas: Array<{ name: string; level: number; memory_count: number }>;
+    if (Array.isArray(d.areas)) {
+      areas = d.areas;
+    } else if (d.expertise && typeof d.expertise === 'object' && !Array.isArray(d.expertise)) {
+      areas = Object.entries(d.expertise).map(([name, info]: [string, any]) => ({
+        name,
+        level: typeof info.level === 'number' ? info.level : (levelMap[info.level] ?? 5),
+        memory_count: info.memory_count ?? 0,
+      }));
+    } else {
+      areas = [];
+    }
+    const expertIn = d.expert_in;
+    const strongest = d.strongest
+      || (Array.isArray(expertIn) && expertIn.length > 0 ? expertIn[0] : '')
+      || (Array.isArray(d.proficient_in) && d.proficient_in.length > 0 ? d.proficient_in[0] : '')
+      || (areas.length > 0 ? areas.reduce((a, b) => a.level > b.level ? a : b).name : '');
+    const weakest = d.weakest
+      || (areas.length > 0 ? areas.reduce((a, b) => a.level < b.level ? a : b).name : '');
     return {
-      areas: d.areas || d.expertise || [],
-      strongest: d.strongest || d.expert_in || '',
-      weakest: d.weakest || '',
+      areas,
+      strongest: Array.isArray(strongest) ? strongest.join(', ') : strongest,
+      weakest,
       total_score: d.total_score ?? d.total_technologies ?? 0,
     } as ExpertiseProfile;
   });

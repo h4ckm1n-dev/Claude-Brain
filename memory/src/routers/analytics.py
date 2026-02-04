@@ -163,50 +163,6 @@ async def get_knowledge_gaps():
 # ============================================================================
 
 
-@router.get("/recommendations/{memory_id}")
-async def get_recommendations_for_memory(
-    memory_id: str,
-    limit: int = Query(default=10, ge=1, le=50)
-):
-    """Get comprehensive recommendations for a memory.
-
-    Includes:
-    - Context-aware suggestions
-    - Suggested patterns (for errors)
-    - Collaborative filtering recommendations
-
-    Args:
-        memory_id: Memory ID
-        limit: Maximum recommendations per category
-
-    Returns:
-        Comprehensive recommendations
-    """
-    from ..recommendations import generate_comprehensive_recommendations
-
-    try:
-        # Get the memory
-        memory = collections.get_memory(memory_id)
-        if not memory:
-            raise HTTPException(status_code=404, detail="Memory not found")
-
-        client = collections.get_client()
-        recommendations = generate_comprehensive_recommendations(
-            client,
-            collections.COLLECTION_NAME,
-            memory.model_dump(),
-            limit=limit
-        )
-
-        return recommendations
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get recommendations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/recommendations/patterns-for-error")
 async def suggest_patterns_for_error(
     error_tags: List[str] = Query(..., description="Tags from the error"),
@@ -348,6 +304,50 @@ async def reset_co_access_tracking():
 
     except Exception as e:
         logger.error(f"Failed to reset co-access tracking: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/recommendations/{memory_id}")
+async def get_recommendations_for_memory(
+    memory_id: str,
+    limit: int = Query(default=10, ge=1, le=50)
+):
+    """Get comprehensive recommendations for a memory.
+
+    Includes:
+    - Context-aware suggestions
+    - Suggested patterns (for errors)
+    - Collaborative filtering recommendations
+
+    Args:
+        memory_id: Memory ID
+        limit: Maximum recommendations per category
+
+    Returns:
+        Comprehensive recommendations
+    """
+    from ..recommendations import generate_comprehensive_recommendations
+
+    try:
+        # Get the memory
+        memory = collections.get_memory(memory_id)
+        if not memory:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        client = collections.get_client()
+        recommendations = generate_comprehensive_recommendations(
+            client,
+            collections.COLLECTION_NAME,
+            memory.model_dump(),
+            limit=limit
+        )
+
+        return recommendations
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get recommendations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

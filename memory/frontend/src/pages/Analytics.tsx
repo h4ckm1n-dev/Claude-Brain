@@ -813,7 +813,7 @@ function ExpertiseProfileSection() {
           </div>
         </div>
         <div className="space-y-2">
-          {profile.areas.map((area) => (
+          {(profile.areas || []).map((area) => (
             <div key={area.name} className="flex items-center gap-3">
               <span className="text-sm text-white/60 w-32 truncate">{area.name}</span>
               <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
