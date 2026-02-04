@@ -149,21 +149,21 @@ export const reconsolidateMemory = (memoryId: string, accessContext?: string, co
 
 // Get spaced repetition items
 export const getSpacedRepetition = (limit: number = 20) =>
-  apiClient.get<SpacedRepetitionItem[]>('/brain/spaced-repetition', {
+  apiClient.get('/brain/spaced-repetition', {
     params: { limit }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.candidates || []) as SpacedRepetitionItem[]; });
 
 // Get discovered topics
 export const getTopics = (minClusterSize?: number, maxTopics?: number) =>
-  apiClient.get<Topic[]>('/brain/topics', {
+  apiClient.get('/brain/topics', {
     params: { min_cluster_size: minClusterSize, max_topics: maxTopics }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.topics || []) as Topic[]; });
 
 // Get topic timeline
 export const getTopicTimeline = (topicName: string, limit: number = 50) =>
-  apiClient.get<TopicTimelineEntry[]>(`/brain/topics/timeline/${encodeURIComponent(topicName)}`, {
+  apiClient.get(`/brain/topics/timeline/${encodeURIComponent(topicName)}`, {
     params: { limit }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.timeline || d.entries || []) as TopicTimelineEntry[]; });
 
 // Trigger memory replay
 export const triggerReplay = (count?: number, importanceThreshold?: number) =>
@@ -197,7 +197,13 @@ export const runInference = (inferenceType?: string) =>
 
 // Get co-access stats
 export const getCoAccessStats = () =>
-  apiClient.get<CoAccessStats>('/inference/co-access/stats').then(r => r.data);
+  apiClient.get('/inference/co-access/stats').then(r => {
+    const d = r.data;
+    return {
+      total_pairs: d.total_pairs ?? d.total_pairs_tracked ?? 0,
+      top_pairs: d.top_pairs || [],
+    } as CoAccessStats;
+  });
 
 // Reset co-access tracker
 export const resetCoAccess = () =>

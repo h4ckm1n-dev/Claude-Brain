@@ -12,9 +12,9 @@ import type {
 
 // Get error trends over time
 export const getErrorTrends = (days: number = 30) =>
-  apiClient.get<ErrorTrend[]>('/analytics/error-trends', {
+  apiClient.get('/analytics/error-trends', {
     params: { days }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.clusters || d.trends || []) as ErrorTrend[]; });
 
 // Get error spikes (sudden increases in errors)
 export const getErrorSpikes = () =>
@@ -22,13 +22,13 @@ export const getErrorSpikes = () =>
 
 // Get pattern clusters
 export const getPatternClusters = (minClusterSize: number = 3) =>
-  apiClient.get<PatternCluster[]>('/analytics/pattern-clusters', {
+  apiClient.get('/analytics/pattern-clusters', {
     params: { min_cluster_size: minClusterSize }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.clusters || []) as PatternCluster[]; });
 
 // Get knowledge gaps
 export const getKnowledgeGaps = () =>
-  apiClient.get<KnowledgeGap[]>('/analytics/knowledge-gaps').then(r => r.data);
+  apiClient.get('/analytics/knowledge-gaps').then(r => { const d = r.data; return (Array.isArray(d) ? d : d.gaps || []) as KnowledgeGap[]; });
 
 // Get recommendations
 export const getRecommendations = (
@@ -162,17 +162,25 @@ export const resetRecommendationCoAccess = () =>
 
 // Get recurring patterns
 export const getRecurringPatterns = (limit: number = 20) =>
-  apiClient.get<RecurringPattern[]>('/insights/recurring-patterns', {
+  apiClient.get('/insights/recurring-patterns', {
     params: { limit }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.patterns || []) as RecurringPattern[]; });
 
 // Get expertise profile
 export const getExpertiseProfile = () =>
-  apiClient.get<ExpertiseProfile>('/insights/expertise-profile').then(r => r.data);
+  apiClient.get('/insights/expertise-profile').then(r => {
+    const d = r.data;
+    return {
+      areas: d.areas || d.expertise || [],
+      strongest: d.strongest || d.expert_in || '',
+      weakest: d.weakest || '',
+      total_score: d.total_score ?? d.total_technologies ?? 0,
+    } as ExpertiseProfile;
+  });
 
 // Get anomalies
 export const getAnomalies = () =>
-  apiClient.get<Anomaly[]>('/insights/anomalies').then(r => r.data);
+  apiClient.get('/insights/anomalies').then(r => { const d = r.data; return (Array.isArray(d) ? d : d.anomalies || []) as Anomaly[]; });
 
 // Get insight error trends
 export const getInsightErrorTrends = (days: number = 30) =>
@@ -182,6 +190,13 @@ export const getInsightErrorTrends = (days: number = 30) =>
 
 // Get insights summary
 export const getInsightsSummary = (limit: number = 5) =>
-  apiClient.get<InsightsSummary>('/insights/summary', {
+  apiClient.get('/insights/summary', {
     params: { limit }
-  }).then(r => r.data);
+  }).then(r => {
+    const d = r.data;
+    // API returns {insights: [...], count} but we need InsightsSummary shape
+    if (d.insights && !d.key_findings) {
+      return { key_findings: d.insights || [], recommendations: [], health_score: 0, trends: {} } as InsightsSummary;
+    }
+    return d as InsightsSummary;
+  });

@@ -180,13 +180,22 @@ export const getConsolidationPreview = (olderThanDays?: number) =>
 
 // Forgetting stats
 export const getForgettingStats = () =>
-  apiClient.get<ForgettingStats>('/forgetting/stats').then(r => r.data);
+  apiClient.get('/forgetting/stats').then(r => {
+    const d = r.data;
+    return {
+      total_memories: d.total_memories ?? 0,
+      avg_strength: d.avg_strength ?? d.median_strength ?? 0,
+      weak_count: d.weak_count ?? d.below_archive_threshold ?? 0,
+      decay_rate: d.decay_rate ?? d.avg_decay_rate ?? 0,
+      last_update: d.last_update || '',
+    } as ForgettingStats;
+  });
 
 // Get weak memories
 export const getWeakMemories = (strengthThreshold?: number, limit?: number) =>
-  apiClient.get<WeakMemory[]>('/forgetting/weak', {
+  apiClient.get('/forgetting/weak', {
     params: { strength_threshold: strengthThreshold, limit }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.memories || d.weak_memories || []) as WeakMemory[]; });
 
 // Trigger forgetting update
 export const triggerForgettingUpdate = (maxUpdates?: number) =>
@@ -196,10 +205,19 @@ export const triggerForgettingUpdate = (maxUpdates?: number) =>
 
 // Quality leaderboard
 export const getQualityLeaderboard = (limit?: number, memoryType?: string) =>
-  apiClient.get<QualityLeaderboardEntry[]>('/memories/quality-leaderboard', {
+  apiClient.get('/memories/quality-leaderboard', {
     params: { limit, memory_type: memoryType }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.leaderboard || []) as QualityLeaderboardEntry[]; });
 
 // Quality report
 export const getQualityReport = () =>
-  apiClient.get<QualityReport>('/memories/quality-report').then(r => r.data);
+  apiClient.get('/memories/quality-report').then(r => {
+    const d = r.data;
+    return {
+      total_memories: d.total_memories ?? 0,
+      avg_quality: d.avg_quality ?? d.avg_rating ?? d.coverage ?? 0,
+      distribution: d.distribution ?? d.rating_distribution ?? {},
+      top_issues: d.top_issues || [],
+      recommendations: d.recommendations || [],
+    } as QualityReport;
+  });

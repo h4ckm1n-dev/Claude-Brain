@@ -32,7 +32,7 @@ export const findSolutions = (errorId: string) =>
   apiClient.get<GraphSolution>(`/graph/solutions/${errorId}`).then(r => r.data);
 
 export const getContradictions = () =>
-  apiClient.get<Contradiction[]>('/graph/contradictions').then(r => r.data);
+  apiClient.get('/graph/contradictions').then(r => { const d = r.data; return (Array.isArray(d) ? d : d.contradictions || []) as Contradiction[]; });
 
 export const getGraphRecommendations = (memoryId: string, limit: number = 10) =>
   apiClient.get<GraphRecommendation[]>(`/graph/recommendations/${memoryId}`, {

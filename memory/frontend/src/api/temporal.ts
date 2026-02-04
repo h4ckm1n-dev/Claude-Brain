@@ -34,12 +34,12 @@ export const getValidAt = (params: {
   limit?: number;
   project?: string;
 }) =>
-  apiClient.get<TemporalMemory[]>('/temporal/valid-at', { params }).then(r => r.data);
+  apiClient.get('/temporal/valid-at', { params }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.memories || []) as TemporalMemory[]; });
 
 export const getObsoleteMemories = (limit?: number) =>
-  apiClient.get<TemporalMemory[]>('/temporal/obsolete', {
+  apiClient.get('/temporal/obsolete', {
     params: { limit }
-  }).then(r => r.data);
+  }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.memories || []) as TemporalMemory[]; });
 
 export const markObsolete = (memoryId: string, validityEnd?: string) =>
   apiClient.post(`/temporal/memories/${memoryId}/mark-obsolete`, null, {
@@ -47,13 +47,24 @@ export const markObsolete = (memoryId: string, validityEnd?: string) =>
   }).then(r => r.data);
 
 export const getTemporalStats = (project?: string) =>
-  apiClient.get<TemporalStats>('/temporal/stats', {
+  apiClient.get('/temporal/stats', {
     params: { project }
-  }).then(r => r.data);
+  }).then(r => {
+    const d = r.data;
+    const vs = d.validity_stats || {};
+    return {
+      total_memories: vs.total_memories ?? d.total_memories ?? 0,
+      valid_memories: vs.valid_count ?? d.valid_memories ?? 0,
+      obsolete_memories: vs.obsolete_count ?? d.obsolete_memories ?? 0,
+      avg_validity_days: vs.avg_validity_days ?? d.avg_validity_days ?? 0,
+      oldest_valid: vs.oldest_valid ?? d.oldest_valid ?? '',
+      newest_valid: vs.newest_valid ?? d.newest_valid ?? '',
+    } as TemporalStats;
+  });
 
 export const getRelatedAt = (memoryId: string, params: {
   target_time: string;
   max_hops?: number;
   limit?: number;
 }) =>
-  apiClient.get<TemporalRelation[]>(`/temporal/graph/${memoryId}/related-at`, { params }).then(r => r.data);
+  apiClient.get(`/temporal/graph/${memoryId}/related-at`, { params }).then(r => { const d = r.data; return (Array.isArray(d) ? d : d.related || d.memories || []) as TemporalRelation[]; });
