@@ -34,94 +34,161 @@ class QualityScoreCalculator:
         relationship_count: int,
         current_version: int,
         memory_age_days: float,
-        memory_tier: str = "episodic"
+        memory_tier: str = "episodic",
+        # Content metadata for richness scoring
+        content_length: int = 0,
+        tags_count: int = 0,
+        memory_type: str = "",
+        has_solution: bool = False,
+        has_error_message: bool = False,
+        has_prevention: bool = False,
+        has_rationale: bool = False,
+        is_resolved: bool = False,
     ) -> Tuple[float, Dict[str, float]]:
         """
         Calculate comprehensive quality score.
 
         Formula:
         quality_score = (
-            access_frequency * 0.3 +
-            user_rating_normalized * 0.25 +
-            relationship_density * 0.25 +
-            stability * 0.2
+            content_richness * 0.30 +
+            access_frequency * 0.25 +
+            maturity * 0.15 +
+            stability * 0.10 +
+            relationship_density * 0.10 +
+            user_rating_normalized * 0.10
         )
-
-        Args:
-            access_count: Total access count
-            user_rating: Average user rating (1-5 stars)
-            user_rating_count: Number of ratings
-            relationship_count: Number of graph relationships
-            current_version: Current version number
-            memory_age_days: Age in days
-            memory_tier: Current tier
 
         Returns:
             Tuple of (overall_score, component_scores)
         """
-        # Component 1: Access frequency (normalized)
-        # Scale: 0-10 accesses = 0.0-0.5, 10-50 = 0.5-0.8, 50+ = 0.8-1.0
-        if access_count <= 10:
-            access_frequency = access_count / 20  # 0.0-0.5
-        elif access_count <= 50:
-            access_frequency = 0.5 + ((access_count - 10) / 100)  # 0.5-0.8
+        # Component 1: Content richness (how complete is the memory)
+        # Tags score: 2 tags = 0.4, 3 = 0.6, 4 = 0.8, 5+ = 1.0
+        if tags_count >= 5:
+            tags_score = 1.0
+        elif tags_count >= 2:
+            tags_score = 0.2 + (tags_count * 0.16)
         else:
-            access_frequency = min(0.8 + ((access_count - 50) / 200), 1.0)  # 0.8-1.0
+            tags_score = tags_count * 0.15
 
-        # Component 2: User rating (normalized to 0-1)
+        # Content length score: 50+ = 0.4, 100+ = 0.6, 200+ = 0.8, 500+ = 1.0
+        if content_length >= 500:
+            length_score = 1.0
+        elif content_length >= 200:
+            length_score = 0.8
+        elif content_length >= 100:
+            length_score = 0.6
+        elif content_length >= 50:
+            length_score = 0.4
+        else:
+            length_score = max(0.1, content_length / 125)
+
+        # Type-specific completeness bonuses
+        type_bonus = 0.0
+        if memory_type == "error":
+            if has_error_message:
+                type_bonus += 0.3
+            if has_solution:
+                type_bonus += 0.4
+            if has_prevention:
+                type_bonus += 0.2
+            if is_resolved:
+                type_bonus += 0.1
+        elif memory_type == "decision":
+            if has_rationale:
+                type_bonus += 0.5
+            type_bonus += 0.3  # Decisions are inherently valuable
+        elif memory_type == "pattern":
+            type_bonus += 0.4  # Patterns are valuable
+            if content_length >= 100:
+                type_bonus += 0.2
+        elif memory_type == "learning":
+            type_bonus += 0.3
+        elif memory_type == "docs":
+            type_bonus += 0.2
+
+        type_bonus = min(type_bonus, 1.0)
+
+        content_richness = (tags_score * 0.25 + length_score * 0.35 + type_bonus * 0.40)
+
+        # Component 2: Access frequency (more generous scaling)
+        # 1-3 accesses = 0.3-0.5, 4-10 = 0.5-0.75, 10-30 = 0.75-0.9, 30+ = 0.9-1.0
+        if access_count == 0:
+            access_frequency = 0.1  # Baseline for existing memories
+        elif access_count <= 3:
+            access_frequency = 0.3 + (access_count * 0.067)  # 0.3-0.5
+        elif access_count <= 10:
+            access_frequency = 0.5 + ((access_count - 3) / 28)  # 0.5-0.75
+        elif access_count <= 30:
+            access_frequency = 0.75 + ((access_count - 10) / 133)  # 0.75-0.9
+        else:
+            access_frequency = min(0.9 + ((access_count - 30) / 200), 1.0)
+
+        # Component 3: Maturity (older surviving memories are higher quality)
+        if memory_age_days <= 1:
+            maturity = 0.3  # Too new to judge
+        elif memory_age_days <= 7:
+            maturity = 0.3 + (memory_age_days / 14)  # 0.3-0.8
+        elif memory_age_days <= 30:
+            maturity = 0.8 + ((memory_age_days - 7) / 115)  # 0.8-1.0
+        else:
+            maturity = 1.0  # Survived 30+ days
+
+        # Component 4: Stability (fewer edits relative to age = more stable)
+        edit_count = current_version - 1
+        if edit_count == 0:
+            stability = 1.0
+        elif edit_count <= 2:
+            stability = 0.85
+        elif edit_count <= 5:
+            stability = 0.7
+        else:
+            stability = max(0.4, 1.0 - (edit_count * 0.04))
+
+        # Component 5: Relationship density (bonus, not penalty)
+        # Having relationships boosts score but lacking them doesn't hurt much
+        if relationship_count == 0:
+            relationship_density = 0.3  # Neutral baseline instead of 0
+        elif relationship_count <= 3:
+            relationship_density = 0.3 + (relationship_count * 0.167)  # 0.3-0.8
+        elif relationship_count <= 10:
+            relationship_density = 0.8 + ((relationship_count - 3) / 35)  # 0.8-1.0
+        else:
+            relationship_density = 1.0
+
+        # Component 6: User rating
         if user_rating and user_rating_count > 0:
-            # Weight by confidence (more ratings = more reliable)
-            confidence = min(user_rating_count / 5, 1.0)  # Max confidence at 5+ ratings
+            confidence = min(user_rating_count / 3, 1.0)
             user_rating_normalized = (user_rating / 5.0) * confidence
         else:
-            user_rating_normalized = 0.5  # Neutral if no ratings
+            user_rating_normalized = 0.5  # Neutral
 
-        # Component 3: Relationship density (normalized)
-        # More relationships = better connected knowledge
-        if relationship_count == 0:
-            relationship_density = 0.0
-        elif relationship_count <= 3:
-            relationship_density = relationship_count / 6  # 0.0-0.5
-        elif relationship_count <= 10:
-            relationship_density = 0.5 + ((relationship_count - 3) / 14)  # 0.5-1.0
-        else:
-            relationship_density = min(0.9 + (relationship_count - 10) / 50, 1.0)
-
-        # Component 4: Stability (fewer edits = more stable)
-        edit_count = current_version - 1  # version 1 = 0 edits
-        if edit_count == 0:
-            stability = 1.0  # Never edited = perfectly stable
-        elif edit_count <= 2:
-            stability = 0.8  # Few edits = fairly stable
-        elif edit_count <= 5:
-            stability = 0.6  # Some edits = moderate stability
-        else:
-            stability = max(0.3, 1.0 - (edit_count * 0.05))  # Many edits = lower stability
-
-        # Tier bonus (procedural memories get slight boost)
+        # Tier bonus
         tier_bonus = 0.0
         if memory_tier == "procedural":
             tier_bonus = 0.05
         elif memory_tier == "semantic":
-            tier_bonus = 0.02
+            tier_bonus = 0.03
 
-        # Calculate weighted overall score
+        # Weighted overall score
         overall_score = (
-            access_frequency * 0.3 +
-            user_rating_normalized * 0.25 +
-            relationship_density * 0.25 +
-            stability * 0.2 +
+            content_richness * 0.30 +
+            access_frequency * 0.25 +
+            maturity * 0.15 +
+            stability * 0.10 +
+            relationship_density * 0.10 +
+            user_rating_normalized * 0.10 +
             tier_bonus
         )
 
-        # Cap at 1.0
         overall_score = min(overall_score, 1.0)
 
         component_scores = {
+            "content_richness": round(content_richness, 3),
             "access_frequency": round(access_frequency, 3),
-            "user_rating_normalized": round(user_rating_normalized, 3),
-            "relationship_density": round(relationship_density, 3),
+            "maturity": round(maturity, 3),
             "stability": round(stability, 3),
+            "relationship_density": round(relationship_density, 3),
+            "user_rating_normalized": round(user_rating_normalized, 3),
             "tier_bonus": round(tier_bonus, 3)
         }
 
@@ -249,6 +316,10 @@ class QualityTracker:
 
                         age_days = (utc_now() - created_at).total_seconds() / 86400 if created_at else 0
 
+                        content = payload.get("content", "")
+                        tags = payload.get("tags", [])
+                        mem_type = payload.get("type", "")
+
                         quality_score, components = QualityScoreCalculator.calculate_quality_score(
                             access_count=payload.get("access_count", 0),
                             user_rating=payload.get("user_rating"),
@@ -256,7 +327,15 @@ class QualityTracker:
                             relationship_count=len(payload.get("relations", [])),
                             current_version=payload.get("current_version", 1),
                             memory_age_days=age_days,
-                            memory_tier=payload.get("memory_tier", "episodic")
+                            memory_tier=payload.get("memory_tier", "episodic"),
+                            content_length=len(content) if content else 0,
+                            tags_count=len(tags) if tags else 0,
+                            memory_type=mem_type,
+                            has_solution=bool(payload.get("solution")),
+                            has_error_message=bool(payload.get("error_message")),
+                            has_prevention=bool(payload.get("prevention")),
+                            has_rationale=bool(payload.get("rationale")),
+                            is_resolved=bool(payload.get("resolved")),
                         )
 
                         # Update payload

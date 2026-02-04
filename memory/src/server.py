@@ -2782,7 +2782,15 @@ async def rate_memory_quality(
             relationship_count=len(memory.relationships),
             current_version=memory.current_version,
             memory_age_days=memory_age_days,
-            memory_tier=memory.tier
+            memory_tier=memory.tier,
+            content_length=len(memory.content) if memory.content else 0,
+            tags_count=len(memory.tags) if memory.tags else 0,
+            memory_type=memory.type if isinstance(memory.type, str) else memory.type.value if memory.type else "",
+            has_solution=bool(getattr(memory, 'solution', None)),
+            has_error_message=bool(getattr(memory, 'error_message', None)),
+            has_prevention=bool(getattr(memory, 'prevention', None)),
+            has_rationale=bool(getattr(memory, 'rationale', None)),
+            is_resolved=bool(getattr(memory, 'resolved', False)),
         )
 
         # Update Qdrant point directly
