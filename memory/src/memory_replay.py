@@ -68,8 +68,8 @@ def replay_random_memories(
         for mem in selected:
             mem_id = str(mem.id)
 
-            # "Recall" the memory (reconsolidate it)
-            result = reconsolidate_memory(mem_id)
+            # "Recall" the memory (reconsolidate it, internal = no access_count bump)
+            result = reconsolidate_memory(mem_id, internal=True)
 
             if result.get("success"):
                 replayed += 1
@@ -102,7 +102,8 @@ def replay_random_memories(
                         reconsolidate_memory(
                             mem_id,
                             access_context="memory_replay",
-                            co_accessed_ids=co_ids
+                            co_accessed_ids=co_ids,
+                            internal=True,
                         )
                         relationships_discovered += len(co_ids)
 
@@ -180,7 +181,8 @@ def targeted_replay(
             result = reconsolidate_memory(
                 mem_id,
                 access_context=f"project_review:{project}",
-                co_accessed_ids=co_ids[:5]  # Top 5
+                co_accessed_ids=co_ids[:5],  # Top 5
+                internal=True,
             )
 
             if result.get("success"):
@@ -265,7 +267,7 @@ def replay_underutilized_memories(
 
         replayed = 0
         for mem in selected:
-            result = reconsolidate_memory(str(mem.id))
+            result = reconsolidate_memory(str(mem.id), internal=True)
             if result.get("success"):
                 replayed += 1
 

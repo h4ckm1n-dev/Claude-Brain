@@ -2,6 +2,30 @@
 
 Long-term memory for AI coding sessions. Never solve the same problem twice.
 
+## Model: Claude Opus 4.6
+
+Running on `claude-opus-4-6` with 1M token context (beta), adaptive thinking, and agent teams.
+
+### Effort Tuning
+- Use `/effort` to adjust reasoning depth: `low` | `medium` | `high` (default) | `max`
+- **Low/Medium** for simple fixes, renames, formatting — saves cost and latency
+- **High** (default) for standard development work — adaptive thinking engages automatically
+- **Max** for architecture decisions, complex debugging, migration planning
+- Rule: match effort to task complexity. Don't overthink simple tasks.
+
+### Agent Teams (Experimental)
+Enabled via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. Use for read-heavy parallel work:
+- Multi-layer code reviews (security + API + frontend specialists)
+- Large refactoring with domain ownership (API layer, DB layer, tests)
+- Cross-service feature development
+- **Avoid** for simultaneous writes to the same files — causes conflicts
+- Controls: `Shift+Up/Down` switch members, `Ctrl+T` task list, `Shift+Tab` delegate mode
+
+### Context & Agentic Work
+- **Front-load context** — provide full materials upfront, don't drip-feed. 1M context handles it.
+- **Set scope boundaries** — Opus 4.6 sustains multi-step work without drift, but may do more than expected if scope isn't constrained.
+- **PreCompact hook** auto-saves context to memory before compaction kicks in.
+
 ## Stack
 
 Python 3.11 + FastAPI, Qdrant (vector), Neo4j (graph), React 18 + TS (frontend), nomic-embed-text-v1.5

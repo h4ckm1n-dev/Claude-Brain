@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 def reconsolidate_memory(
     memory_id: str,
     access_context: Optional[str] = None,
-    co_accessed_ids: Optional[list[str]] = None
+    co_accessed_ids: Optional[list[str]] = None,
+    internal: bool = False,
 ) -> dict:
     """
     Reconsolidate a memory when accessed - strengthen it and its relationships.
@@ -32,6 +33,7 @@ def reconsolidate_memory(
         memory_id: ID of memory being accessed
         access_context: Current context (e.g., current project, task)
         co_accessed_ids: Other memories accessed in same session
+        internal: If True, skip access_count increment (for replay/dream)
 
     Returns:
         dict with reconsolidation results
@@ -51,8 +53,10 @@ def reconsolidate_memory(
         point = points[0]
         payload = point.payload
 
-        # Update access metadata
-        access_count = payload.get("access_count", 0) + 1
+        # Update access metadata (skip increment for internal replay/dream)
+        access_count = payload.get("access_count", 0)
+        if not internal:
+            access_count += 1
         last_accessed = datetime.now(timezone.utc).isoformat()
 
         # Calculate access interval (for spaced repetition)

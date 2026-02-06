@@ -158,7 +158,7 @@ export function Graph() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* State Distribution */}
           {lifecycleStats && (
-            <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+            <Card className="lg:col-span-2 bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
               <CardHeader className="border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Target className="h-5 w-5 text-purple-400" />
@@ -168,17 +168,17 @@ export function Graph() {
                   Memory lifecycle states in the knowledge graph
                 </CardDescription>
               </CardHeader>
-              <CardContent className="pt-6 space-y-3">
-                {Object.entries(lifecycleStats.state_distribution || lifecycleStats.distribution || {}).map(([state, count]) => (
-                  <div key={state} className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
-                    <div className="flex items-center gap-2">
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {Object.entries(lifecycleStats.state_distribution || lifecycleStats.distribution || {}).map(([state, count]) => (
+                    <div key={state} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
                       <StateBadge state={state} size="sm" showIcon={true} />
+                      <Badge className="bg-white/10 text-white/90 font-mono">
+                        {count as number} nodes
+                      </Badge>
                     </div>
-                    <Badge className="bg-white/10 text-white/90 font-mono">
-                      {count} nodes
-                    </Badge>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}
