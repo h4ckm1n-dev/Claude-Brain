@@ -937,9 +937,9 @@ function CoAccessSection() {
             {stats.top_pairs.slice(0, 5).map((pair, i) => (
               <div key={i} className="flex items-center justify-between p-2 rounded bg-[#0a0a0a] border border-white/5">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-white/60">{pair.memory_a.slice(0, 8)}</span>
+                  <span className="text-xs font-mono text-white/60">{(pair.memory_a || '').slice(0, 8)}</span>
                   <span className="text-xs text-cyan-400">---</span>
-                  <span className="text-xs font-mono text-white/60">{pair.memory_b.slice(0, 8)}</span>
+                  <span className="text-xs font-mono text-white/60">{(pair.memory_b || '').slice(0, 8)}</span>
                 </div>
                 <Badge className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs">
                   {pair.co_access_count}x

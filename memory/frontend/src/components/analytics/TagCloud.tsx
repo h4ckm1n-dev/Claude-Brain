@@ -11,7 +11,7 @@ export function TagCloud({ memories, onTagClick }: TagCloudProps) {
     const tagCount = new Map<string, number>();
 
     memories.forEach(memory => {
-      memory.tags.forEach(tag => {
+      (memory.tags || []).forEach(tag => {
         tagCount.set(tag, (tagCount.get(tag) || 0) + 1);
       });
     });

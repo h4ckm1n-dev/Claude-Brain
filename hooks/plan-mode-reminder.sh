@@ -3,7 +3,8 @@
 # Analyzes user prompts and generates strong planning reminders for complex tasks
 # Output appears in <system-reminder> tags for Claude to see
 
-PROMPT="$1"
+INPUT=$(cat)
+PROMPT=$(echo "$INPUT" | jq -r '.prompt // ""')
 REMINDER_FILE="/tmp/claude/plan-mode-reminder.txt"
 
 # Create temp directory

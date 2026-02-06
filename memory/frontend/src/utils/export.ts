@@ -9,8 +9,8 @@ export function exportToCSV(memories: Memory[], filename = 'memories.csv') {
   const rows = memories.map(m => [
     m.id,
     m.type,
-    m.content.replace(/"/g, '""'), // Escape quotes
-    m.tags.join(';'),
+    (m.content || '').replace(/"/g, '""'), // Escape quotes
+    (m.tags || []).join(';'),
     m.created_at,
     m.access_count?.toString() || '0',
     m.importance_score?.toFixed(2) || '0',
@@ -61,17 +61,17 @@ export function exportToMarkdown(memories: Memory[], filename = 'memories.md') {
     '---',
     '',
     ...memories.map(m => `
-## ${m.type.toUpperCase()}: ${m.content.slice(0, 60)}...
+## ${(m.type || '').toUpperCase()}: ${(m.content || '').slice(0, 60)}...
 
 **ID:** ${m.id}
 **Created:** ${m.created_at}
 **Score:** ${m.importance_score?.toFixed(2) || 'N/A'}
 **Access Count:** ${m.access_count || 0}
 **Project:** ${m.project || 'N/A'}
-**Tags:** ${m.tags.join(', ')}
+**Tags:** ${(m.tags || []).join(', ')}
 
 **Content:**
-${m.content}
+${m.content || ''}
 
 ${m.error_message ? `**Error:**\n${m.error_message}\n\n` : ''}
 ${m.solution ? `**Solution:**\n${m.solution}\n\n` : ''}

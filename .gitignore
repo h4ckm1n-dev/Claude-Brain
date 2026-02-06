@@ -82,3 +82,5 @@ memory/qdrant-storage/
 memory/logs/
 memory/data/
 memory/.env
+downloads/
+session-env/

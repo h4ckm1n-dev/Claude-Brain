@@ -9,9 +9,10 @@ if ! curl -sf "$MEMORY_API/health" >/dev/null 2>&1; then
     exit 0
 fi
 
-COMMAND="$1"
-ERROR_OUTPUT="$2"
-EXIT_CODE="$3"
+INPUT=$(cat)
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
+ERROR_OUTPUT=$(echo "$INPUT" | jq -r '.error // .tool_response // ""')
+EXIT_CODE=$(echo "$INPUT" | jq -r '.exit_code // 1')
 
 # Only capture if it's a real error
 if [ "$EXIT_CODE" -eq 0 ]; then

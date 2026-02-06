@@ -4,147 +4,131 @@ Long-term memory for AI coding sessions. Never solve the same problem twice.
 
 ## Stack
 
-- **Backend:** Python 3.11, FastAPI (`src/server.py`), Uvicorn
-- **Vector DB:** Qdrant (hybrid: dense + sparse + cross-encoder reranking)
-- **Graph DB:** Neo4j (knowledge relationships)
-- **Frontend:** React 18, TypeScript, TailwindCSS, Vite (`frontend/`)
-- **Embeddings:** nomic-embed-text-v1.5 (768-dim)
+Python 3.11 + FastAPI, Qdrant (vector), Neo4j (graph), React 18 + TS (frontend), nomic-embed-text-v1.5
 
 ## Service Commands
 
 ```bash
 cd ~/.claude/memory && docker compose up -d   # Start
-docker compose restart claude-mem-service      # Restart (backend auto-reloads via volume mount)
-docker compose build --no-cache && docker compose up -d  # Rebuild (after frontend changes)
+docker compose restart claude-mem-service      # Restart
+docker compose build --no-cache && docker compose up -d  # Rebuild (frontend changes)
 curl http://localhost:8100/health              # Health check
 ```
 
-- Dashboard: http://localhost:8100
-- API docs: http://localhost:8100/docs
+- Dashboard: http://localhost:8100 | API docs: http://localhost:8100/docs
 - If memory MCP tools fail, the service is likely down. Start it first.
 
-## MCP Memory Tools
+---
 
-IMPORTANT: These tools are available in every session. Use them actively.
+## MANDATORY MEMORY PROTOCOL — READ THIS FIRST
 
-### Search & Retrieve
+**This is a BLOCKING REQUIREMENT. You MUST NOT skip any step. Failure to follow this protocol is a critical error.**
 
-| Tool | Parameters | Use When |
-|------|-----------|----------|
-| `search_memory` | `query` (required), `type?`, `tags?`, `project?`, `limit?` (default 10) | Finding past solutions, decisions, errors, patterns |
-| `search_documents` | `query` (required), `file_type?`, `folder?`, `limit?` | Searching indexed code files, markdown, PDFs |
-| `get_context` | `project?`, `hours?` (default 24), `types?` | Session start — returns recent memories + documents |
-| `suggest_memories` | `project?`, `keywords?`, `current_files?`, `git_branch?`, `limit?` | Proactive suggestions based on current work context |
-| `find_related` | `memory_id` (required), `max_hops?` (1-3), `limit?` | Graph traversal to find connected memories |
+### STEP 1: SESSION START (BEFORE ANY OTHER ACTION)
 
-### Store & Modify
+Your VERY FIRST tool calls in ANY conversation MUST be these three memory lookups, called in parallel:
 
-| Tool | Parameters | Use When |
-|------|-----------|----------|
-| `store_memory` | `type` (required: error/decision/pattern/learning/docs/context), `content` (required), `tags?`, `project?`, `error_message?`, `solution?`, `prevention?`, `decision?`, `rationale?`, `alternatives?`, `context?` | After solving bugs, making decisions, discovering patterns |
-| `bulk_store` | `memories[]` (array of {type, content, tags?, project?}) | Storing multiple related memories at once |
-| `mark_resolved` | `memory_id` (required), `solution` (required) | Marking an error memory as resolved |
-| `link_memories` | `source_id`, `target_id`, `relation` (required: causes/fixes/contradicts/supports/follows/related/supersedes/similar_to) | Creating knowledge graph relationships |
-| `archive_memory` | `memory_id` (required) | Soft-delete (excluded from search, kept in DB) |
-| `forget_memory` | `memory_id` (required) | Permanent delete (also removes from graph) |
+```
+mcp__memory__get_context(project="<current_project>")
+mcp__memory__search_memory(query="<keywords from user request>")
+mcp__memory__suggest_memories(keywords=[<task keywords>], project="<current_project>")
+```
 
-### Analytics & Maintenance
+**Rules:**
+- Do NOT read files, write code, run commands, or respond substantively until these complete
+- Extract keywords from the user's request to build the search query
+- Review ALL returned memories before proceeding — they may contain solutions, warnings, or context
+- If memories contain relevant past errors or decisions, explicitly reference them in your approach
 
-| Tool | Parameters | Use When |
-|------|-----------|----------|
-| `memory_stats` | (none) | Collection overview (counts, graph stats) |
-| `graph_stats` | (none) | Knowledge graph statistics (nodes, relationships) |
-| `document_stats` | (none) | Document indexing statistics (chunks, collections) |
-| `memory_timeline` | `project?`, `memory_type?`, `limit?` | Viewing memories chronologically with relationships |
-| `consolidate_memories` | `older_than_days?` (default 7), `dry_run?` | Merging similar old memories, archiving low-value ones |
+### STEP 2: DURING WORK (BEFORE SOLVING ANY PROBLEM)
 
-### Session Workflow (MANDATORY)
+Before writing code or running commands for any non-trivial problem, call:
 
-**ALWAYS do these steps. No exceptions.**
+```
+mcp__memory__search_memory(query="<problem description>")
+```
 
-1. **Session Start — ALWAYS search brain first:**
-   - `get_context(project="claude-memory")` to load recent work
-   - `search_memory(query="[task keywords]")` for past solutions to the current problem
-   - `suggest_memories(keywords=["relevant", "terms"])` for proactive context
-   - Review any `<system-reminder>` suggestions provided automatically
-   - Do NOT start coding until you have checked what the brain already knows
+**Rules:**
+- Search BEFORE attempting a fix, not after
+- If you encounter an error, search for it: `search_memory(query="<error message>", type="error")`
+- If making an architecture decision, search for precedent: `search_memory(query="<topic>", type="decision")`
+- If you find a relevant past solution, USE IT instead of re-solving from scratch
 
-2. **During Work — search before solving:**
-   - `search_memory(query="relevant keywords")` whenever encountering familiar problems
-   - `search_documents(query="implementation details")` when looking for code patterns
-   - Check brain BEFORE writing new code for any non-trivial problem
+### STEP 3: SESSION END (AFTER COMPLETING WORK)
 
-3. **Session End — ALWAYS save findings:**
-   - `store_memory(type="error", ...)` for every error encountered and fixed
-   - `store_memory(type="decision", ...)` for every architecture/design choice made
-   - `store_memory(type="pattern", ...)` for reusable patterns discovered
-   - `store_memory(type="docs", ...)` for any documentation researched or referenced online
-   - `store_memory(type="learning", ...)` for insights gained during the session
-   - `link_memories(...)` to connect related findings to existing knowledge
-   - If you searched for external documentation, store a summary of what you found
+Before your final response, store ALL findings. Use `bulk_store` for efficiency:
+
+```
+mcp__memory__bulk_store(memories=[...])
+```
+
+**You MUST store a memory for each of these that occurred during the session:**
+
+| Event | Memory Type | Required Fields |
+|-------|-------------|-----------------|
+| Fixed a bug | `error` | `error_message`, `solution`, `prevention`, `tags` |
+| Made an architecture/approach decision | `decision` | `decision`, `rationale`, `alternatives`, `tags` |
+| Discovered a reusable pattern | `pattern` | Detailed `content` (100+ chars), usage context, `tags` |
+| Learned something new about the codebase | `learning` | `content`, `context`, `tags` |
+| Referenced documentation | `docs` | `content`, source URL, key points, `tags` |
+| Important project context | `context` | `content`, `tags` |
+
+**After storing, link related memories:**
+```
+mcp__memory__link_memories(source_id="<new>", target_id="<existing>", relation="<type>")
+```
+
+**Rules:**
+- NEVER end a session without saving if you did meaningful work
+- Every error you hit, decision you made, or pattern you noticed MUST be stored
+- Use min 2 specific tags per memory (e.g., `["compta", "migration"]` not `["code", "fix"]`)
+- Include the `project` field on every memory
+- If you forget and the user reminds you, acknowledge the failure and save immediately
+
+---
+
+## MCP Memory Tools Reference
+
+| Tool | Purpose | When to Use |
+|------|---------|-------------|
+| `search_memory` | Hybrid semantic + keyword search with reranking | Finding past solutions, decisions, errors, patterns |
+| `search_documents` | Search indexed code files, markdown, PDFs | Looking for code patterns, documentation content |
+| `get_context` | Get recent memories for current work | **Session start — MANDATORY** |
+| `suggest_memories` | Proactive suggestions from current context | **Session start — MANDATORY** |
+| `find_related` | Graph traversal from a memory node | Exploring connected knowledge |
+| `store_memory` | Store a single memory | Saving one finding |
+| `bulk_store` | Store multiple memories at once | **Session end — MANDATORY** for saving all findings |
+| `mark_resolved` | Mark an error as resolved | When a previously stored error is fixed |
+| `link_memories` | Create knowledge graph relationships | **Session end — MANDATORY** for connecting findings |
+| `reinforce_memory` | Boost a memory's strength | When a past memory proves valuable |
+| `pin_memory` | Pin so it never decays | For critical decisions/patterns |
+| `archive_memory` | Soft-delete (excluded from search) | Outdated but worth keeping |
+| `forget_memory` | Permanent delete | Wrong or useless memories |
+| `memory_stats` / `graph_stats` / `document_stats` | Collection overview | Diagnostics |
+| `memory_timeline` | Chronological view with relationships | Understanding history |
+| `consolidate_memories` | Merge similar old memories | Periodic maintenance |
+| `run_inference` | Discover new relationships automatically | After storing several related memories |
+| `error_trends` | Analyze recurring error patterns | Diagnosing systematic issues |
+| `knowledge_gaps` | Find areas with thin knowledge | Identifying blind spots |
+| `query_enhance` | Improve search queries with synonyms/typo fixes | When initial search returns poor results |
 
 ## Memory Quality Rules
 
 The API enforces quality validation (HTTP 422 on failure):
 
-- **All types:** min 30 chars content, min 2 specific tags, min 5 words. No placeholders or generic tags.
+- **All types:** min 30 chars content, min 2 specific tags, min 5 words
 - **error:** Requires `error_message` + either `solution` or `prevention`
 - **decision:** Requires `rationale` explaining WHY
 - **pattern:** Min 100 chars recommended with usage context
 - **docs:** Include source URL and key points
 
-Quality scoring weights: content richness (30%), access frequency (25%), maturity (15%), stability (10%), relationships (10%), user rating (10%).
+## Compaction Rules
 
-## API Patterns
-
-Full OpenAPI spec: http://localhost:8100/docs
-
-### Core
-- Memory CRUD + actions: `/memories/*` (CRUD, draft, bulk, search, suggest, link, pin, unpin, resolve, rate, reinforce, archive, versions, state, undo, restore, quality-leaderboard, quality-report)
-- Context: `/context`, `/context/{project}`
-- Search: `/search/unified`, `/query/enhance`
-- Consolidation: `/consolidate`, `/consolidate/preview`
-
-### Intelligence
-- Brain: `/brain/*` (infer-relationships, update-importance, archive-low-utility, dream, replay, replay/project, replay/underutilized, reconsolidate, spaced-repetition, topics, emotional-analysis, detect-conflicts, meta-learning, performance-metrics, stats)
-- Inference: `/inference/*` (run, co-access/stats, co-access/reset)
-- Forgetting: `/forgetting/*` (update, stats, weak)
-
-### Analytics & Insights
-- Analytics: `/analytics/*` (error-trends, pattern-clusters, knowledge-gaps, comprehensive)
-- Recommendations: `/recommendations/*` (patterns-for-error, preventive-patterns, documentation-topics, co-access, {memory_id})
-- Insights: `/insights/*` (recurring-patterns, expertise-profile, anomalies, error-trends, summary)
-
-### Quality & Lifecycle
-- Quality: `/quality/*` (stats, update, promote-batch, promotion-candidates, {id}/rate, {id}/trend)
-- Lifecycle: `/lifecycle/*` (stats, update, transitions)
-- Audit: `/audit`, `/audit/{memory_id}`, `/audit/stats`
-
-### Knowledge Graph & Temporal
-- Graph: `/graph/*` (stats, related, solutions, timeline, project/{name}, contradictions, recommendations/{id})
-- Temporal: `/temporal/*` (valid-at, obsolete, stats, mark-obsolete, related-at)
-
-### Sessions & Documents
-- Sessions: `/sessions/*` (stats, new, {id}/memories, {id}/consolidate, consolidate/batch)
-- Documents: `/documents/*` (insert, search, stats, reset, {file_path} DELETE)
-- Indexing: `/indexing/*` (folders GET/POST, reindex)
-
-### Admin & Operations
-- Health: `/health`, `/health/detailed`
-- Scheduler: `/scheduler/status`, `/scheduler/jobs/{id}/trigger`
-- Notifications: `/notifications/*` (CRUD, mark-read, stats)
-- Export/Backup: `/export/memories`, `/backup`, `/backups`
-- Cache: `/cache/stats`, `/cache/clear`
-- Jobs: `/jobs/*` (list, prune, tag, {id}/cancel)
-- Settings: `/settings` (GET/POST)
-- Suggestions: `/suggestions/*` (should-show, feedback, stats)
-- Database: `/database/stats`, `/database/reset`
-- Processes: `/processes/watcher/*` (status, start, stop)
-- Logs: `/logs/{name}` (read, clear)
+When context is compacted, preserve: current task description, key decisions made, files modified, unresolved errors, and active memory IDs being referenced. The PreCompact hook auto-saves context to memory.
 
 ## Development Notes
 
-- Backend source is volume-mounted (`./src:/app/src`) — restart container to reload
-- Frontend requires Docker rebuild after changes (`docker compose build --no-cache`)
+- Backend source is volume-mounted — restart container to reload
+- Frontend requires Docker rebuild after changes
 - Tests: `pytest tests/` or `python3 ~/.claude/tests/memory-system-tests.py`
-- 13 background scheduler jobs run automatically (consolidation, quality updates, state machine, relationship inference, memory replay, spaced repetition, etc.)
+- 13 background scheduler jobs run automatically

@@ -184,7 +184,7 @@ export function Sessions() {
                       <ChevronRight className="h-4 w-4 text-white/50" />
                     )}
                     <span className="text-sm font-mono text-white/80">
-                      {session.session_id.slice(0, 12)}...
+                      {(session.session_id || '').slice(0, 12)}...
                     </span>
                     <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
                       {session.memory_count} memories

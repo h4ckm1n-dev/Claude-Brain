@@ -11,10 +11,11 @@ if ! curl -sf "$MEMORY_API/health" >/dev/null 2>&1; then
     exit 0
 fi
 
-# Input parameters
-COMMAND="$1"
-OUTPUT="$2"
-EXIT_CODE="$3"
+# Read input from stdin (Claude Code hooks pass JSON on stdin)
+INPUT=$(cat)
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
+OUTPUT=$(echo "$INPUT" | jq -r '.tool_response // ""')
+EXIT_CODE=$(echo "$INPUT" | jq -r '.exit_code // 0')
 
 # Only process successful commands
 if [ "$EXIT_CODE" != "0" ]; then

@@ -10,9 +10,10 @@ if ! curl -sf "$MEMORY_API/health" >/dev/null 2>&1; then
     exit 0
 fi
 
-OPERATION="$1"  # "Write" or "Edit"
-TOOL_INPUT="$2"
-TOOL_OUTPUT="$3"
+INPUT=$(cat)
+OPERATION=$(echo "$INPUT" | jq -r '.tool_name // "unknown"')
+TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // ""')
+TOOL_OUTPUT=$(echo "$INPUT" | jq -r '.tool_response // ""')
 
 # Extract file path from tool input
 FILE_PATH=$(echo "$TOOL_INPUT" | jq -r '.file_path' 2>/dev/null)
