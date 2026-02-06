@@ -332,13 +332,12 @@ class SessionManager:
                 scroll_filter=models.Filter(
                     must=[
                         models.FieldCondition(
-                            key="session_id",
-                            match=models.MatchValue(value="", match_type=models.MatchType.EXISTS)
-                        ),
-                        models.FieldCondition(
                             key="created_at",
                             range=models.DatetimeRange(lte=cutoff_time)
                         )
+                    ],
+                    must_not=[
+                        models.IsNullCondition(is_null=models.PayloadField(key="session_id"))
                     ]
                 ),
                 limit=1000,
@@ -392,11 +391,8 @@ class SessionManager:
             results, _ = client.scroll(
                 collection_name=collection_name,
                 scroll_filter=models.Filter(
-                    must=[
-                        models.FieldCondition(
-                            key="session_id",
-                            match=models.MatchValue(value="", match_type=models.MatchType.EXISTS)
-                        )
+                    must_not=[
+                        models.IsNullCondition(is_null=models.PayloadField(key="session_id"))
                     ]
                 ),
                 limit=10000,
