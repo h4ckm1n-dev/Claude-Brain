@@ -425,12 +425,40 @@ class SessionManager:
                     if has_summary:
                         sessions_with_summary += 1
 
+            # Build recent_sessions list for frontend
+            recent_sessions = []
+            for session_id, mems in sessions.items():
+                created_dates = [m.payload.get("created_at", "") for m in mems]
+                earliest = min(created_dates) if created_dates else ""
+                has_summary = any(
+                    m.payload.get("type") == "context" and
+                    "session-summary" in m.payload.get("tags", [])
+                    for m in mems
+                )
+                recent_sessions.append({
+                    "session_id": session_id,
+                    "memory_count": len(mems),
+                    "created_at": earliest,
+                    "status": "consolidated" if has_summary else "active",
+                })
+            # Sort by created_at descending, limit to 50
+            recent_sessions.sort(key=lambda s: s["created_at"], reverse=True)
+            recent_sessions = recent_sessions[:50]
+
+            active_sessions = total_sessions - sessions_with_summary
+            consolidation_rate = round(
+                (sessions_with_summary / total_sessions * 100) if total_sessions > 0 else 0, 2
+            )
+
             return {
                 "total_sessions": total_sessions,
                 "total_memories_in_sessions": total_memories_in_sessions,
                 "avg_memories_per_session": round(avg_memories_per_session, 2),
                 "sessions_with_summary": sessions_with_summary,
-                "sessions_without_summary": total_sessions - sessions_with_summary,
+                "sessions_without_summary": active_sessions,
+                "active_sessions": active_sessions,
+                "consolidation_rate": consolidation_rate,
+                "recent_sessions": recent_sessions,
                 "config": {
                     "session_timeout_hours": SESSION_TIMEOUT_HOURS,
                     "consolidation_delay_hours": SESSION_CONSOLIDATION_DELAY_HOURS,

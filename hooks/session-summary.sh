@@ -61,6 +61,12 @@ if [ "$DURATION" -lt 60 ] && [ "$TOTAL_ACTIONS" -eq 0 ]; then
 fi
 
 # Store session end as context memory with more details
+# Include MEMORY_SESSION_ID (set by session-start.sh) so start + end memories are grouped
+SESSION_ID_ARGS=""
+if [ -n "$MEMORY_SESSION_ID" ]; then
+    SESSION_ID_ARGS="--arg session_id $MEMORY_SESSION_ID"
+fi
+
 curl -s -X POST "$MEMORY_API/memories" \
     -H "Content-Type: application/json" \
     -d "$(jq -n \
@@ -69,7 +75,12 @@ curl -s -X POST "$MEMORY_API/memories" \
         --arg project "$PROJECT" \
         --arg context "Session ID: $SESSION_ID, Directory: $FULL_PATH, Reason: $REASON" \
         --argjson tags '["auto-captured", "session-end", "session-summary"]' \
-        '{type: $type, content: $content, project: $project, context: $context, tags: $tags}'
+        ${MEMORY_SESSION_ID:+--arg session_id "$MEMORY_SESSION_ID"} \
+        'if $ARGS.named | has("session_id") then
+            {type: $type, content: $content, project: $project, context: $context, tags: $tags, session_id: $ARGS.named.session_id}
+        else
+            {type: $type, content: $content, project: $project, context: $context, tags: $tags}
+        end'
     )" > /dev/null 2>&1
 
 # If session was long (>30 min), mark it as potentially important
@@ -81,7 +92,12 @@ if [ "$DURATION" -gt 1800 ]; then
             --arg content "Extended work session on $PROJECT (${DURATION_STR}). Consider reviewing for patterns." \
             --arg project "$PROJECT" \
             --argjson tags '["auto-captured", "long-session", "review-candidate"]' \
-            '{type: $type, content: $content, project: $project, tags: $tags}'
+            ${MEMORY_SESSION_ID:+--arg session_id "$MEMORY_SESSION_ID"} \
+            'if $ARGS.named | has("session_id") then
+                {type: $type, content: $content, project: $project, tags: $tags, session_id: $ARGS.named.session_id}
+            else
+                {type: $type, content: $content, project: $project, tags: $tags}
+            end'
         )" > /dev/null 2>&1
 fi
 

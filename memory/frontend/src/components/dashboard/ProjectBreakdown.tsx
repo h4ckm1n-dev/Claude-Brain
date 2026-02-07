@@ -40,7 +40,7 @@ export function ProjectBreakdown({ memories }: ProjectBreakdownProps) {
   const totalMemories = projectStats.reduce((sum, p) => sum + p.count, 0);
 
   return (
-    <Card className="shadow-lg border-l-4 border-l-orange-500">
+    <Card className="shadow-lg border-l-4 border-l-orange-500 flex flex-col h-full">
       <CardHeader>
         <div className="flex items-center gap-2">
           <FolderKanban className="h-5 w-5 text-orange-600" />
@@ -48,7 +48,7 @@ export function ProjectBreakdown({ memories }: ProjectBreakdownProps) {
         </div>
         <CardDescription>Top {totalProjects} projects by memory count</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 flex-1 flex flex-col min-h-0">
         {projectStats.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No project data available
@@ -76,7 +76,7 @@ export function ProjectBreakdown({ memories }: ProjectBreakdownProps) {
             </div>
 
             {/* Project List */}
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto">
               {projectStats.map((project, index) => {
                 const percentage = (project.count / totalMemories) * 100;
                 const isGlobal = project.name === '_global';

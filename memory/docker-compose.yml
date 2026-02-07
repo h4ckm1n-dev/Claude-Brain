@@ -11,6 +11,7 @@ services:
       - ./qdrant-storage:/qdrant/storage
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
+      - TZ=Asia/Bangkok
     restart: unless-stopped
 
   claude-mem-neo4j:
@@ -23,6 +24,7 @@ services:
       - NEO4J_AUTH=neo4j/memory_graph_2024
       - NEO4J_PLUGINS=["apoc"]
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - TZ=Asia/Bangkok
     volumes:
       - ./neo4j-data:/data
       - ./neo4j-logs:/logs
@@ -46,6 +48,7 @@ services:
       - NEO4J_PASSWORD=memory_graph_2024
       - LOG_LEVEL=INFO
       - SCHEDULER_ENABLED=true
+      - TZ=Asia/Bangkok
     volumes:
       - ./data:/app/data
       - ./src:/app/src

@@ -185,7 +185,8 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
     if deduplicate:
         from .consolidation import find_duplicates, merge_with_existing
 
-        duplicates = find_duplicates(client, COLLECTION_NAME, data.content)
+        lifecycle = _load_lifecycle_settings()
+        duplicates = find_duplicates(client, COLLECTION_NAME, data.content, threshold=lifecycle["dedupThreshold"])
         if duplicates:
             # Found a duplicate - merge instead of creating new
             existing_id = duplicates[0]["id"]
@@ -326,7 +327,148 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
     except Exception as e:
         logger.warning(f"On-write inference failed for {memory.id}: {e}")
 
+    # Auto-supersede: find semantically similar same-type memories and supersede them
+    # Threshold: 0.85-0.91 (below dedup at 0.92, above general "related" at 0.75)
+    try:
+        _auto_supersede(client, memory, embeddings["dense"])
+    except Exception as e:
+        logger.warning(f"Auto-supersede failed for {memory.id}: {e}")
+
     return memory
+
+
+def _load_lifecycle_settings() -> dict:
+    """Load auto-supersede settings from the settings file, falling back to env vars."""
+    import json
+    from pathlib import Path
+
+    defaults = {
+        "autoSupersedeEnabled": True,
+        "autoSupersedeThreshold": float(os.getenv("AUTO_SUPERSEDE_THRESHOLD", "0.85")),
+        "autoSupersedeUpper": float(os.getenv("AUTO_SUPERSEDE_UPPER", "0.91")),
+        "dedupThreshold": float(os.getenv("DEDUP_THRESHOLD", "0.92")),
+    }
+    try:
+        settings_path = Path.home() / ".claude" / "memory" / "data" / "settings.json"
+        with open(settings_path, "r") as f:
+            saved = json.load(f)
+        return {
+            "autoSupersedeEnabled": saved.get("autoSupersedeEnabled", defaults["autoSupersedeEnabled"]),
+            "autoSupersedeThreshold": saved.get("autoSupersedeThreshold", defaults["autoSupersedeThreshold"]),
+            "autoSupersedeUpper": saved.get("autoSupersedeUpper", defaults["autoSupersedeUpper"]),
+            "dedupThreshold": saved.get("dedupThreshold", defaults["dedupThreshold"]),
+        }
+    except Exception:
+        return defaults
+
+
+def _auto_supersede(
+    client: QdrantClient,
+    new_memory: Memory,
+    dense_vector: list[float],
+) -> int:
+    """Auto-supersede older same-type memories that are semantically similar but not identical.
+
+    Reads thresholds from dashboard settings (Settings page), falling back to env vars.
+    Finds memories with similarity between the lower and upper supersede thresholds.
+    Above the upper threshold, deduplication/merge handles it.
+    Below the lower threshold, content is too different.
+
+    Only supersedes memories of the same type (e.g., decision supersedes decision).
+    Skips auto-captured hook memories to avoid churn.
+
+    Args:
+        client: Qdrant client
+        new_memory: The newly stored memory
+        dense_vector: Dense embedding vector of the new memory
+
+    Returns:
+        Number of memories superseded
+    """
+    lifecycle = _load_lifecycle_settings()
+
+    if not lifecycle["autoSupersedeEnabled"]:
+        return 0
+
+    # Skip auto-captured memories (hook-generated context) to avoid session churn
+    if new_memory.tags and "auto-captured" in new_memory.tags:
+        return 0
+
+    # Build filter: same type, not archived, not self
+    filter_conditions = [
+        models.FieldCondition(
+            key="type",
+            match=models.MatchValue(value=new_memory.type.value)
+        ),
+        models.FieldCondition(
+            key="archived",
+            match=models.MatchValue(value=False)
+        ),
+    ]
+
+    # Scope to same project if present
+    if new_memory.project:
+        filter_conditions.append(
+            models.FieldCondition(
+                key="project",
+                match=models.MatchValue(value=new_memory.project)
+            )
+        )
+
+    threshold = lifecycle["autoSupersedeThreshold"]
+    upper = lifecycle["autoSupersedeUpper"]
+
+    try:
+        results = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=dense_vector,
+            using="dense",
+            query_filter=models.Filter(must=filter_conditions),
+            limit=5,
+            score_threshold=threshold,
+            with_payload=True,
+        ).points
+    except Exception as e:
+        logger.warning(f"Auto-supersede search failed: {e}")
+        return 0
+
+    superseded = 0
+    for candidate in results:
+        cid = str(candidate.id)
+        if cid == new_memory.id:
+            continue
+
+        # Only supersede within the threshold band (below upper = dedup range)
+        if candidate.score >= upper:
+            continue
+
+        # Don't supersede pinned memories
+        if candidate.payload.get("pinned", False):
+            continue
+
+        # Create supersedes relationship: new_memory supersedes candidate
+        try:
+            link_memories(new_memory.id, cid, RelationType.SUPERSEDES)
+
+            # Archive the superseded memory
+            client.set_payload(
+                collection_name=COLLECTION_NAME,
+                payload={"archived": True},
+                points=[cid],
+            )
+
+            superseded += 1
+            logger.info(
+                f"Auto-superseded: {new_memory.id} supersedes {cid} "
+                f"(score={candidate.score:.3f}, type={new_memory.type.value})"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to supersede {cid}: {e}")
+
+    if superseded > 0:
+        logger.info(f"Auto-supersede: {superseded} older memories archived for {new_memory.id}")
+
+    return superseded
 
 
 def search_memories(
@@ -835,7 +977,18 @@ def link_memories(source_id: str, target_id: str, relation_type: RelationType) -
     relation = Relation(target_id=target_id, relation_type=relation_type)
     if relation not in memory.relations:
         memory.relations.append(relation)
-        update_memory(source_id, MemoryUpdate())
+        # Write relations directly to Qdrant payload (MemoryUpdate doesn't include relations)
+        client = get_client()
+        relations_payload = [r.model_dump() for r in memory.relations]
+        # Serialize datetime fields to ISO strings
+        for r in relations_payload:
+            if hasattr(r.get("created_at", ""), "isoformat"):
+                r["created_at"] = r["created_at"].isoformat()
+        client.set_payload(
+            collection_name=COLLECTION_NAME,
+            payload={"relations": relations_payload},
+            points=[source_id],
+        )
 
     # Also create relationship in knowledge graph
     if is_graph_enabled():

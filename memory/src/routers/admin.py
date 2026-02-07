@@ -63,7 +63,11 @@ def ensure_settings_file():
             "notificationEnabled": True,
             "notificationSound": False,
             "cacheEnabled": True,
-            "cacheTtlHours": 24
+            "cacheTtlHours": 24,
+            "autoSupersedeEnabled": True,
+            "autoSupersedeThreshold": 0.85,
+            "autoSupersedeUpper": 0.91,
+            "dedupThreshold": 0.92
         }
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(default_settings, f, indent=2)

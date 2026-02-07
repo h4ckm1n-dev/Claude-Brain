@@ -17,6 +17,10 @@ import {
   Moon,
   Layers,
   Network,
+  Heart,
+  AlertTriangle,
+  Gauge,
+  Recycle,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -93,6 +97,27 @@ export function BrainIntelligence() {
   const updateQualityScores = useUpdateQualityScores();
   const updateLifecycleStates = useUpdateLifecycleStates();
   const triggerPatternDetection = useTriggerPatternDetection();
+
+  // Advanced brain mode mutations
+  const emotionalMutation = useMutation({
+    mutationFn: () => apiClient.post('/brain/emotional-analysis?limit=100').then(r => r.data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brain', 'stats'] }),
+  });
+
+  const conflictMutation = useMutation({
+    mutationFn: () => apiClient.post('/brain/detect-conflicts?limit=50').then(r => r.data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brain', 'stats'] }),
+  });
+
+  const metaLearningMutation = useMutation({
+    mutationFn: () => apiClient.post('/brain/meta-learning').then(r => r.data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brain', 'stats'] }),
+  });
+
+  const strengthDecayMutation = useMutation({
+    mutationFn: () => apiClient.post('/scheduler/jobs/memory_strength_update_job/trigger').then(r => r.data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brain', 'stats'] }),
+  });
 
   // Query brain stats
   const { data: brainStats, isLoading: statsLoading } = useQuery<BrainStats>({
@@ -390,6 +415,142 @@ export function BrainIntelligence() {
                 {updateLifecycleStates.isSuccess && (
                   <Badge className="mt-2 w-full bg-purple-500/20 text-purple-300">
                     ✓ Complete
+                  </Badge>
+                )}
+              </div>
+
+              {/* Emotional Analysis */}
+              <div className="p-4 rounded-lg bg-gradient-to-br from-pink-500/10 to-rose-500/10 border border-pink-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Heart className="h-5 w-5 text-pink-400" />
+                  <h3 className="font-medium text-white">Emotional Analysis</h3>
+                </div>
+                <p className="text-xs text-white/60 mb-4">
+                  Weigh memories by emotional significance
+                </p>
+                <Button
+                  onClick={() => emotionalMutation.mutate()}
+                  disabled={emotionalMutation.isPending}
+                  className="w-full bg-pink-500 hover:bg-pink-600 text-white"
+                  size="sm"
+                >
+                  {emotionalMutation.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Run Analysis
+                    </>
+                  )}
+                </Button>
+                {emotionalMutation.isSuccess && (
+                  <Badge className="mt-2 w-full bg-pink-500/20 text-pink-300">
+                    ✓ {emotionalMutation.data?.analyzed ?? 0} analyzed
+                  </Badge>
+                )}
+              </div>
+
+              {/* Conflict Detection */}
+              <div className="p-4 rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-400" />
+                  <h3 className="font-medium text-white">Conflict Detection</h3>
+                </div>
+                <p className="text-xs text-white/60 mb-4">
+                  Find and resolve contradicting memories
+                </p>
+                <Button
+                  onClick={() => conflictMutation.mutate()}
+                  disabled={conflictMutation.isPending}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                  size="sm"
+                >
+                  {conflictMutation.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                      Detecting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Detect Conflicts
+                    </>
+                  )}
+                </Button>
+                {conflictMutation.isSuccess && (
+                  <Badge className="mt-2 w-full bg-amber-500/20 text-amber-300">
+                    ✓ {conflictMutation.data?.conflicts_detected ?? 0} found, {conflictMutation.data?.conflicts_resolved ?? 0} resolved
+                  </Badge>
+                )}
+              </div>
+
+              {/* Meta-Learning */}
+              <div className="p-4 rounded-lg bg-gradient-to-br from-cyan-500/10 to-teal-500/10 border border-cyan-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Gauge className="h-5 w-5 text-cyan-400" />
+                  <h3 className="font-medium text-white">Meta-Learning</h3>
+                </div>
+                <p className="text-xs text-white/60 mb-4">
+                  Track performance and tune parameters
+                </p>
+                <Button
+                  onClick={() => metaLearningMutation.mutate()}
+                  disabled={metaLearningMutation.isPending}
+                  className="w-full bg-cyan-500 hover:bg-cyan-600 text-white"
+                  size="sm"
+                >
+                  {metaLearningMutation.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                      Learning...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Run Meta-Learning
+                    </>
+                  )}
+                </Button>
+                {metaLearningMutation.isSuccess && (
+                  <Badge className="mt-2 w-full bg-cyan-500/20 text-cyan-300">
+                    ✓ Complete
+                  </Badge>
+                )}
+              </div>
+
+              {/* Strength Decay */}
+              <div className="p-4 rounded-lg bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Recycle className="h-5 w-5 text-red-400" />
+                  <h3 className="font-medium text-white">Strength Decay</h3>
+                </div>
+                <p className="text-xs text-white/60 mb-4">
+                  Run adaptive forgetting cycle now
+                </p>
+                <Button
+                  onClick={() => strengthDecayMutation.mutate()}
+                  disabled={strengthDecayMutation.isPending}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white"
+                  size="sm"
+                >
+                  {strengthDecayMutation.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                      Decaying...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Run Decay
+                    </>
+                  )}
+                </Button>
+                {strengthDecayMutation.isSuccess && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
+                    ✓ Triggered
                   </Badge>
                 )}
               </div>

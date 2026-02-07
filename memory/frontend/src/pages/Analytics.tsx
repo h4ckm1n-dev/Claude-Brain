@@ -58,15 +58,18 @@ export function Analytics() {
       .slice(0, 10);
   }, [memories]);
 
-  // Memory tier flow data
+  // Memory tier flow data — uses lifecycle distribution (by_tier in stats is unpopulated)
   const tierData = useMemo(() => {
-    if (!stats?.by_tier) return [];
+    const dist = lifecycleStats?.distribution || lifecycleStats?.state_distribution || {};
+    if (!dist || Object.keys(dist).length === 0) return [];
 
-    return Object.entries(stats.by_tier).map(([tier, count]) => ({
-      tier: tier.charAt(0).toUpperCase() + tier.slice(1),
-      count,
-    }));
-  }, [stats]);
+    return Object.entries(dist)
+      .filter(([, count]) => (count as number) > 0)
+      .map(([tier, count]) => ({
+        tier: tier.charAt(0).toUpperCase() + tier.slice(1),
+        count,
+      }));
+  }, [lifecycleStats]);
 
   // Type correlation matrix
   const correlationData = useMemo(() => {

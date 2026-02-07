@@ -261,6 +261,9 @@ class InsightGenerator:
 
             for record in records:
                 payload = record.payload
+                # Skip archived memories
+                if payload.get("archived", False):
+                    continue
                 reasons = []
 
                 # Check content length

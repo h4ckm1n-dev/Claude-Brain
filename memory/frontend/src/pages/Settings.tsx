@@ -8,7 +8,7 @@ import { Select } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
 import { Slider } from '../components/ui/slider';
-import { Settings as SettingsIcon, Bell, Database, RefreshCw, AlertCircle, Moon, Sun, Monitor, Activity, Wrench, FileText, Folder } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Database, RefreshCw, AlertCircle, Moon, Sun, Monitor, Activity, Wrench, FileText, Folder, Recycle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../hooks/useTheme';
@@ -34,6 +34,12 @@ interface UserSettings {
   // Cache
   cacheEnabled: boolean;
   cacheTtlHours: number;
+
+  // Memory Lifecycle
+  autoSupersedeEnabled: boolean;
+  autoSupersedeThreshold: number;
+  autoSupersedeUpper: number;
+  dedupThreshold: number;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -48,6 +54,10 @@ const DEFAULT_SETTINGS: UserSettings = {
   notificationSound: false,
   cacheEnabled: true,
   cacheTtlHours: 24,
+  autoSupersedeEnabled: true,
+  autoSupersedeThreshold: 0.85,
+  autoSupersedeUpper: 0.91,
+  dedupThreshold: 0.92,
 };
 
 export function Settings() {
@@ -574,6 +584,155 @@ export function Settings() {
                 }
                 className="bg-[#0f0f0f] border-white/10 text-white"
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Memory Lifecycle Settings */}
+        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-cyan-500/10 transition-all">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Recycle className="h-5 w-5 text-cyan-400" />
+              <CardTitle className="text-white">Memory Lifecycle</CardTitle>
+            </div>
+            <CardDescription className="text-white/60">
+              Control how memories are deduplicated, superseded, and archived
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Auto-Supersede Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
+              <div>
+                <Label className="text-white/90">Auto-Supersede</Label>
+                <p className="text-sm text-white/50">
+                  Automatically archive older memories when a newer version is stored
+                </p>
+              </div>
+              <Switch
+                checked={settings.autoSupersedeEnabled}
+                onCheckedChange={(checked) =>
+                  setSettings((s) => ({ ...s, autoSupersedeEnabled: checked }))
+                }
+              />
+            </div>
+
+            {/* Threshold Visualization */}
+            <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
+              <Label className="text-white/90">Similarity Thresholds</Label>
+              <p className="text-sm text-white/50 mb-4">
+                How the system handles memories at different similarity levels
+              </p>
+
+              {/* Visual threshold bar */}
+              <div className="relative h-8 rounded-lg overflow-hidden mb-4">
+                <div className="absolute inset-0 flex">
+                  <div
+                    className="bg-white/5 flex items-center justify-center text-xs text-white/40"
+                    style={{ width: `${settings.autoSupersedeThreshold * 100}%` }}
+                  >
+                    Ignored
+                  </div>
+                  <div
+                    className="bg-cyan-500/20 border-x border-cyan-500/30 flex items-center justify-center text-xs text-cyan-300"
+                    style={{ width: `${(settings.autoSupersedeUpper - settings.autoSupersedeThreshold) * 100}%` }}
+                  >
+                    Supersede
+                  </div>
+                  <div
+                    className="bg-amber-500/20 border-r border-amber-500/30 flex items-center justify-center text-xs text-amber-300"
+                    style={{ width: `${(settings.dedupThreshold - settings.autoSupersedeUpper) * 100}%` }}
+                  >
+                    Gap
+                  </div>
+                  <div
+                    className="bg-emerald-500/20 flex items-center justify-center text-xs text-emerald-300"
+                    style={{ width: `${(1 - settings.dedupThreshold) * 100}%` }}
+                  >
+                    Merge
+                  </div>
+                </div>
+              </div>
+
+              {/* Auto-Supersede Lower Threshold */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/70">Supersede Threshold (lower)</span>
+                  <span className="text-sm font-mono text-cyan-400">{settings.autoSupersedeThreshold.toFixed(2)}</span>
+                </div>
+                <Slider
+                  value={[settings.autoSupersedeThreshold]}
+                  onValueChange={([value]) =>
+                    setSettings((s) => ({
+                      ...s,
+                      autoSupersedeThreshold: Math.min(value, s.autoSupersedeUpper - 0.01),
+                    }))
+                  }
+                  min={0.70}
+                  max={0.95}
+                  step={0.01}
+                  disabled={!settings.autoSupersedeEnabled}
+                />
+                <p className="text-xs text-white/40">
+                  Minimum similarity to trigger auto-supersede (default: 0.85)
+                </p>
+              </div>
+
+              {/* Auto-Supersede Upper Threshold */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/70">Supersede Threshold (upper)</span>
+                  <span className="text-sm font-mono text-cyan-400">{settings.autoSupersedeUpper.toFixed(2)}</span>
+                </div>
+                <Slider
+                  value={[settings.autoSupersedeUpper]}
+                  onValueChange={([value]) =>
+                    setSettings((s) => ({
+                      ...s,
+                      autoSupersedeUpper: Math.max(
+                        Math.min(value, s.dedupThreshold - 0.01),
+                        s.autoSupersedeThreshold + 0.01
+                      ),
+                    }))
+                  }
+                  min={0.70}
+                  max={0.95}
+                  step={0.01}
+                  disabled={!settings.autoSupersedeEnabled}
+                />
+                <p className="text-xs text-white/40">
+                  Above this, deduplication takes over (default: 0.91)
+                </p>
+              </div>
+
+              {/* Dedup Threshold */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/70">Dedup Merge Threshold</span>
+                  <span className="text-sm font-mono text-emerald-400">{settings.dedupThreshold.toFixed(2)}</span>
+                </div>
+                <Slider
+                  value={[settings.dedupThreshold]}
+                  onValueChange={([value]) =>
+                    setSettings((s) => ({
+                      ...s,
+                      dedupThreshold: Math.max(value, s.autoSupersedeUpper + 0.01),
+                    }))
+                  }
+                  min={0.80}
+                  max={0.99}
+                  step={0.01}
+                />
+                <p className="text-xs text-white/40">
+                  Near-identical content is merged instead of duplicated (default: 0.92)
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+              <p className="text-xs text-cyan-300">
+                When you store "API moved to /v2", the system finds the old "/v1" memory
+                (similarity ~0.88), creates a supersedes link, and archives it automatically.
+              </p>
             </div>
           </CardContent>
         </Card>

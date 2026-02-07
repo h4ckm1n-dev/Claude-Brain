@@ -455,13 +455,10 @@ def update_memory_states(
             response = client.scroll(
                 collection_name=collection_name,
                 scroll_filter=models.Filter(
-                    must=[
-                        # Only active memories (not purged)
+                    must_not=[
                         models.FieldCondition(
                             key="state",
-                            match=models.MatchExcept(
-                                except_=[MemoryState.PURGED.value]
-                            )
+                            match=models.MatchValue(value=MemoryState.PURGED.value)
                         )
                     ]
                 ),

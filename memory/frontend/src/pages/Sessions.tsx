@@ -201,19 +201,21 @@ export function Sessions() {
                     <span className="text-xs text-white/40">
                       {new Date(session.created_at).toLocaleDateString()}
                     </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        consolidateSession.mutate(session.session_id);
-                      }}
-                      disabled={consolidateSession.isPending}
-                      className="border-purple-500/30 text-purple-300 hover:bg-purple-500/20"
-                    >
-                      <Combine className="h-3 w-3 mr-1" />
-                      Consolidate
-                    </Button>
+                    {session.status !== 'consolidated' && session.memory_count >= 2 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          consolidateSession.mutate(session.session_id);
+                        }}
+                        disabled={consolidateSession.isPending}
+                        className="border-purple-500/30 text-purple-300 hover:bg-purple-500/20"
+                      >
+                        <Combine className="h-3 w-3 mr-1" />
+                        Consolidate
+                      </Button>
+                    )}
                   </div>
                 </button>
 
