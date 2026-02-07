@@ -6,6 +6,11 @@
 
 MEMORY_API="http://localhost:8100"
 
+# Health check - exit silently if service unavailable
+if ! curl -sf "$MEMORY_API/health" >/dev/null 2>&1; then
+    exit 0
+fi
+
 # Read hook input from stdin
 INPUT=$(cat)
 

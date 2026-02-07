@@ -21,6 +21,50 @@ if [ -z "$COMMAND" ] || [ -z "$ERROR_OUTPUT" ]; then
     exit 0
 fi
 
+# 1a. Environment context — git branch and cwd
+GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "none")
+CWD=$(echo "$INPUT" | jq -r '.cwd // ""')
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
+
+# 1b. Transcript mining — extract Claude's reasoning before the error
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // ""')
+INTENT=""
+if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+    # Extract last 1-2 assistant text blocks before the failed tool_use
+    INTENT=$(python3 -c "
+import json, sys
+try:
+    blocks = []
+    with open('$TRANSCRIPT_PATH', 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get('type') == 'assistant':
+                # Extract text content from message
+                msg = entry.get('message', {})
+                content = msg.get('content', [])
+                text_parts = []
+                for block in content:
+                    if isinstance(block, dict) and block.get('type') == 'text':
+                        text_parts.append(block.get('text', ''))
+                if text_parts:
+                    combined = ' '.join(text_parts).strip()
+                    if combined:
+                        blocks.append(combined)
+    # Get last 2 assistant text blocks
+    recent = blocks[-2:] if len(blocks) >= 2 else blocks
+    result = ' | '.join(b[:250] for b in recent)
+    print(result[:500] if result else '')
+except Exception:
+    pass
+" 2>/dev/null)
+fi
+
 # Extract error type from error text
 detect_error_type() {
     local output="$1"
@@ -89,16 +133,26 @@ SIMILAR=$(curl -s "$MEMORY_API/memories/search" -X POST \
 if [ -z "$SIMILAR" ]; then
     PROJECT_DIR=$(basename "$(pwd)" 2>/dev/null || echo "unknown")
 
+    # 1a. Build enriched context with env info and intent
+    CONTEXT="Command: $COMMAND | Location: ${ERROR_LOCATION:-unknown} | Branch: $GIT_BRANCH | CWD: $CWD | Date: $(date '+%Y-%m-%d %H:%M')"
+    if [ -n "$INTENT" ]; then
+        CONTEXT+="\nIntent: $INTENT"
+    fi
+
+    # 1c. error_message (first 1000 chars for display), stack_trace (up to 3000 chars for full detail)
+    ERROR_MSG=$(echo "$ERROR_OUTPUT" | head -c 1000)
+    STACK_TRACE=$(echo "$ERROR_OUTPUT" | head -c 3000)
+
     # Store error memory with descriptive content
     RESPONSE=$(curl -s "$MEMORY_API/memories" -X POST \
         -H "Content-Type: application/json" \
         -d "$(jq -n \
             --arg type "error" \
             --arg content "$ERROR_TYPE error in '$COMMAND': $ERROR_FIRST_LINE" \
-            --arg error_message "$(echo "$ERROR_OUTPUT" | head -c 1000)" \
+            --arg error_message "$ERROR_MSG" \
             --arg prevention "$PREVENTION" \
             --argjson tags "$(jq -n --arg t1 "auto-captured" --arg t2 "$ERROR_TYPE" '[$t1, $t2]')" \
-            --arg context "Command: $COMMAND | Location: ${ERROR_LOCATION:-unknown} | Date: $(date '+%Y-%m-%d %H:%M')" \
+            --arg context "$CONTEXT" \
             --arg project "$PROJECT_DIR" \
             '{type: $type, content: $content, error_message: $error_message, prevention: $prevention, tags: $tags, context: $context, project: $project}'
         )" 2>/dev/null)
@@ -110,22 +164,42 @@ if [ -z "$SIMILAR" ]; then
         CMD_NORMALIZED=$(echo "$COMMAND" | sed 's/^[[:space:]]*//' | head -c 120)
         CMD_HASH=$(echo "$CMD_NORMALIZED" | md5 -q 2>/dev/null || echo "$CMD_NORMALIZED" | md5sum | cut -d' ' -f1)
 
-        jq -n \
+        # Extract binary and subcommand for tier-2 matching
+        BASE_CMD=$(echo "$CMD_NORMALIZED" | sed 's/^[A-Z_]*=[^ ]* //' | awk '{print $1}')
+        SUBCMD=$(echo "$CMD_NORMALIZED" | sed 's/^[A-Z_]*=[^ ]* //' | awk '{print $1, $2}' | head -c 60)
+
+        # 1d. Enriched journal entry with cwd, git_branch, session_id
+        jq -cn \
             --arg error_id "$ERROR_ID" \
             --arg command "$CMD_NORMALIZED" \
             --arg cmd_hash "$CMD_HASH" \
+            --arg base_cmd "$BASE_CMD" \
+            --arg subcmd "$SUBCMD" \
             --arg error_type "$ERROR_TYPE" \
             --arg error_summary "$ERROR_FIRST_LINE" \
             --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{error_id: $error_id, command: $command, cmd_hash: $cmd_hash, error_type: $error_type, error_summary: $error_summary, timestamp: $timestamp}' \
+            --arg cwd "$CWD" \
+            --arg git_branch "$GIT_BRANCH" \
+            --arg session_id "${SESSION_ID:-unknown}" \
+            --arg stack_trace "$STACK_TRACE" \
+            '{error_id: $error_id, command: $command, cmd_hash: $cmd_hash, base_cmd: $base_cmd, subcmd: $subcmd, error_type: $error_type, error_summary: $error_summary, timestamp: $timestamp, cwd: $cwd, git_branch: $git_branch, session_id: $session_id, stack_trace: $stack_trace}' \
             >> "$ERROR_JOURNAL"
 
-        # Prune journal entries older than 24h
-        CUTOFF=$(date -u -v-24H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+        # 1e. Prune journal entries older than 72h, hard cap 50 entries
+        # Use lockfile to prevent race with concurrent append/prune
+        LOCKFILE="/tmp/.claude-error-journal.lock"
+        CUTOFF=$(date -u -v-72H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
         if [ -n "$CUTOFF" ] && [ -f "$ERROR_JOURNAL" ]; then
-            TMP=$(mktemp)
-            jq -c "select(.timestamp > \"$CUTOFF\")" "$ERROR_JOURNAL" > "$TMP" 2>/dev/null
-            mv "$TMP" "$ERROR_JOURNAL"
+            if ( set -o noclobber; echo $$ > "$LOCKFILE" ) 2>/dev/null; then
+                trap "rm -f '$LOCKFILE'" EXIT
+                TMP=$(mktemp)
+                jq -c "select(.timestamp > \"$CUTOFF\")" "$ERROR_JOURNAL" > "$TMP" 2>/dev/null
+                # Hard cap: keep only last 50 entries
+                tail -50 "$TMP" > "$ERROR_JOURNAL"
+                rm -f "$TMP"
+                rm -f "$LOCKFILE"
+                trap - EXIT
+            fi
         fi
 
         echo "Error auto-captured (ID: $ERROR_ID, type: $ERROR_TYPE)"

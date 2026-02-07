@@ -1,7 +1,7 @@
 #!/bin/bash
 # File Edit Tracker
 # Triggers: PostToolUse (Write, Edit)
-# Purpose: Track file edits with session context
+# Purpose: Track file edits with session context and diff info
 
 MEMORY_API="http://localhost:8100"
 EDIT_JOURNAL="/tmp/.claude-edit-journal.jsonl"
@@ -35,12 +35,22 @@ esac
 SESSION_ID="${MEMORY_SESSION_ID:-session-$(date +%Y%m%d%H)}"
 PROJECT_DIR=$(basename "$(pwd)" 2>/dev/null || echo "unknown")
 
-# Extract content (first 500 chars for context)
+# 3a. Capture old_string + new_string for Edit, full content for Write
 if [ "$OPERATION" = "Write" ]; then
     CONTENT=$(echo "$TOOL_INPUT" | jq -r '.content' 2>/dev/null | head -c 500)
+    SNIPPET_FOR_JOURNAL=$(echo "$CONTENT" | tr '\n' ' ' | head -c 300)
+elif [ "$OPERATION" = "Edit" ]; then
+    OLD_STRING=$(echo "$TOOL_INPUT" | jq -r '.old_string // ""' 2>/dev/null | head -c 300)
+    NEW_STRING=$(echo "$TOOL_INPUT" | jq -r '.new_string // ""' 2>/dev/null | head -c 300)
+    CONTENT="$NEW_STRING"
+
+    # 3a. Build diff-style snippet: REPLACED: ... -> WITH: ...
+    OLD_ONELINE=$(echo "$OLD_STRING" | tr '\n' ' ' | head -c 300)
+    NEW_ONELINE=$(echo "$NEW_STRING" | tr '\n' ' ' | head -c 300)
+    SNIPPET_FOR_JOURNAL="REPLACED: $OLD_ONELINE -> WITH: $NEW_ONELINE"
 else
-    # For Edit, get new_string
-    CONTENT=$(echo "$TOOL_INPUT" | jq -r '.new_string' 2>/dev/null | head -c 500)
+    CONTENT=$(echo "$TOOL_INPUT" | jq -r '.new_string // .content // ""' 2>/dev/null | head -c 500)
+    SNIPPET_FOR_JOURNAL=$(echo "$CONTENT" | tr '\n' ' ' | head -c 300)
 fi
 
 if [ -z "$CONTENT" ] || [ "$CONTENT" = "null" ]; then
@@ -60,24 +70,31 @@ if [ -n "$EXT" ] && [ "$EXT" != "$FILE_PATH" ]; then
     TAGS="[\"file-edit\", \"$OPERATION\", \"$SESSION_ID\", \"$PROJECT_DIR\", \"$EXT\"]"
 fi
 
-# Write to edit journal for error resolution detector
-# Snippet: first 100 chars of content, single line
-SNIPPET=$(echo "$CONTENT" | tr '\n' ' ' | head -c 100)
-jq -n \
+# 3b. Write to edit journal — 300-char snippets with old/new for Edit ops
+# Truncate final snippet to 300 chars in case REPLACED: old -> WITH: new exceeds it
+SNIPPET_FOR_JOURNAL=$(echo "$SNIPPET_FOR_JOURNAL" | head -c 300)
+jq -cn \
     --arg file_path "$FILE_PATH" \
     --arg operation "$OPERATION" \
-    --arg snippet "$SNIPPET" \
+    --arg snippet "$SNIPPET_FOR_JOURNAL" \
     --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{file_path: $file_path, operation: $operation, snippet: $snippet, timestamp: $timestamp}' \
     >> "$EDIT_JOURNAL"
 
 # Prune edit journal entries older than 2h
+# Use lockfile to prevent race with concurrent append/prune
+LOCKFILE="/tmp/.claude-edit-journal.lock"
 if [ -f "$EDIT_JOURNAL" ]; then
     CUTOFF=$(date -u -v-2H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
     if [ -n "$CUTOFF" ]; then
-        TMP=$(mktemp)
-        jq -c "select(.timestamp > \"$CUTOFF\")" "$EDIT_JOURNAL" > "$TMP" 2>/dev/null
-        mv "$TMP" "$EDIT_JOURNAL"
+        if ( set -o noclobber; echo $$ > "$LOCKFILE" ) 2>/dev/null; then
+            trap "rm -f '$LOCKFILE'" EXIT
+            TMP=$(mktemp)
+            jq -c "select(.timestamp > \"$CUTOFF\")" "$EDIT_JOURNAL" > "$TMP" 2>/dev/null
+            mv "$TMP" "$EDIT_JOURNAL"
+            rm -f "$LOCKFILE"
+            trap - EXIT
+        fi
     fi
 fi
 
