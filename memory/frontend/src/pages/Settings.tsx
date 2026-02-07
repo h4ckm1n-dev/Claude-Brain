@@ -106,6 +106,10 @@ export function Settings() {
       setSaveMessage('Settings saved successfully!');
       setTimeout(() => setSaveMessage(''), 3000);
     },
+    onError: (error: any) => {
+      setSaveMessage(`Error saving settings: ${error.response?.data?.detail || error.message}`);
+      setTimeout(() => setSaveMessage(''), 5000);
+    },
   });
 
   const handleSave = () => {
@@ -255,8 +259,14 @@ export function Settings() {
         </div>
 
         {saveMessage && (
-          <div className="bg-emerald-500/20 backdrop-blur-sm border border-emerald-500/30 rounded-xl p-4">
-            <p className="text-emerald-300 text-sm">{saveMessage}</p>
+          <div className={`backdrop-blur-sm rounded-xl p-4 ${
+            saveMessage.startsWith('Error')
+              ? 'bg-red-500/20 border border-red-500/30'
+              : 'bg-emerald-500/20 border border-emerald-500/30'
+          }`}>
+            <p className={`text-sm ${saveMessage.startsWith('Error') ? 'text-red-300' : 'text-emerald-300'}`}>
+              {saveMessage}
+            </p>
           </div>
         )}
 

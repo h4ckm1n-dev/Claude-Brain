@@ -38,7 +38,7 @@ output+=$(printf "\033[1;34m%s\033[0m " "$display_dir")
 if git -C "$cwd" rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
     branch=$(git -C "$cwd" branch --show-current 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
     if [[ -n "$branch" ]]; then
-        output+=$(printf "on \033[1;32m %s\033[0m " "$branch")
+        output+=$(printf "on \033[1;32m %s\033[0m " "$branch")
 
         git_status=$(git -C "$cwd" --no-optional-locks status --porcelain 2>/dev/null)
         status_icons=""
@@ -56,7 +56,7 @@ fi
 # Python
 if [[ -f "$cwd/requirements.txt" ]] || [[ -f "$cwd/pyproject.toml" ]] || [[ -f "$cwd/setup.py" ]]; then
     py_version=$(python3 --version 2>/dev/null | cut -d' ' -f2)
-    [[ -n "$py_version" ]] && output+=$(printf "via \033[1;33m %s\033[0m " "$py_version")
+    [[ -n "$py_version" ]] && output+=$(printf "via \033[1;33m %s\033[0m " "$py_version")
 fi
 
 # Node.js
@@ -105,10 +105,10 @@ if [[ -n "$context_used" ]]; then
     else
         ctx_color="\033[1;32m"
     fi
-    output+=$(printf "| \033[1;36m%s\033[0m " "$model_name")
+    output+=$(printf "| \033[1;36m󰧑 %s\033[0m " "$model_name")
     output+=$(printf "${ctx_color}(%s%% used)\033[0m" "$context_used")
 elif [[ -n "$model_name" ]]; then
-    output+=$(printf "| \033[1;36m%s\033[0m" "$model_name")
+    output+=$(printf "| \033[1;36m󰧑 %s\033[0m" "$model_name")
 fi
 
 echo "$output"

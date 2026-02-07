@@ -172,7 +172,7 @@ def find_consolidation_clusters(
                 limit=100,
                 offset=scroll_offset,
                 with_payload=True,
-                with_vectors={"include": ["dense"]},
+                with_vectors=["dense"],
                 scroll_filter=models.Filter(
                     must=[
                         models.FieldCondition(

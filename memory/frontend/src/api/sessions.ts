@@ -71,3 +71,12 @@ export interface CloseSessionResult {
 
 export const closeSession = (sessionId: string) =>
   apiClient.post<CloseSessionResult>(`/sessions/${sessionId}/close`).then(r => r.data);
+
+export interface DeleteSessionResult {
+  status: string;
+  session_id: string;
+  memories_deleted: number;
+}
+
+export const deleteSession = (sessionId: string) =>
+  apiClient.delete<DeleteSessionResult>(`/sessions/${sessionId}`).then(r => r.data);

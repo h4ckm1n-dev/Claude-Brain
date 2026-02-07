@@ -619,6 +619,40 @@ async def trigger_scheduled_job(job_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/scheduler/trigger-all")
+async def trigger_all_scheduled_jobs():
+    """Trigger all scheduled jobs at once."""
+    try:
+        from ..scheduler import get_scheduler
+        from datetime import datetime, timezone
+
+        scheduler = get_scheduler()
+        if not scheduler or scheduler == "disabled":
+            raise HTTPException(status_code=503, detail="Scheduler not available")
+
+        triggered = []
+        failed = []
+        now = datetime.now(timezone.utc)
+        for job in scheduler.get_jobs():
+            try:
+                job.modify(next_run_time=now)
+                triggered.append(job.id)
+            except Exception as e:
+                failed.append({"job_id": job.id, "error": str(e)})
+
+        return {
+            "status": "triggered",
+            "triggered": triggered,
+            "failed": failed,
+            "total": len(triggered),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error triggering all jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ===========================================================================
 # Database Management Endpoints
 # ===========================================================================

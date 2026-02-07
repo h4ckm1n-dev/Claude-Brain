@@ -351,6 +351,11 @@ export function BrainIntelligence() {
                     ✓ Complete
                   </Badge>
                 )}
+                {triggerPatternDetection.isError && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
+                    ✗ {(triggerPatternDetection.error as any)?.response?.data?.detail || 'Failed'}
+                  </Badge>
+                )}
               </div>
 
               <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
@@ -384,6 +389,11 @@ export function BrainIntelligence() {
                     ✓ Complete
                   </Badge>
                 )}
+                {updateQualityScores.isError && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
+                    ✗ {(updateQualityScores.error as any)?.response?.data?.detail || 'Failed'}
+                  </Badge>
+                )}
               </div>
 
               <div className="p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
@@ -415,6 +425,11 @@ export function BrainIntelligence() {
                 {updateLifecycleStates.isSuccess && (
                   <Badge className="mt-2 w-full bg-purple-500/20 text-purple-300">
                     ✓ Complete
+                  </Badge>
+                )}
+                {updateLifecycleStates.isError && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
+                    ✗ {(updateLifecycleStates.error as any)?.response?.data?.detail || 'Failed'}
                   </Badge>
                 )}
               </div>
@@ -451,6 +466,11 @@ export function BrainIntelligence() {
                     ✓ {emotionalMutation.data?.analyzed ?? 0} analyzed
                   </Badge>
                 )}
+                {emotionalMutation.isError && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
+                    ✗ {(emotionalMutation.error as any)?.response?.data?.detail || 'Failed'}
+                  </Badge>
+                )}
               </div>
 
               {/* Conflict Detection */}
@@ -483,6 +503,11 @@ export function BrainIntelligence() {
                 {conflictMutation.isSuccess && (
                   <Badge className="mt-2 w-full bg-amber-500/20 text-amber-300">
                     ✓ {conflictMutation.data?.conflicts_detected ?? 0} found, {conflictMutation.data?.conflicts_resolved ?? 0} resolved
+                  </Badge>
+                )}
+                {conflictMutation.isError && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
+                    ✗ {(conflictMutation.error as any)?.response?.data?.detail || 'Failed'}
                   </Badge>
                 )}
               </div>
@@ -519,6 +544,11 @@ export function BrainIntelligence() {
                     ✓ Complete
                   </Badge>
                 )}
+                {metaLearningMutation.isError && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
+                    ✗ {(metaLearningMutation.error as any)?.response?.data?.detail || 'Failed'}
+                  </Badge>
+                )}
               </div>
 
               {/* Strength Decay */}
@@ -551,6 +581,11 @@ export function BrainIntelligence() {
                 {strengthDecayMutation.isSuccess && (
                   <Badge className="mt-2 w-full bg-red-500/20 text-red-300">
                     ✓ Triggered
+                  </Badge>
+                )}
+                {strengthDecayMutation.isError && (
+                  <Badge className="mt-2 w-full bg-red-500/20 text-red-300 border border-red-500/30">
+                    ✗ {(strengthDecayMutation.error as any)?.response?.data?.detail || 'Failed'}
                   </Badge>
                 )}
               </div>
@@ -622,6 +657,14 @@ export function BrainIntelligence() {
                 )}
               </Button>
 
+              {relationshipMutation.isError && (
+                <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4">
+                  <p className="text-sm font-medium text-red-300">
+                    ✗ {(relationshipMutation.error as any)?.response?.data?.detail || 'Inference failed'}
+                  </p>
+                </div>
+              )}
+
               {relationshipMutation.data && (
                 <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-4 space-y-2">
                   <p className="text-sm font-medium text-blue-300">Results:</p>
@@ -686,6 +729,14 @@ export function BrainIntelligence() {
                   </>
                 )}
               </Button>
+
+              {importanceMutation.isError && (
+                <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4">
+                  <p className="text-sm font-medium text-red-300">
+                    ✗ {(importanceMutation.error as any)?.response?.data?.detail || 'Update failed'}
+                  </p>
+                </div>
+              )}
 
               {importanceMutation.data && (
                 <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4">
@@ -775,6 +826,14 @@ export function BrainIntelligence() {
                   </>
                 )}
               </Button>
+
+              {archivalMutation.isError && (
+                <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4">
+                  <p className="text-sm font-medium text-red-300">
+                    ✗ {(archivalMutation.error as any)?.response?.data?.detail || 'Archival failed'}
+                  </p>
+                </div>
+              )}
 
               {archivalMutation.data && (
                 <div className={`rounded-lg p-4 ${

@@ -53,7 +53,8 @@ class InterferenceDetection:
             # Get all memories
             memories, _ = client.scroll(
                 collection_name=COLLECTION_NAME,
-                limit=limit
+                limit=limit,
+                with_vectors=["dense"]
             )
 
             conflicts = []
@@ -63,13 +64,21 @@ class InterferenceDetection:
                 payload = memory.payload
                 content = payload.get("content", "").lower()
 
+                # Skip if no vector available
+                mem_vector = memory.vector
+                if isinstance(mem_vector, dict):
+                    mem_vector = mem_vector.get("dense")
+                if not mem_vector:
+                    continue
+
                 # Find similar memories (semantic search)
-                similar = client.search(
+                similar = client.query_points(
                     collection_name=COLLECTION_NAME,
-                    query_vector=memory.vector,
+                    query=mem_vector,
+                    using="dense",
                     limit=10,
                     score_threshold=InterferenceDetection.SIMILARITY_THRESHOLD
-                )
+                ).points
 
                 # Check each similar memory for contradictions
                 for candidate in similar:

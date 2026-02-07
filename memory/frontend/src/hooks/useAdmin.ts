@@ -72,6 +72,17 @@ export const useTriggerScheduledJob = () => {
   });
 };
 
+export const useTriggerAllScheduledJobs = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.triggerAllScheduledJobs,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.scheduler() });
+      queryClient.invalidateQueries({ queryKey: adminKeys.jobs() });
+    },
+  });
+};
+
 // Database
 export const useDatabaseStats = () =>
   useQuery({

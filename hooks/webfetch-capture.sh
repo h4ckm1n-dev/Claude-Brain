@@ -62,6 +62,21 @@ fi
 # Get current project
 PROJECT=$(basename "$(pwd)")
 
+# URL deduplication — check if we already have a docs memory for this URL
+EXISTING=$(curl -s -X POST "$MEMORY_API/memories/search" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -n \
+        --arg query "$URL" \
+        --arg type "docs" \
+        '{query: $query, type: $type, limit: 1}'
+    )" 2>/dev/null)
+
+EXISTING_SOURCE=$(echo "$EXISTING" | jq -r '.[0].memory.source // ""' 2>/dev/null)
+if [ "$EXISTING_SOURCE" = "$URL" ]; then
+    # Already have docs for this URL, skip
+    exit 0
+fi
+
 # Store as docs memory
 curl -s -X POST "$MEMORY_API/memories" \
     -H "Content-Type: application/json" \

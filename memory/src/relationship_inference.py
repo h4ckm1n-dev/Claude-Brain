@@ -76,12 +76,13 @@ class RelationshipInference:
                 error_content = error.payload.get("error_message") or error.payload["content"]
 
                 # Embed error
-                error_vector = embed_text(error_content)
+                error_vector = embed_text(error_content)["dense"]
 
                 # Search for similar memories AFTER this error
-                candidates = client.search(
+                candidates = client.query_points(
                     collection_name=COLLECTION_NAME,
-                    query_vector=error_vector,
+                    query=error_vector,
+                    using="dense",
                     query_filter=qmodels.Filter(
                         must=[
                             qmodels.FieldCondition(
@@ -92,7 +93,7 @@ class RelationshipInference:
                     ),
                     limit=5,
                     score_threshold=RelationshipInference.FIXES_THRESHOLD
-                )
+                ).points
 
                 # Check if any candidate is a likely solution (created after error)
                 for candidate in candidates:
@@ -152,19 +153,28 @@ class RelationshipInference:
                         )
                     ]
                 ),
-                limit=batch_size
+                limit=batch_size,
+                with_vectors=["dense"]
             )
 
             links_created = 0
 
             for memory in recent:
+                # Get dense vector
+                mem_vector = memory.vector
+                if isinstance(mem_vector, dict):
+                    mem_vector = mem_vector.get("dense")
+                if not mem_vector:
+                    continue
+
                 # Search for similar
-                similar = client.search(
+                similar = client.query_points(
                     collection_name=COLLECTION_NAME,
-                    query_vector=memory.vector,
+                    query=mem_vector,
+                    using="dense",
                     limit=5,
                     score_threshold=RelationshipInference.RELATED_THRESHOLD
-                )
+                ).points
 
                 # Link top 3 similar (excluding self)
                 for candidate in similar[:3]:
@@ -305,13 +315,14 @@ class RelationshipInference:
                     matches = re.findall(pattern, content, re.IGNORECASE)
                     for cause_text in matches:
                         # Search for memories mentioning this cause
-                        cause_vector = embed_text(cause_text)
-                        candidates = client.search(
+                        cause_vector = embed_text(cause_text)["dense"]
+                        candidates = client.query_points(
                             collection_name=COLLECTION_NAME,
-                            query_vector=cause_vector,
+                            query=cause_vector,
+                            using="dense",
                             limit=3,
                             score_threshold=0.8
-                        )
+                        ).points
 
                         if candidates and str(candidates[0].id) != str(memory.id):
                             try:
@@ -392,12 +403,13 @@ class RelationshipInference:
                             logger.debug(f"Temporal link: {most_recent.id} FOLLOWS {memory_id}")
 
             # 2. Semantic inference with type-based patterns
-            similar = client.search(
+            similar = client.query_points(
                 collection_name=COLLECTION_NAME,
-                query_vector=memory_vector,
+                query=memory_vector,
+                using="dense",
                 limit=10,
                 score_threshold=0.75
-            )
+            ).points
 
             for candidate in similar:
                 if str(candidate.id) == memory_id:

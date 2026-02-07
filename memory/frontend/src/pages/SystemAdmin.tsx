@@ -11,6 +11,7 @@ import {
   useDatabaseStats,
   useSchedulerStatus,
   useTriggerScheduledJob,
+  useTriggerAllScheduledJobs,
   useNotificationStats,
   useClearAllNotifications,
   useExportMemories,
@@ -54,6 +55,7 @@ export function SystemAdmin() {
 
   const clearCache = useClearCache();
   const triggerJob = useTriggerScheduledJob();
+  const triggerAllJobs = useTriggerAllScheduledJobs();
   const clearNotifications = useClearAllNotifications();
   const exportMemories = useExportMemories();
   const createBackup = useCreateBackup();
@@ -294,9 +296,20 @@ export function SystemAdmin() {
         {/* Scheduler Control */}
         <Card className="bg-[#0f0f0f] border border-white/10">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-white">Scheduler Jobs</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-400" />
+                <CardTitle className="text-white">Scheduler Jobs</CardTitle>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => triggerAllJobs.mutate()}
+                disabled={triggerAllJobs.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Zap className="h-3 w-3 mr-1" />
+                {triggerAllJobs.isPending ? 'Running...' : 'Trigger All'}
+              </Button>
             </div>
             <CardDescription className="text-white/60">
               View and trigger scheduled background jobs

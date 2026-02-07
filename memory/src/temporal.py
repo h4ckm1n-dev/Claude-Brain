@@ -60,7 +60,7 @@ class TemporalQuery:
             conditions.append(
                 models.FieldCondition(
                     key="validity_start",
-                    range=models.Range(lte=valid_at.isoformat())
+                    range=models.DatetimeRange(lte=valid_at)
                 )
             )
             # Note: Qdrant doesn't support complex OR conditions in single filter
@@ -71,7 +71,7 @@ class TemporalQuery:
             conditions.append(
                 models.FieldCondition(
                     key="created_at",
-                    range=models.Range(gte=ingested_after.isoformat())
+                    range=models.DatetimeRange(gte=ingested_after)
                 )
             )
 
@@ -79,7 +79,7 @@ class TemporalQuery:
             conditions.append(
                 models.FieldCondition(
                     key="created_at",
-                    range=models.Range(lte=ingested_before.isoformat())
+                    range=models.DatetimeRange(lte=ingested_before)
                 )
             )
 
@@ -88,7 +88,7 @@ class TemporalQuery:
             conditions.append(
                 models.FieldCondition(
                     key="event_time",
-                    range=models.Range(gte=event_after.isoformat())
+                    range=models.DatetimeRange(gte=event_after)
                 )
             )
 
@@ -96,7 +96,7 @@ class TemporalQuery:
             conditions.append(
                 models.FieldCondition(
                     key="event_time",
-                    range=models.Range(lte=event_before.isoformat())
+                    range=models.DatetimeRange(lte=event_before)
                 )
             )
 

@@ -447,7 +447,7 @@ class SessionManager:
 
             active_sessions = total_sessions - sessions_with_summary
             consolidation_rate = round(
-                (sessions_with_summary / total_sessions * 100) if total_sessions > 0 else 0, 2
+                (sessions_with_summary / total_sessions) if total_sessions > 0 else 0, 4
             )
 
             return {

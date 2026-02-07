@@ -491,7 +491,7 @@ class TierPromotionEngine:
                         ),
                         models.FieldCondition(
                             key="created_at",
-                            range=models.Range(lte=cutoff.isoformat())
+                            range=models.DatetimeRange(lte=cutoff)
                         )
                     ]
                 ),

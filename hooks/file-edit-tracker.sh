@@ -1,7 +1,7 @@
 #!/bin/bash
 # File Edit Tracker
 # Triggers: PostToolUse (Write, Edit)
-# Purpose: Track file edits and link them to user prompts via FOLLOWS relationship
+# Purpose: Track file edits with session context
 
 MEMORY_API="http://localhost:8100"
 
@@ -30,10 +30,9 @@ case "$FILENAME" in
         ;;
 esac
 
-# Get current context
-SESSION_ID="session-$(date +%Y%m%d%H)"
+# Use real session ID from env if available, fallback to date-based
+SESSION_ID="${MEMORY_SESSION_ID:-session-$(date +%Y%m%d%H)}"
 PROJECT_DIR=$(basename "$(pwd)" 2>/dev/null || echo "unknown")
-GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 
 # Extract content (first 500 chars for context)
 if [ "$OPERATION" = "Write" ]; then
@@ -47,41 +46,32 @@ if [ -z "$CONTENT" ] || [ "$CONTENT" = "null" ]; then
     exit 0
 fi
 
-# Prepare tags
-TAGS="[\"file-edit\", \"$OPERATION\", \"$SESSION_ID\", \"$PROJECT_DIR\"]"
+# Skip trivial edits (< 50 chars of content)
+CONTENT_LEN=${#CONTENT}
+if [ "$CONTENT_LEN" -lt 50 ]; then
+    exit 0
+fi
 
-# Add file extension tag
+# Prepare tags
 EXT="${FILE_PATH##*.}"
+TAGS="[\"file-edit\", \"$OPERATION\", \"$SESSION_ID\", \"$PROJECT_DIR\"]"
 if [ -n "$EXT" ] && [ "$EXT" != "$FILE_PATH" ]; then
     TAGS="[\"file-edit\", \"$OPERATION\", \"$SESSION_ID\", \"$PROJECT_DIR\", \"$EXT\"]"
 fi
 
 # Create file edit memory
-FILE_MEMORY_RESPONSE=$(curl -s "$MEMORY_API/memories" \
+curl -s "$MEMORY_API/memories" \
     -X POST \
     -H "Content-Type: application/json" \
-    -d "{\"type\": \"pattern\", \"content\": \"File $OPERATION: $FILE_PATH\", \"context\": \"$CONTENT\", \"tags\": $TAGS, \"project\": \"$PROJECT_DIR\", \"source\": \"$FILE_PATH\"}" 2>/dev/null)
-
-FILE_MEMORY_ID=$(echo "$FILE_MEMORY_RESPONSE" | jq -r '.id' 2>/dev/null)
-
-if [ "$FILE_MEMORY_ID" = "null" ] || [ -z "$FILE_MEMORY_ID" ]; then
-    exit 0
-fi
-
-# Search for recent user prompt in this session
-RECENT_PROMPT_RESPONSE=$(curl -s "$MEMORY_API/memories/search" \
-    -H "Content-Type: application/json" \
-    -d "{\"query\": \"User:\", \"tags\": [\"user-prompt\", \"$SESSION_ID\"], \"limit\": 1}" 2>/dev/null)
-
-RECENT_PROMPT_ID=$(echo "$RECENT_PROMPT_RESPONSE" | jq -r '.[0].memory.id' 2>/dev/null)
-
-# Link file edit → user prompt (FOLLOWS relationship)
-if [ "$RECENT_PROMPT_ID" != "null" ] && [ -n "$RECENT_PROMPT_ID" ]; then
-    curl -s "$MEMORY_API/memories/link" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -d "{\"source_id\": \"$FILE_MEMORY_ID\", \"target_id\": \"$RECENT_PROMPT_ID\", \"relation\": \"follows\"}" \
-        >/dev/null 2>&1
-fi
+    -d "$(jq -n \
+        --arg type "pattern" \
+        --arg content "File $OPERATION: $FILE_PATH" \
+        --arg context "$CONTENT" \
+        --argjson tags "$TAGS" \
+        --arg project "$PROJECT_DIR" \
+        --arg source "$FILE_PATH" \
+        --arg session_id "$SESSION_ID" \
+        '{type: $type, content: $content, context: $context, tags: $tags, project: $project, source: $source, session_id: $session_id}'
+    )" > /dev/null 2>&1
 
 exit 0

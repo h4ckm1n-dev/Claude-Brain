@@ -58,7 +58,7 @@ class ErrorTrendAnalyzer:
                         ),
                         models.FieldCondition(
                             key="created_at",
-                            range=models.Range(gte=cutoff.isoformat())
+                            range=models.DatetimeRange(gte=cutoff)
                         )
                     ]
                 ),
@@ -166,7 +166,7 @@ class ErrorTrendAnalyzer:
                         ),
                         models.FieldCondition(
                             key="created_at",
-                            range=models.Range(gte=recent_cutoff.isoformat())
+                            range=models.DatetimeRange(gte=recent_cutoff)
                         )
                     ]
                 ),
@@ -186,9 +186,9 @@ class ErrorTrendAnalyzer:
                         ),
                         models.FieldCondition(
                             key="created_at",
-                            range=models.Range(
-                                gte=baseline_cutoff.isoformat(),
-                                lte=recent_cutoff.isoformat()
+                            range=models.DatetimeRange(
+                                gte=baseline_cutoff,
+                                lte=recent_cutoff
                             )
                         )
                     ]
@@ -289,7 +289,7 @@ class ErrorTrendAnalyzer:
                         ),
                         models.FieldCondition(
                             key="created_at",
-                            range=models.Range(gte=cutoff.isoformat())
+                            range=models.DatetimeRange(gte=cutoff)
                         )
                     ]
                 ),
@@ -411,7 +411,7 @@ class KnowledgeGapDetector:
                         ),
                         models.FieldCondition(
                             key="created_at",
-                            range=models.Range(gte=cutoff.isoformat())
+                            range=models.DatetimeRange(gte=cutoff)
                         )
                     ]
                 ),

@@ -108,6 +108,9 @@ export const getSchedulerStatus = () =>
 export const triggerScheduledJob = (jobId: string) =>
   apiClient.post(`/scheduler/jobs/${jobId}/trigger`).then(r => r.data);
 
+export const triggerAllScheduledJobs = () =>
+  apiClient.post('/scheduler/trigger-all').then(r => r.data);
+
 // Database — combine /database/stats with /health/detailed for full picture
 export const getDatabaseStats = async (): Promise<DatabaseStats> => {
   const [dbRes, healthRes] = await Promise.all([

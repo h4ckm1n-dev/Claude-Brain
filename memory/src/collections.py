@@ -30,7 +30,8 @@ from .cache import (
 from .fusion import apply_learned_fusion
 from .graph import (
     is_graph_enabled, init_graph_schema, create_memory_node,
-    create_relationship, get_related_memories, get_graph_stats
+    create_relationship, get_related_memories, get_graph_stats,
+    delete_memory_node
 )
 from .graph_search import expand_search_with_graph
 from .query_understanding import route_query
@@ -945,6 +946,13 @@ def update_memory(memory_id: str, update: MemoryUpdate) -> Optional[Memory]:
 def delete_memory(memory_id: str) -> bool:
     """Delete a memory by ID."""
     client = get_client()
+
+    # Clean up Neo4j graph node before deleting from Qdrant
+    if is_graph_enabled():
+        try:
+            delete_memory_node(memory_id)
+        except Exception as e:
+            logger.warning(f"Failed to delete graph node {memory_id}: {e}")
 
     client.delete(
         collection_name=COLLECTION_NAME,

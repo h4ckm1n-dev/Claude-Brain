@@ -11,6 +11,7 @@ import {
   useBatchConsolidate,
   useCreateSession,
   useCloseSession,
+  useDeleteSession,
 } from '../hooks/useSessions';
 import {
   Clock,
@@ -22,6 +23,7 @@ import {
   Database,
   Activity,
   Square,
+  Trash2,
 } from 'lucide-react';
 
 export function Sessions() {
@@ -34,6 +36,7 @@ export function Sessions() {
   const batchConsolidate = useBatchConsolidate();
   const createSession = useCreateSession();
   const closeSession = useCloseSession();
+  const deleteSession = useDeleteSession();
 
   const handleCreateSession = () => {
     createSession.mutate(newProject || undefined);
@@ -232,6 +235,23 @@ export function Sessions() {
                       >
                         <Combine className="h-3 w-3 mr-1" />
                         Consolidate
+                      </Button>
+                    )}
+                    {session.status !== 'active' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete session ${session.session_id.slice(0, 12)}... and all its memories?`)) {
+                            deleteSession.mutate(session.session_id);
+                          }
+                        }}
+                        disabled={deleteSession.isPending}
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/20"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
                       </Button>
                     )}
                   </div>

@@ -80,6 +80,20 @@ async def consolidate_session(session_id: str):
     try:
         client = collections.get_client()
 
+        # Check if already consolidated — return existing summary (idempotent)
+        existing_memories = SessionManager.get_session_memories(
+            client, collections.COLLECTION_NAME, session_id
+        )
+        for mem in existing_memories:
+            if mem.type.value == "context" and "session-summary" in (mem.tags or []):
+                return {
+                    "status": "consolidated",
+                    "session_id": session_id,
+                    "summary_id": mem.id,
+                    "relationships_created": 0,
+                    "already_consolidated": True,
+                }
+
         # First, infer relationships within session
         links_created = SessionManager.infer_session_relationships(
             client,
@@ -97,7 +111,7 @@ async def consolidate_session(session_id: str):
         if not summary_id:
             raise HTTPException(
                 status_code=400,
-                detail="Session consolidation failed - may have <2 memories or already consolidated"
+                detail="Session consolidation failed - may have <2 memories"
             )
 
         return {
@@ -200,6 +214,69 @@ async def consolidate_ready_sessions(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    """Delete all memories belonging to a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Count of deleted memories
+    """
+    from qdrant_client import models as qmodels
+
+    try:
+        client = collections.get_client()
+
+        # Count memories in this session first
+        results, _ = client.scroll(
+            collection_name=collections.COLLECTION_NAME,
+            scroll_filter=qmodels.Filter(
+                must=[
+                    qmodels.FieldCondition(
+                        key="session_id",
+                        match=qmodels.MatchValue(value=session_id)
+                    )
+                ]
+            ),
+            limit=10000,
+            with_payload=False
+        )
+
+        if not results:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        point_ids = [r.id for r in results]
+
+        # Clean up Neo4j graph nodes before deleting from Qdrant
+        from ..graph import is_graph_enabled, delete_memory_node
+        if is_graph_enabled():
+            for pid in point_ids:
+                try:
+                    delete_memory_node(str(pid))
+                except Exception as e:
+                    logger.warning(f"Failed to delete graph node {pid}: {e}")
+
+        # Delete all points with this session_id
+        client.delete(
+            collection_name=collections.COLLECTION_NAME,
+            points_selector=qmodels.PointIdsList(points=point_ids)
+        )
+
+        return {
+            "status": "deleted",
+            "session_id": session_id,
+            "memories_deleted": len(point_ids),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/sessions/{session_id}/close")
 async def close_session(session_id: str):
     """Close a session: store an end memory, infer relationships, and consolidate.
@@ -225,6 +302,25 @@ async def close_session(session_id: str):
         memories = SessionManager.get_session_memories(
             client, collections.COLLECTION_NAME, session_id
         )
+
+        # Double-close guard — if session-end memory already exists, return existing state
+        for mem in memories:
+            if "session-end" in (mem.tags or []):
+                # Find existing summary if any
+                existing_summary_id = None
+                for m in memories:
+                    if m.type.value == "context" and "session-summary" in (m.tags or []):
+                        existing_summary_id = m.id
+                        break
+                return {
+                    "status": "closed",
+                    "session_id": session_id,
+                    "memory_count": len(memories),
+                    "summary_id": existing_summary_id,
+                    "relationships_created": 0,
+                    "consolidated": existing_summary_id is not None,
+                    "already_closed": True,
+                }
 
         project = None
         for mem in memories:

@@ -242,13 +242,15 @@ def get_scheduler_status() -> dict:
 
 
 def trigger_job(job_id: str) -> bool:
-    """Manually trigger a scheduled job."""
+    """Manually trigger a scheduled job by setting next_run_time to now."""
+    from datetime import datetime, timezone
+
     scheduler = get_scheduler()
 
     if scheduler and scheduler != "disabled":
         job = scheduler.get_job(job_id)
         if job:
-            job.modify(next_run_time=None)  # Run immediately
+            job.modify(next_run_time=datetime.now(timezone.utc))
             return True
 
     return False
@@ -374,8 +376,8 @@ def run_spaced_repetition():
 
         reviewed = 0
         for candidate in candidates:
-            # Reconsolidate each candidate
-            result = reconsolidate_memory(candidate["id"])
+            # Reconsolidate each candidate (internal=True to avoid inflating access_count)
+            result = reconsolidate_memory(candidate["id"], internal=True)
             if result.get("success"):
                 reviewed += 1
 
@@ -574,9 +576,9 @@ def run_quality_score_update():
 
             logger.info(
                 f"Scheduled quality score update complete: "
-                f"updated={update_result['total_updated']}, "
-                f"failed={update_result['failed']}, "
-                f"avg_quality={update_result['avg_quality']:.3f}"
+                f"processed={update_result.get('processed', 0)}, "
+                f"updated={update_result.get('updated', 0)}, "
+                f"errors={update_result.get('errors', 0)}"
             )
 
     except RuntimeError:

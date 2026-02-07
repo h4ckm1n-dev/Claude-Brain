@@ -12,6 +12,11 @@ services:
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
       - TZ=Asia/Bangkok
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   claude-mem-neo4j:
@@ -55,7 +60,7 @@ services:
       # frontend/dist is built into the Docker image, no need to mount
     depends_on:
       claude-mem-qdrant:
-        condition: service_started
+        condition: service_healthy
       claude-mem-neo4j:
         condition: service_healthy
     healthcheck:
