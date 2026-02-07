@@ -4,6 +4,7 @@
 # Purpose: Track file edits with session context
 
 MEMORY_API="http://localhost:8100"
+EDIT_JOURNAL="/tmp/.claude-edit-journal.jsonl"
 
 # Health check - exit silently if service unavailable
 if ! curl -sf "$MEMORY_API/health" >/dev/null 2>&1; then
@@ -57,6 +58,27 @@ EXT="${FILE_PATH##*.}"
 TAGS="[\"file-edit\", \"$OPERATION\", \"$SESSION_ID\", \"$PROJECT_DIR\"]"
 if [ -n "$EXT" ] && [ "$EXT" != "$FILE_PATH" ]; then
     TAGS="[\"file-edit\", \"$OPERATION\", \"$SESSION_ID\", \"$PROJECT_DIR\", \"$EXT\"]"
+fi
+
+# Write to edit journal for error resolution detector
+# Snippet: first 100 chars of content, single line
+SNIPPET=$(echo "$CONTENT" | tr '\n' ' ' | head -c 100)
+jq -n \
+    --arg file_path "$FILE_PATH" \
+    --arg operation "$OPERATION" \
+    --arg snippet "$SNIPPET" \
+    --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{file_path: $file_path, operation: $operation, snippet: $snippet, timestamp: $timestamp}' \
+    >> "$EDIT_JOURNAL"
+
+# Prune edit journal entries older than 2h
+if [ -f "$EDIT_JOURNAL" ]; then
+    CUTOFF=$(date -u -v-2H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+    if [ -n "$CUTOFF" ]; then
+        TMP=$(mktemp)
+        jq -c "select(.timestamp > \"$CUTOFF\")" "$EDIT_JOURNAL" > "$TMP" 2>/dev/null
+        mv "$TMP" "$EDIT_JOURNAL"
+    fi
 fi
 
 # Create file edit memory
