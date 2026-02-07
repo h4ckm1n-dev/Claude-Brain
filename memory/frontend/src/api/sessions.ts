@@ -59,3 +59,15 @@ export const createSession = (project?: string) =>
   apiClient.post<NewSessionResult>('/sessions/new', null, {
     params: { project }
   }).then(r => r.data);
+
+export interface CloseSessionResult {
+  status: string;
+  session_id: string;
+  memory_count: number;
+  summary_id: string | null;
+  relationships_created: number;
+  consolidated: boolean;
+}
+
+export const closeSession = (sessionId: string) =>
+  apiClient.post<CloseSessionResult>(`/sessions/${sessionId}/close`).then(r => r.data);

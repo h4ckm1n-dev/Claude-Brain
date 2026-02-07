@@ -50,3 +50,13 @@ export const useCreateSession = () => {
     },
   });
 };
+
+export const useCloseSession = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.closeSession,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: sessionKeys.all });
+    },
+  });
+};

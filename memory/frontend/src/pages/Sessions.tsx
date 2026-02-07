@@ -10,6 +10,7 @@ import {
   useConsolidateSession,
   useBatchConsolidate,
   useCreateSession,
+  useCloseSession,
 } from '../hooks/useSessions';
 import {
   Clock,
@@ -20,6 +21,7 @@ import {
   Combine,
   Database,
   Activity,
+  Square,
 } from 'lucide-react';
 
 export function Sessions() {
@@ -31,6 +33,7 @@ export function Sessions() {
   const consolidateSession = useConsolidateSession();
   const batchConsolidate = useBatchConsolidate();
   const createSession = useCreateSession();
+  const closeSession = useCloseSession();
 
   const handleCreateSession = () => {
     createSession.mutate(newProject || undefined);
@@ -201,6 +204,21 @@ export function Sessions() {
                     <span className="text-xs text-white/40">
                       {new Date(session.created_at).toLocaleDateString()}
                     </span>
+                    {session.status === 'active' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          closeSession.mutate(session.session_id);
+                        }}
+                        disabled={closeSession.isPending}
+                        className="border-red-500/30 text-red-300 hover:bg-red-500/20"
+                      >
+                        <Square className="h-3 w-3 mr-1" />
+                        {closeSession.isPending ? 'Closing...' : 'Stop & Save'}
+                      </Button>
+                    )}
                     {session.status !== 'consolidated' && session.memory_count >= 2 && (
                       <Button
                         size="sm"

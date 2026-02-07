@@ -200,6 +200,84 @@ async def consolidate_ready_sessions(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/sessions/{session_id}/close")
+async def close_session(session_id: str):
+    """Close a session: store an end memory, infer relationships, and consolidate.
+
+    Steps:
+    1. Store a session-end context memory
+    2. Infer relationships within the session
+    3. Consolidate into a summary (if >=2 memories)
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Close result with summary_id and memory count
+    """
+    from ..session_extraction import SessionManager
+    from ..models import MemoryCreate, MemoryType
+
+    try:
+        client = collections.get_client()
+
+        # Get existing session memories to determine project
+        memories = SessionManager.get_session_memories(
+            client, collections.COLLECTION_NAME, session_id
+        )
+
+        project = None
+        for mem in memories:
+            if mem.project:
+                project = mem.project
+                break
+
+        # Store session-end memory
+        end_memory = MemoryCreate(
+            type=MemoryType.CONTEXT,
+            content=f"Session closed at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}. "
+                    f"Session had {len(memories)} memories"
+                    f"{' for project ' + project if project else ''}.",
+            tags=["auto-captured", "session-end"],
+            project=project,
+            session_id=session_id,
+        )
+        collections.store_memory(end_memory, deduplicate=False)
+
+        # Infer relationships within session
+        links_created = 0
+        try:
+            links_created = SessionManager.infer_session_relationships(
+                client, collections.COLLECTION_NAME, session_id
+            )
+        except Exception as e:
+            logger.warning(f"Relationship inference failed for {session_id}: {e}")
+
+        # Consolidate if enough memories (now including the end memory)
+        summary_id = None
+        total_memories = len(memories) + 1  # +1 for the end memory we just stored
+        if total_memories >= 2:
+            try:
+                summary_id = SessionManager.consolidate_session(
+                    client, collections.COLLECTION_NAME, session_id
+                )
+            except Exception as e:
+                logger.warning(f"Consolidation failed for {session_id}: {e}")
+
+        return {
+            "status": "closed",
+            "session_id": session_id,
+            "memory_count": total_memories,
+            "summary_id": summary_id,
+            "relationships_created": links_created,
+            "consolidated": summary_id is not None,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to close session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/sessions/new")
 async def create_new_session(project: Optional[str] = None):
     """Create a new conversation session.

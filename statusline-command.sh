@@ -7,7 +7,7 @@ input=$(cat)
 # Extract data from JSON
 cwd=$(echo "$input" | jq -r '.workspace.current_dir')
 model_name=$(echo "$input" | jq -r '.model.display_name')
-context_remaining=$(echo "$input" | jq -r '.context_window.remaining_percentage // empty')
+
 
 # Directory display (truncated like Starship)
 if [[ "$cwd" == "$HOME"* ]]; then
@@ -95,9 +95,20 @@ if [[ -f "$mem_cache" ]]; then
 fi
 
 # Model + context
-if [[ -n "$context_remaining" ]]; then
+context_used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+if [[ -n "$context_used" ]]; then
+    # Color code: green <50, yellow 50-80, red >80
+    if [[ "$context_used" -gt 80 ]] 2>/dev/null; then
+        ctx_color="\033[1;31m"
+    elif [[ "$context_used" -gt 50 ]] 2>/dev/null; then
+        ctx_color="\033[1;33m"
+    else
+        ctx_color="\033[1;32m"
+    fi
     output+=$(printf "| \033[1;36m%s\033[0m " "$model_name")
-    output+=$(printf "\033[1;33m(%s%% ctx)\033[0m" "$context_remaining")
+    output+=$(printf "${ctx_color}(%s%% used)\033[0m" "$context_used")
+elif [[ -n "$model_name" ]]; then
+    output+=$(printf "| \033[1;36m%s\033[0m" "$model_name")
 fi
 
 echo "$output"
