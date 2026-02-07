@@ -95,18 +95,34 @@ if [[ -f "$mem_cache" ]]; then
 fi
 
 # Model + context
-context_used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-if [[ -n "$context_used" ]]; then
-    # Color code: green <50, yellow 50-80, red >80
-    if [[ "$context_used" -gt 80 ]] 2>/dev/null; then
+# Calculate context tokens from current_usage (most accurate)
+ctx_input=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // 0')
+ctx_cache_create=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
+ctx_cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
+ctx_window=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
+
+if [[ "$ctx_window" -gt 0 ]] 2>/dev/null; then
+    ctx_used_tokens=$((ctx_input + ctx_cache_create + ctx_cache_read))
+    # Auto-compact triggers at ~80% of context window
+    compact_threshold=$((ctx_window * 80 / 100))
+    ctx_left=$((compact_threshold - ctx_used_tokens))
+    [[ $ctx_left -lt 0 ]] && ctx_left=0
+    ctx_left_pct=$((ctx_left * 100 / compact_threshold))
+
+    # Human-readable token count (K)
+    ctx_used_k=$((ctx_used_tokens / 1000))
+    ctx_window_k=$((ctx_window / 1000))
+
+    # Color code: green >50%, yellow 20-50%, red <20%
+    if [[ "$ctx_left_pct" -lt 20 ]] 2>/dev/null; then
         ctx_color="\033[1;31m"
-    elif [[ "$context_used" -gt 50 ]] 2>/dev/null; then
+    elif [[ "$ctx_left_pct" -lt 50 ]] 2>/dev/null; then
         ctx_color="\033[1;33m"
     else
         ctx_color="\033[1;32m"
     fi
     output+=$(printf "| \033[1;36m󰧑 %s\033[0m " "$model_name")
-    output+=$(printf "${ctx_color}(%s%% used)\033[0m" "$context_used")
+    output+=$(printf "${ctx_color}(%sK/%sK · %s%% left)\033[0m" "$ctx_used_k" "$ctx_window_k" "$ctx_left_pct")
 elif [[ -n "$model_name" ]]; then
     output+=$(printf "| \033[1;36m󰧑 %s\033[0m" "$model_name")
 fi
