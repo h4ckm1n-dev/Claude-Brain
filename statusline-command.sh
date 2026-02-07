@@ -122,7 +122,7 @@ if [[ "$ctx_window" -gt 0 ]] 2>/dev/null; then
         ctx_color="\033[1;32m"
     fi
     output+=$(printf "| \033[1;36m󰧑 %s\033[0m " "$model_name")
-    output+=$(printf "${ctx_color}(%sK/%sK · %s%% left)\033[0m" "$ctx_used_k" "$ctx_window_k" "$ctx_left_pct")
+    output+=$(printf "| ${ctx_color}󰋊 %sK/%sK | 󰓅 %s%%\033[0m" "$ctx_used_k" "$ctx_window_k" "$ctx_left_pct")
 elif [[ -n "$model_name" ]]; then
     output+=$(printf "| \033[1;36m󰧑 %s\033[0m" "$model_name")
 fi
