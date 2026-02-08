@@ -1,8 +1,11 @@
 """Search, context, and suggestion endpoints."""
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 from .. import collections
 from .. import documents
 from ..models import SearchQuery, SearchResult, MemoryType
@@ -61,7 +64,11 @@ async def unified_search(
     memory_limit: int = Query(default=10, description="Maximum memories to return"),
     document_limit: int = Query(default=5, description="Maximum documents to return"),
     type_filter: Optional[str] = Query(default=None, description="Filter memories by type"),
-    project: Optional[str] = Query(default=None, description="Filter by project")
+    project: Optional[str] = Query(default=None, description="Filter by project"),
+    use_graph_expansion: bool = Query(default=False, description="Enable graph-based search expansion"),
+    use_reranking: bool = Query(default=True, description="Enable cross-encoder reranking"),
+    time_range_start: Optional[str] = Query(default=None, description="Filter by start date (ISO 8601)"),
+    time_range_end: Optional[str] = Query(default=None, description="Filter by end date (ISO 8601)")
 ):
     """
     Unified search across memories and documents.
@@ -74,29 +81,41 @@ async def unified_search(
         "total_count": 0
     }
 
-    # Search memories if requested
+    # Run memory and document searches in parallel
+    tasks = []
+    task_keys = []
+
     if search_memories:
-        search_query = SearchQuery(
+        search_q = SearchQuery(
             query=query,
             type=type_filter,
             project=project,
-            limit=memory_limit
+            limit=memory_limit,
+            time_range_start=datetime.fromisoformat(time_range_start) if time_range_start else None,
+            time_range_end=datetime.fromisoformat(time_range_end) if time_range_end else None,
         )
-        memory_results = collections.search_memories(search_query)
-        results["memories"] = [r.model_dump(mode='json') for r in memory_results]
+        tasks.append(asyncio.to_thread(
+            collections.search_memories, search_q,
+            use_reranking=use_reranking,
+            use_graph_expansion=use_graph_expansion,
+        ))
+        task_keys.append("memories")
 
-    # Search documents if requested
     if search_documents:
-        try:
-            doc_results = documents.search_documents(
-                query=query,
-                limit=document_limit,
-                folder=project
-            )
-            results["documents"] = doc_results
-        except Exception as e:
-            logger.warning(f"Document search failed: {e}")
-            results["documents"] = []
+        tasks.append(asyncio.to_thread(
+            documents.search_documents, query=query, limit=document_limit, folder=project
+        ))
+        task_keys.append("documents")
+
+    if tasks:
+        task_results = await asyncio.gather(*tasks, return_exceptions=True)
+        for key, result in zip(task_keys, task_results):
+            if isinstance(result, Exception):
+                logger.warning(f"{key} search failed: {result}")
+            elif key == "memories":
+                results["memories"] = [r.model_dump(mode='json') for r in result]
+            elif key == "documents":
+                results["documents"] = result
 
     results["total_count"] = len(results["memories"]) + len(results["documents"])
     return results

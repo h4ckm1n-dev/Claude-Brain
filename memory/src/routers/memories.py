@@ -18,14 +18,14 @@ from qdrant_client import models
 from ..models import (
     Memory, MemoryCreate, MemoryUpdate, MemoryType, ChangeType,
     SearchQuery, SearchResult, EmbedRequest, EmbedResponse,
-    LinkRequest, MigrationResult, utc_now,
+    LinkRequest, MigrationResult, RelationType, utc_now,
 )
 from .. import collections
 from ..embeddings import embed_text, get_embedding_dim
 from ..quality import validate_memory_quality, QualityValidationError, get_quality_suggestions
 from ..enhancements import (
     check_duplicate_before_store, suggest_tags_from_similar, get_template_hints,
-    normalize_tags, auto_enrich_tags, clean_content,
+    normalize_tags, auto_enrich_tags, auto_enrich_fields, clean_content,
 )
 from ..server_deps import manager
 
@@ -164,10 +164,13 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
     # 1. Clean content
     data.content = clean_content(data.content)
 
-    # 2. Normalize + auto-enrich tags
+    # 2. Auto-enrich missing type-specific fields from content
+    data = auto_enrich_fields(data)
+
+    # 3. Normalize + auto-enrich tags
     data = auto_enrich_tags(data)
 
-    # 3. Semantic dedup check
+    # 4. Semantic dedup check
     duplicate_info = check_duplicate_before_store(data)
     if duplicate_info:
         logger.warning(
@@ -175,7 +178,7 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
             f"(existing: {duplicate_info['existing_id']}, similarity: {duplicate_info['similarity_score']})"
         )
 
-    # 4. Quality validation
+    # 5. Quality validation
     try:
         is_valid, score, warnings = validate_memory_quality(data)
         if warnings:
@@ -202,7 +205,7 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
 
         raise HTTPException(status_code=422, detail=error_detail)
 
-    # 5. Legacy content filters
+    # 6. Legacy content filters
     content = data.content.strip()
 
     if "session-end" in (data.tags or []):
@@ -215,6 +218,21 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
     ]
     if any(content == pattern.strip() for pattern in useless_patterns):
         raise HTTPException(status_code=400, detail="Memory content is too generic/empty")
+
+    # 7. Auto-captured boilerplate rejection
+    boilerplate_starts = [
+        "session started for project",
+        "session closed at",
+        "session ended at",
+        "session resumed for project",
+    ]
+    content_lower = content.lower()
+    is_auto_captured = "auto-captured" in (data.tags or [])
+    if is_auto_captured and any(content_lower.startswith(bp) for bp in boilerplate_starts):
+        raise HTTPException(
+            status_code=400,
+            detail="Auto-captured session boilerplate rejected — not a genuine memory"
+        )
 
     return data, duplicate_info
 
@@ -631,12 +649,60 @@ async def delete_memory(memory_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/memories/{memory_id}/resolve", response_model=Memory)
-async def resolve_error(memory_id: str, solution: str = Query(..., description="Solution that fixed the error")):
-    """Mark an error memory as resolved with a solution."""
+async def resolve_error(
+    memory_id: str,
+    solution: str = Query(..., description="Solution that fixed the error"),
+    related_memory_id: Optional[str] = Query(default=None, description="ID of related memory to auto-link with FIXES relationship"),
+):
+    """Mark an error memory as resolved with a solution.
+
+    Optionally links to a related memory with a FIXES relationship.
+    The underlying mark_resolved() auto-derives prevention if missing
+    and recalculates quality score.
+    """
     memory = collections.mark_resolved(memory_id, solution)
     if not memory:
         raise HTTPException(status_code=404, detail="Memory not found")
+
+    # Auto-create FIXES relationship if related memory specified
+    if related_memory_id:
+        try:
+            from ..models import RelationType
+            collections.link_memories(memory_id, related_memory_id, RelationType.FIXES)
+        except Exception as e:
+            logger.warning(f"Failed to auto-link FIXES relationship: {e}")
+
     return memory
+
+
+@router.post("/memories/{memory_id}/recalculate-quality")
+async def recalculate_memory_quality(memory_id: str):
+    """Recalculate quality score for a single memory on demand.
+
+    Useful after manual edits or when quality score seems stale.
+    Returns the fresh score and all component breakdowns.
+    """
+    from ..quality_tracking import QualityScoreCalculator
+
+    try:
+        client = collections.get_client()
+        result = QualityScoreCalculator.recalculate_single_memory_quality(
+            client, collections.COLLECTION_NAME, memory_id
+        )
+        if result is None:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        score, components = result
+        return {
+            "memory_id": memory_id,
+            "quality_score": score,
+            "components": components,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Quality recalculation failed for {memory_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/memories/{memory_id}/rate")

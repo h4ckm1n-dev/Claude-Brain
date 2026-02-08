@@ -249,14 +249,19 @@ async def delete_session(session_id: str):
 
         point_ids = [r.id for r in results]
 
-        # Clean up Neo4j graph nodes before deleting from Qdrant
-        from ..graph import is_graph_enabled, delete_memory_node
+        # Batch clean up Neo4j graph nodes before deleting from Qdrant
+        from ..graph import is_graph_enabled, get_driver
         if is_graph_enabled():
-            for pid in point_ids:
-                try:
-                    delete_memory_node(str(pid))
-                except Exception as e:
-                    logger.warning(f"Failed to delete graph node {pid}: {e}")
+            try:
+                driver = get_driver()
+                if driver:
+                    with driver.session() as neo4j_session:
+                        neo4j_session.run(
+                            "MATCH (m:Memory) WHERE m.id IN $ids DETACH DELETE m",
+                            ids=[str(pid) for pid in point_ids]
+                        )
+            except Exception as e:
+                logger.warning(f"Failed to batch delete graph nodes: {e}")
 
         # Delete all points with this session_id
         client.delete(

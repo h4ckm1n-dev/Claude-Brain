@@ -53,6 +53,8 @@ services:
       - NEO4J_PASSWORD=memory_graph_2024
       - LOG_LEVEL=INFO
       - SCHEDULER_ENABLED=true
+      - USE_QUERY_UNDERSTANDING=true
+      - MEMORY_PURGE_ENABLED=true
       - TZ=Asia/Bangkok
     volumes:
       - ./data:/app/data

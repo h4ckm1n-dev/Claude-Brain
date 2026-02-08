@@ -47,9 +47,15 @@ COLLECTION_NAME = "memories"
 SearchMode = Literal["semantic", "keyword", "hybrid"]
 
 
+_client: Optional[QdrantClient] = None
+
+
 def get_client() -> QdrantClient:
-    """Get Qdrant client."""
-    return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    """Get Qdrant client (singleton)."""
+    global _client
+    if _client is None:
+        _client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    return _client
 
 
 def init_collections() -> None:
@@ -348,17 +354,21 @@ def _load_lifecycle_settings() -> dict:
         "autoSupersedeThreshold": float(os.getenv("AUTO_SUPERSEDE_THRESHOLD", "0.85")),
         "autoSupersedeUpper": float(os.getenv("AUTO_SUPERSEDE_UPPER", "0.91")),
         "dedupThreshold": float(os.getenv("DEDUP_THRESHOLD", "0.92")),
+        "purgeEnabled": os.getenv("MEMORY_PURGE_ENABLED", "false").lower() == "true",
+        "purgeRetentionDays": 90,
+        "rerankSkipThreshold": 0.95,
+        "onWriteMaxRelationships": 5,
+        "followsMaxGapMinutes": 30,
+        "cacheThreshold": 0.85,
     }
     try:
         settings_path = Path.home() / ".claude" / "memory" / "data" / "settings.json"
         with open(settings_path, "r") as f:
             saved = json.load(f)
-        return {
-            "autoSupersedeEnabled": saved.get("autoSupersedeEnabled", defaults["autoSupersedeEnabled"]),
-            "autoSupersedeThreshold": saved.get("autoSupersedeThreshold", defaults["autoSupersedeThreshold"]),
-            "autoSupersedeUpper": saved.get("autoSupersedeUpper", defaults["autoSupersedeUpper"]),
-            "dedupThreshold": saved.get("dedupThreshold", defaults["dedupThreshold"]),
-        }
+        result = {}
+        for key, default_val in defaults.items():
+            result[key] = saved.get(key, default_val)
+        return result
     except Exception:
         return defaults
 
@@ -495,7 +505,7 @@ def search_memories(
     client = get_client()
 
     # Apply query understanding if enabled
-    use_query_understanding = os.getenv("USE_QUERY_UNDERSTANDING", "false").lower() == "true"
+    use_query_understanding = os.getenv("USE_QUERY_UNDERSTANDING", "true").lower() == "true"
     if use_query_understanding:
         routing = route_query(query.query)
         logger.debug(f"Query understanding routing: {routing}")
@@ -511,15 +521,18 @@ def search_memories(
         use_reranking = routing.get("rerank", use_reranking)
 
         # Apply time filters if present
-        if routing.get("filters"):
-            # Merge routing filters with existing query filters
-            # Note: This requires adding time filtering to _build_filter
-            pass
+        if routing.get("filters") and routing["filters"].get("must"):
+            for f in routing["filters"]["must"]:
+                if f.get("key") == "created_at" and "range" in f:
+                    r = f["range"]
+                    if "gte" in r:
+                        query.time_range_start = datetime.fromisoformat(r["gte"])
+                    if "lte" in r:
+                        query.time_range_end = datetime.fromisoformat(r["lte"])
 
-        # Note: Graph expansion strategy would need additional logic
-        # to traverse relationships, which is not yet implemented
+        # Enable graph expansion when query understanding detects relationship intent
         if routing["strategy"] == "graph_expansion":
-            logger.debug("Graph expansion requested but not yet implemented, using hybrid")
+            use_graph_expansion = True
 
     # Generate query embeddings
     use_sparse = search_mode in ("keyword", "hybrid") and is_sparse_enabled()
@@ -541,7 +554,11 @@ def search_memories(
                     tags=cached.get("tags", [])
                 )
                 score = cached.get("rerank_score") or cached.get("score", 0.0)
-                search_results.append(SearchResult(memory=memory, score=score))
+                search_results.append(SearchResult(
+                    memory=memory,
+                    score=score,
+                    memory_strength=cached.get("memory_strength")
+                ))
             return search_results
 
     # Build filter conditions
@@ -569,10 +586,15 @@ def search_memories(
     search_results = []
     for result in results:
         memory = _point_to_memory(result)
-        search_results.append(SearchResult(memory=memory, score=result.score))
+        search_results.append(SearchResult(
+            memory=memory,
+            score=result.score,
+            memory_strength=memory.memory_strength
+        ))
 
-    # Apply cross-encoder reranking if enabled
-    if use_reranking and is_reranker_enabled() and len(search_results) > 0:
+    # Apply cross-encoder reranking if enabled (skip if top result is already high confidence)
+    top_score = max(r.score for r in search_results) if search_results else 0
+    if use_reranking and is_reranker_enabled() and len(search_results) > 0 and top_score < 0.95:
         logger.debug(f"Reranking {len(search_results)} candidates")
         search_results = rerank_search_results(query.query, search_results, top_k=query.limit)
     else:
@@ -598,7 +620,8 @@ def search_memories(
                 "type": r.memory.type.value if r.memory.type else "context",
                 "score": r.score,
                 "rerank_score": r.composite_score,
-                "tags": r.memory.tags
+                "tags": r.memory.tags,
+                "memory_strength": r.memory_strength
             }
             for r in search_results
         ]
@@ -826,6 +849,22 @@ def _build_filter(query: SearchQuery) -> Optional[models.Filter]:
             )
         )
 
+    # Temporal range filters (uses DatetimeRange, NOT Range — Range is for numeric fields only)
+    if query.time_range_start:
+        filter_conditions.append(
+            models.FieldCondition(
+                key="created_at",
+                range=models.DatetimeRange(gte=query.time_range_start)
+            )
+        )
+    if query.time_range_end:
+        filter_conditions.append(
+            models.FieldCondition(
+                key="created_at",
+                range=models.DatetimeRange(lte=query.time_range_end)
+            )
+        )
+
     # Build filter with optional archived exclusion
     if not query.include_archived:
         # Use must_not to exclude archived=True
@@ -880,6 +919,66 @@ def get_memory(memory_id: str) -> Optional[Memory]:
     return _point_to_memory(results[0])
 
 
+def _post_update_pipeline(memory_id: str, update_data: dict) -> None:
+    """Run post-update enrichment and quality recalculation.
+
+    If content/solution/rationale changed, auto-derive missing fields.
+    Always recalculates quality score so it stays fresh.
+    """
+    from .enhancements import _derive_prevention, _derive_rationale, _derive_context
+    from .quality_tracking import QualityScoreCalculator
+
+    client = get_client()
+    enriched_fields = {}
+
+    # Only auto-derive if substantive fields changed
+    trigger_fields = {"content", "solution", "rationale", "error_message", "context", "prevention"}
+    if trigger_fields & set(update_data.keys()):
+        # Fetch current state
+        memory = get_memory(memory_id)
+        if memory:
+            # Derive prevention from solution if missing
+            if not memory.prevention and memory.solution:
+                derived = _derive_prevention(memory.content, memory.solution)
+                if derived:
+                    enriched_fields["prevention"] = derived
+
+            # Derive rationale from content if missing (for decisions)
+            if not memory.rationale and memory.type and memory.type.value == "decision":
+                derived = _derive_rationale(memory.content)
+                if derived:
+                    enriched_fields["rationale"] = derived
+
+            # Derive context if missing
+            if not memory.context:
+                derived = _derive_context(memory.content, memory.project, memory.type)
+                if derived:
+                    enriched_fields["context"] = derived
+
+    # Write enriched fields if any
+    if enriched_fields:
+        try:
+            client.set_payload(
+                collection_name=COLLECTION_NAME,
+                payload=enriched_fields,
+                points=[memory_id],
+            )
+            logger.info(f"Post-update enriched {memory_id}: {list(enriched_fields.keys())}")
+        except Exception as e:
+            logger.warning(f"Post-update enrichment failed for {memory_id}: {e}")
+
+    # Always recalculate quality score
+    try:
+        result = QualityScoreCalculator.recalculate_single_memory_quality(
+            client, COLLECTION_NAME, memory_id
+        )
+        if result:
+            score, _ = result
+            logger.info(f"Post-update quality recalculated for {memory_id}: {score}")
+    except Exception as e:
+        logger.warning(f"Post-update quality recalc failed for {memory_id}: {e}")
+
+
 def update_memory(memory_id: str, update: MemoryUpdate) -> Optional[Memory]:
     """Update an existing memory."""
     from .models import ChangeType
@@ -904,8 +1003,8 @@ def update_memory(memory_id: str, update: MemoryUpdate) -> Optional[Memory]:
 
     memory.updated_at = datetime.now(timezone.utc)
 
-    # Re-embed if content changed
-    if "content" in update_data:
+    # Re-embed if content or context changed (both feed the embedding)
+    if "content" in update_data or "context" in update_data:
         embed_text_combined = f"{memory.content}"
         if memory.context:
             embed_text_combined += f" {memory.context}"
@@ -940,6 +1039,9 @@ def update_memory(memory_id: str, update: MemoryUpdate) -> Optional[Memory]:
         ]
     )
 
+    # Post-update pipeline: auto-derive missing fields + recalculate quality
+    _post_update_pipeline(memory_id, update_data)
+
     return memory
 
 
@@ -969,11 +1071,27 @@ def archive_memory(memory_id: str) -> Optional[Memory]:
 
 
 def mark_resolved(memory_id: str, solution: str) -> Optional[Memory]:
-    """Mark an error memory as resolved with a solution."""
-    return update_memory(memory_id, MemoryUpdate(
-        solution=solution,
-        resolved=True
-    ))
+    """Mark an error memory as resolved with a solution.
+
+    Auto-derives prevention from solution if the memory doesn't already have one.
+    Quality score is recalculated via the post-update pipeline in update_memory().
+    """
+    # Check if memory already has prevention
+    memory = get_memory(memory_id)
+    if not memory:
+        return None
+
+    update_fields = {"solution": solution, "resolved": True}
+
+    # Auto-derive prevention if missing
+    if not memory.prevention:
+        from .enhancements import _derive_prevention
+        derived = _derive_prevention(memory.content, solution)
+        if derived:
+            update_fields["prevention"] = derived
+            logger.info(f"Auto-derived prevention for {memory_id}: {derived[:60]}...")
+
+    return update_memory(memory_id, MemoryUpdate(**update_fields))
 
 
 def link_memories(source_id: str, target_id: str, relation_type: RelationType) -> bool:
@@ -1006,6 +1124,16 @@ def link_memories(source_id: str, target_id: str, relation_type: RelationType) -
             create_relationship(source_id, target_id, graph_rel_type)
         except Exception as e:
             logger.warning(f"Failed to create graph relationship: {e}")
+
+    # Recalculate quality for source memory so relationship_density updates immediately
+    try:
+        from .quality_tracking import QualityScoreCalculator
+        client = get_client()
+        QualityScoreCalculator.recalculate_single_memory_quality(
+            client, COLLECTION_NAME, source_id
+        )
+    except Exception as e:
+        logger.warning(f"Quality recalc after link failed for {source_id}: {e}")
 
     return True
 
@@ -1106,53 +1234,56 @@ def get_context(
 
 
 def get_stats() -> dict:
-    """Get collection statistics."""
+    """Get collection statistics.
+
+    Uses a single scroll instead of 10 individual count/scroll calls.
+    """
     client = get_client()
 
     collection_info = client.get_collection(COLLECTION_NAME)
     total = collection_info.points_count
 
-    # Count by type (improved accuracy)
+    # Single scroll with minimal payload instead of 8 count() calls + 1 scroll
+    all_points, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        limit=5000,
+        with_payload=["type", "archived", "resolved", "project"],
+        with_vectors=False
+    )
+
     by_type = {}
-    for mem_type in MemoryType:
-        count = client.count(
-            collection_name=COLLECTION_NAME,
-            count_filter=models.Filter(must=[
-                models.FieldCondition(
-                    key="type",
-                    match=models.MatchValue(value=mem_type.value)
-                ),
-                models.FieldCondition(
-                    key="archived",
-                    match=models.MatchValue(value=False)
-                )
-            ])
-        ).count
-        by_type[mem_type.value] = count
+    by_project = {}
+    archived_count = 0
+    unresolved_count = 0
 
-    # Count unresolved errors
-    unresolved_count = client.count(
-        collection_name=COLLECTION_NAME,
-        count_filter=models.Filter(must=[
-            models.FieldCondition(key="type", match=models.MatchValue(value="error")),
-            models.FieldCondition(key="resolved", match=models.MatchValue(value=False)),
-            models.FieldCondition(key="archived", match=models.MatchValue(value=False))
-        ])
-    ).count
+    for p in all_points:
+        payload = p.payload or {}
+        is_archived = payload.get("archived", False)
 
-    # Count archived
-    archived_count = client.count(
-        collection_name=COLLECTION_NAME,
-        count_filter=models.Filter(must=[
-            models.FieldCondition(key="archived", match=models.MatchValue(value=True))
-        ])
-    ).count
+        if is_archived:
+            archived_count += 1
+            continue
+
+        # Count by type (only active memories)
+        mem_type = payload.get("type")
+        if mem_type:
+            by_type[mem_type] = by_type.get(mem_type, 0) + 1
+
+        # Count by project (only active memories)
+        proj = payload.get("project")
+        if proj:
+            by_project[proj] = by_project.get(proj, 0) + 1
+
+        # Count unresolved errors (only active memories)
+        if mem_type == "error" and not payload.get("resolved", False):
+            unresolved_count += 1
 
     return {
         "total_memories": total,
         "active_memories": total - archived_count,
         "archived_memories": archived_count,
         "by_type": by_type,
+        "by_project": by_project,
         "unresolved_errors": unresolved_count,
         "hybrid_search_enabled": is_sparse_enabled(),
         "embedding_dim": get_embedding_dim()

@@ -1,10 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { AlertCircle, Clock, ExternalLink } from 'lucide-react';
+import { AlertCircle, Archive, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
 import { Memory } from '../../types/memory';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Link } from 'react-router-dom';
+import { useArchiveMemory } from '../../hooks/useMemories';
+import { useState } from 'react';
+import * as api from '../../api/memories';
+import { useQueryClient } from '@tanstack/react-query';
+import { memoryKeys } from '../../hooks/useMemories';
 
 interface RecentErrorsProps {
   memories?: Memory[];
@@ -12,8 +17,27 @@ interface RecentErrorsProps {
 
 export function RecentErrors({ memories }: RecentErrorsProps) {
   const unresolvedErrors = memories?.filter(
-    m => m.type === 'error' && !m.resolved
+    m => m.type === 'error' && !m.resolved && !m.archived
   ).slice(0, 5) || [];
+
+  const archiveMutation = useArchiveMemory();
+  const queryClient = useQueryClient();
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  const handleArchive = (id: string) => {
+    archiveMutation.mutate(id);
+  };
+
+  const handleResolve = async (id: string) => {
+    setResolvingId(id);
+    try {
+      await api.resolveMemory(id, 'Resolved from dashboard');
+      queryClient.invalidateQueries({ queryKey: memoryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: memoryKeys.stats });
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   return (
     <Card className="shadow-lg border-l-4 border-l-red-500">
@@ -82,12 +106,35 @@ export function RecentErrors({ memories }: RecentErrorsProps) {
                           </Badge>
                         )}
                       </div>
-                      <Link to={`/memories`}>
-                        <Button variant="ghost" size="sm" className="text-xs h-7">
-                          View
-                          <ExternalLink className="h-3 w-3 ml-1" />
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 text-green-700 hover:text-green-800 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-950/50"
+                          onClick={() => handleResolve(error.id)}
+                          disabled={resolvingId === error.id}
+                          title="Mark as resolved"
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Resolve
                         </Button>
-                      </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleArchive(error.id)}
+                          disabled={archiveMutation.isPending}
+                          title="Archive this error"
+                        >
+                          <Archive className="h-3 w-3 mr-1" />
+                          Archive
+                        </Button>
+                        <Link to={`/memories`}>
+                          <Button variant="ghost" size="sm" className="text-xs h-7">
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>

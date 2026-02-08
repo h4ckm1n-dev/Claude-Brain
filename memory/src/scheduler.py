@@ -143,6 +143,15 @@ def get_scheduler():
                 replace_existing=True
             )
 
+            # Co-access materialization job
+            _scheduler.add_job(
+                run_co_access_materialization,
+                trigger=IntervalTrigger(hours=12),
+                id="co_access_materialization_job",
+                name="Co-Access Relationship Materialization",
+                replace_existing=True
+            )
+
             logger.info(f"Scheduler initialized with {CONSOLIDATION_INTERVAL_HOURS}h consolidation + FULL BRAIN MODE + ADVANCED BRAIN MODE jobs")
 
         except ImportError:
@@ -581,10 +590,85 @@ def run_quality_score_update():
                 f"errors={update_result.get('errors', 0)}"
             )
 
+        # Auto-rate unrated memories based on computed quality_score
+        _auto_rate_from_quality(client)
+
     except RuntimeError:
         logger.info("Skipping quality update - another quality/promotion job is running")
     except Exception as e:
         logger.error(f"Scheduled quality score update failed: {e}")
+
+
+def _auto_rate_from_quality(client=None):
+    """Derive user_rating (0-5) from computed quality_score for unrated memories.
+
+    Maps quality_score (0-1) to a 1-5 star rating. Only touches memories
+    where user_rating_count == 0 (never manually rated). Sets auto_rated=true
+    so manual ratings are never overwritten.
+    """
+    from . import collections
+    from qdrant_client.http import models as qmodels
+
+    if client is None:
+        client = collections.get_client()
+
+    try:
+        rated = 0
+        offset = None
+
+        while True:
+            response = client.scroll(
+                collection_name=collections.COLLECTION_NAME,
+                scroll_filter=qmodels.Filter(
+                    must=[
+                        qmodels.FieldCondition(
+                            key="archived",
+                            match=qmodels.MatchValue(value=False)
+                        ),
+                        qmodels.FieldCondition(
+                            key="user_rating_count",
+                            match=qmodels.MatchValue(value=0)
+                        ),
+                    ]
+                ),
+                limit=100,
+                offset=offset,
+                with_payload=["id", "quality_score"],
+                with_vectors=False,
+            )
+
+            points, next_offset = response
+            if not points:
+                break
+
+            for point in points:
+                payload = point.payload
+                memory_id = payload.get("id")
+                quality_score = payload.get("quality_score", 0.5)
+
+                # Map 0-1 quality_score to 1-5 star rating (floor 1.0)
+                star_rating = round(max(1.0, quality_score * 5.0), 1)
+
+                client.set_payload(
+                    collection_name=collections.COLLECTION_NAME,
+                    payload={
+                        "user_rating": star_rating,
+                        "user_rating_count": 1,
+                        "auto_rated": True,
+                    },
+                    points=[memory_id],
+                )
+                rated += 1
+
+            offset = next_offset
+            if offset is None:
+                break
+
+        if rated:
+            logger.info(f"Auto-rated {rated} unrated memories from quality_score")
+
+    except Exception as e:
+        logger.error(f"Auto-rating failed: {e}")
 
 
 # ============================================================================
@@ -631,3 +715,63 @@ def run_state_machine_update():
         logger.info("Skipping state machine update - another quality/promotion job is running")
     except Exception as e:
         logger.error(f"Scheduled state machine update failed: {e}")
+
+
+def run_co_access_materialization():
+    """Materialize co-access pairs exceeding threshold into Neo4j RELATED relationships."""
+    logger.info("Running co-access materialization...")
+
+    try:
+        with job_lock(LOCK_GRAPH):
+            from .relationship_inference import _load_co_access_tracker, CO_ACCESS_THRESHOLD
+            from .graph import create_relationship, is_graph_enabled, get_driver
+
+            if not is_graph_enabled():
+                logger.info("Graph not enabled, skipping co-access materialization")
+                return
+
+            tracker = _load_co_access_tracker()
+            materialized = 0
+            skipped = 0
+            seen_pairs = set()
+
+            driver = get_driver()
+
+            for id1, targets in tracker.items():
+                for id2, count in targets.items():
+                    if count < CO_ACCESS_THRESHOLD:
+                        continue
+
+                    # Deduplicate: only process each pair once
+                    pair_key = tuple(sorted([id1, id2]))
+                    if pair_key in seen_pairs:
+                        continue
+                    seen_pairs.add(pair_key)
+
+                    # Check if RELATED already exists in Neo4j
+                    try:
+                        with driver.session() as session:
+                            result = session.run(
+                                "MATCH (a:Memory {id: $id1})-[r:RELATED]-(b:Memory {id: $id2}) RETURN count(r) AS cnt",
+                                id1=id1, id2=id2
+                            )
+                            record = result.single()
+                            if record and record["cnt"] > 0:
+                                skipped += 1
+                                continue
+                    except Exception:
+                        pass  # If check fails, try to create anyway
+
+                    if create_relationship(id1, id2, "RELATED"):
+                        materialized += 1
+
+            logger.info(
+                f"Co-access materialization complete: "
+                f"materialized={materialized}, skipped={skipped}, "
+                f"total_pairs_checked={len(seen_pairs)}"
+            )
+
+    except RuntimeError:
+        logger.info("Skipping co-access materialization - another graph job is running")
+    except Exception as e:
+        logger.error(f"Co-access materialization failed: {e}")

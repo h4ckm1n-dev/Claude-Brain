@@ -5,6 +5,9 @@ importance scoring, memory replay, dream mode, emotional analysis,
 conflict detection, meta-learning, and performance metrics.
 """
 
+import asyncio
+import time
+
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from datetime import datetime, timezone
@@ -14,6 +17,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["brain"])
+
+# TTL cache for expensive endpoints (60s)
+_brain_stats_cache: dict = {"data": None, "expires": 0}
 
 
 # ============================================================================
@@ -50,25 +56,29 @@ async def run_relationship_inference(
     try:
         stats = {}
 
-        if inference_type in ["all", "error-solution"]:
-            fixes = await RelationshipInference.infer_error_solution_links(
-                lookback_days=30
+        if inference_type == "all":
+            # Run all inference types in parallel
+            results = await asyncio.gather(
+                RelationshipInference.infer_error_solution_links(lookback_days=30),
+                RelationshipInference.infer_related_links(batch_size=20),
+                RelationshipInference.infer_temporal_links(hours_window=2),
+                RelationshipInference.infer_causal_links(),
+                return_exceptions=True,
             )
-            stats["error_solution_links"] = fixes
+            keys = ["error_solution_links", "semantic_links", "temporal_links", "causal_links"]
+            for key, result in zip(keys, results):
+                stats[key] = 0 if isinstance(result, Exception) else result
+        else:
+            if inference_type == "error-solution":
+                stats["error_solution_links"] = await RelationshipInference.infer_error_solution_links(lookback_days=30)
+            elif inference_type == "semantic":
+                stats["semantic_links"] = await RelationshipInference.infer_related_links(batch_size=20)
+            elif inference_type == "temporal":
+                stats["temporal_links"] = await RelationshipInference.infer_temporal_links(hours_window=2)
+            elif inference_type == "causal":
+                stats["causal_links"] = await RelationshipInference.infer_causal_links()
 
-        if inference_type in ["all", "semantic"]:
-            related = await RelationshipInference.infer_related_links(batch_size=20)
-            stats["semantic_links"] = related
-
-        if inference_type in ["all", "temporal"]:
-            temporal = await RelationshipInference.infer_temporal_links(hours_window=2)
-            stats["temporal_links"] = temporal
-
-        if inference_type in ["all", "causal"]:
-            causal = await RelationshipInference.infer_causal_links()
-            stats["causal_links"] = causal
-
-        stats["total_created"] = sum(stats.values())
+        stats["total_created"] = sum(v for v in stats.values() if isinstance(v, (int, float)))
 
         return stats
 
@@ -252,6 +262,10 @@ async def brain_get_stats():
         Statistics about brain features
     """
     try:
+        # Return cached result if fresh (60s TTL)
+        if time.time() < _brain_stats_cache["expires"] and _brain_stats_cache["data"]:
+            return _brain_stats_cache["data"]
+
         # Get basic stats
         stats_data = collections.get_stats()
         stats = StatsResponse(**stats_data)
@@ -261,11 +275,11 @@ async def brain_get_stats():
 
         graph_stats = get_graph_stats()
 
-        # Calculate utility distribution
+        # Calculate utility distribution (minimal payload)
         points, _ = collections.get_client().scroll(
             collection_name=collections.COLLECTION_NAME,
             limit=1000,
-            with_payload=True,
+            with_payload=["access_count", "importance", "created_at", "last_accessed_at", "type"],
             with_vectors=False,
         )
 
@@ -293,7 +307,7 @@ async def brain_get_stats():
         medium_utility = sum(1 for u in utilities if 0.3 <= u < 0.7)
         low_utility = sum(1 for u in utilities if u < 0.3)
 
-        return {
+        result = {
             "total_memories": stats.total_memories,
             "relationships": graph_stats.get("relationships", 0),
             "utility_distribution": {
@@ -307,6 +321,11 @@ async def brain_get_stats():
                 "utility_archival": True,
             },
         }
+
+        _brain_stats_cache["data"] = result
+        _brain_stats_cache["expires"] = time.time() + 60
+
+        return result
 
     except Exception as e:
         logger.error(f"Failed to get brain stats: {e}")
@@ -533,7 +552,8 @@ async def brain_underutilized_replay(
     try:
         from ..memory_replay import replay_underutilized_memories
 
-        result = replay_underutilized_memories(
+        result = await asyncio.to_thread(
+            replay_underutilized_memories,
             days_since_access=days,
             count=count,
         )
@@ -563,7 +583,7 @@ async def brain_dream_mode(
     try:
         from ..memory_replay import dream_mode_replay
 
-        result = dream_mode_replay(duration_seconds=duration)
+        result = await asyncio.to_thread(dream_mode_replay, duration_seconds=duration)
 
         return result
 

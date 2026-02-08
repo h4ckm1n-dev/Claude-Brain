@@ -3,7 +3,7 @@ import { Header } from '../components/layout/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { useStats, useMemories, useGraphStats } from '../hooks/useMemories';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, Sankey, Rectangle } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import type { Memory } from '../types/memory';
 import { MemoryType } from '../types/memory';
 import { TrendingUp, GitBranch, Zap, Target, BarChart3, Award, Activity, Brain, Calendar, AlertTriangle, BookOpen, Search, Lightbulb, Radar } from 'lucide-react';
@@ -71,17 +71,18 @@ export function Analytics() {
       }));
   }, [lifecycleStats]);
 
-  // Type correlation matrix
+  // Type correlation matrix (O(n) with Map lookup instead of O(n²) with find())
   const correlationData = useMemo(() => {
     if (!memories) return [];
 
     const types = Object.values(MemoryType);
+    const memoryMap = new Map(memories.map((m: Memory) => [m.id, m]));
     const cooccurrence = new Map<string, number>();
 
     memories.forEach((memory: Memory) => {
       const relatedTypes = new Set<MemoryType>();
       memory.relations?.forEach(rel => {
-        const relatedMemory = memories.find((m: Memory) => m.id === rel.target_id);
+        const relatedMemory = memoryMap.get(rel.target_id);
         if (relatedMemory) {
           relatedTypes.add(relatedMemory.type);
         }

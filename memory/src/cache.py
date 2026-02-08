@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Cache configuration
 CACHE_COLLECTION = "query_cache"
-CACHE_SIMILARITY_THRESHOLD = 0.87  # Optimized for 4x hit rate (0.85-0.90 sweet spot)
+CACHE_SIMILARITY_THRESHOLD = 0.85  # Lowered for better hit rate (0.85-0.90 sweet spot)
 CACHE_TTL_HOURS = 24
 CACHE_MAX_SIZE = 1000  # Max cached queries
 
@@ -130,7 +130,8 @@ def store_cache(
                 "type": r.get("type"),
                 "score": r.get("score"),
                 "rerank_score": r.get("rerank_score"),
-                "tags": r.get("tags", [])
+                "tags": r.get("tags", []),
+                "memory_strength": r.get("memory_strength")
             })
 
         client.upsert(

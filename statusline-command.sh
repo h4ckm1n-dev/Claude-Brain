@@ -65,10 +65,6 @@ if [[ -f "$cwd/package.json" ]]; then
     [[ -n "$node_version" ]] && output+=$(printf "via \033[1;32m󰎙 %s\033[0m " "$node_version")
 fi
 
-# Docker
-if [[ -f "$cwd/Dockerfile" ]] || [[ -f "$cwd/docker-compose.yml" ]] || [[ -f "$cwd/compose.yml" ]]; then
-    output+=$(printf "via \033[1;34m󰡨 docker\033[0m ")
-fi
 
 # Memory system stats (cached, refreshes every 60s)
 mem_cache="/tmp/.claude-mem-stats"
@@ -122,7 +118,7 @@ if [[ "$ctx_window" -gt 0 ]] 2>/dev/null; then
         ctx_color="\033[1;32m"
     fi
     output+=$(printf "| \033[1;36m󰧑 %s\033[0m " "$model_name")
-    output+=$(printf "| ${ctx_color}󰋊 %sK/%sK | 󰓅 %s%%\033[0m" "$ctx_used_k" "$ctx_window_k" "$ctx_left_pct")
+    output+=$(printf "\033[0m| ${ctx_color}󰋊 %sK/%sK\033[0m" "$ctx_used_k" "$ctx_window_k")
 elif [[ -n "$model_name" ]]; then
     output+=$(printf "| \033[1;36m󰧑 %s\033[0m" "$model_name")
 fi

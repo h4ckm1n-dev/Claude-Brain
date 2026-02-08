@@ -115,6 +115,7 @@ export interface SearchResult {
   memory: Memory;
   score: number;
   composite_score?: number;
+  memory_strength?: number;
 }
 
 export interface HealthResponse {
@@ -134,6 +135,7 @@ export interface StatsResponse {
   archived_memories: number;
   by_type: Record<string, number>;
   by_tier: Record<string, number>;
+  by_project?: Record<string, number>;
   unresolved_errors: number;
   hybrid_search_enabled: boolean;
   embedding_dim: number;

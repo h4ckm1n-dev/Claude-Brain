@@ -15,7 +15,18 @@ import { StateBadge } from '../components/StateBadge';
 import { QualityBadge } from '../components/QualityBadge';
 import { getProjectGraph, getContradictions, findSolutions, getGraphRecommendations } from '../api/graph';
 
+const MEMORY_TYPES = ['error', 'decision', 'pattern', 'docs', 'learning', 'context'];
+const RELATIONSHIP_TYPES = ['FIXES', 'CAUSES', 'SUPPORTS', 'RELATED', 'FOLLOWS', 'SUPERSEDES', 'SIMILAR_TO', 'CONTRADICTS'];
+const EDGE_WEIGHTS: Record<string, number> = {
+  FIXES: 4, SUPPORTS: 3, SUPERSEDES: 3, CAUSES: 3, CONTRADICTS: 2,
+  FOLLOWS: 2, RELATED: 1.5, SIMILAR_TO: 1,
+};
+
 export function Graph() {
+  const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set(MEMORY_TYPES));
+  const [relFilters, setRelFilters] = useState<Set<string>>(new Set(RELATIONSHIP_TYPES));
+  const [projectFilter, setProjectFilter] = useState<string>('');
+
   const { data: timelineData, isLoading, error } = useQuery({
     queryKey: ['graph', 'timeline'],
     queryFn: () => getTimeline(undefined, undefined, 200),
@@ -30,16 +41,38 @@ export function Graph() {
   const { data: lifecycleStats } = useLifecycleStats();
   const { data: patternClusters } = usePatternClusters(3);
 
-  // Transform timeline data into Cytoscape elements
+  const toggleTypeFilter = (type: string) => {
+    setTypeFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+
+  const toggleRelFilter = (rel: string) => {
+    setRelFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(rel)) next.delete(rel);
+      else next.add(rel);
+      return next;
+    });
+  };
+
+  // Transform timeline data into Cytoscape elements with filtering
   const graphElements = useMemo(() => {
     if (!timelineData?.timeline) return [];
 
     const nodes: any[] = [];
     const edges: any[] = [];
     const nodeIds = new Set<string>();
+    const visibleNodeIds = new Set<string>();
 
+    // First pass: identify visible nodes based on type filter
     timelineData.timeline.forEach((item: any) => {
-      // Add memory as node
+      if (!typeFilters.has(item.type)) return;
+      if (projectFilter && item.project && item.project !== projectFilter) return;
+
       if (!nodeIds.has(item.id)) {
         nodes.push({
           data: {
@@ -49,40 +82,44 @@ export function Graph() {
           }
         });
         nodeIds.add(item.id);
+        visibleNodeIds.add(item.id);
       }
 
       // Add relationships as edges
       if (item.relationships && Array.isArray(item.relationships)) {
         item.relationships.forEach((rel: any) => {
-          if (rel.target_id) {
-            // Add target node if not exists
-            if (!nodeIds.has(rel.target_id)) {
-              nodes.push({
-                data: {
-                  id: rel.target_id,
-                  label: rel.target_type || 'Memory',
-                  type: rel.target_type || 'unknown',
-                }
-              });
-              nodeIds.add(rel.target_id);
-            }
+          if (!rel.target_id) return;
+          const relType = (rel.type || 'RELATED').toUpperCase();
+          if (!relFilters.has(relType)) return;
 
-            // Add edge
-            edges.push({
+          // Add target node if not exists
+          if (!nodeIds.has(rel.target_id)) {
+            nodes.push({
               data: {
-                id: `${item.id}-${rel.target_id}`,
-                source: item.id,
-                target: rel.target_id,
-                type: rel.type || 'RELATED',
+                id: rel.target_id,
+                label: rel.target_type || 'Memory',
+                type: rel.target_type || 'unknown',
               }
             });
+            nodeIds.add(rel.target_id);
           }
+
+          // Add edge with weight
+          edges.push({
+            data: {
+              id: `${item.id}-${rel.target_id}`,
+              source: item.id,
+              target: rel.target_id,
+              type: relType,
+              weight: EDGE_WEIGHTS[relType] || 1,
+            }
+          });
         });
       }
     });
 
     return [...nodes, ...edges];
-  }, [timelineData]);
+  }, [timelineData, typeFilters, relFilters, projectFilter]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] flex flex-col">
@@ -103,14 +140,69 @@ export function Graph() {
           </div>
         </div>
 
-        <Alert className="bg-purple-500/10 border-purple-500/30 backdrop-blur-sm">
-          <AlertCircle className="h-4 w-4 text-purple-400" />
-          <AlertDescription className="text-purple-200">
-            Interactive knowledge graph. Hover nodes to see connections, click to view details. Use controls to navigate and customize the view.
-          </AlertDescription>
-        </Alert>
+        {/* Filter Toolbar */}
+        <Card className="bg-[#0f0f0f] border-white/10">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter className="h-4 w-4 text-white/50" />
+              <span className="text-xs text-white/50 font-medium mr-2">Types:</span>
+              {MEMORY_TYPES.map((type) => {
+                const colors: Record<string, string> = {
+                  error: 'bg-red-500/20 text-red-400 border-red-500/30',
+                  decision: 'bg-green-500/20 text-green-400 border-green-500/30',
+                  pattern: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                  docs: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                  learning: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                  context: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+                };
+                return (
+                  <button
+                    key={type}
+                    onClick={() => toggleTypeFilter(type)}
+                    className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
+                      typeFilters.has(type)
+                        ? colors[type]
+                        : 'bg-white/5 text-white/30 border-white/10 opacity-50'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Network className="h-4 w-4 text-white/50" />
+              <span className="text-xs text-white/50 font-medium mr-2">Relations:</span>
+              {RELATIONSHIP_TYPES.map((rel) => {
+                const relColors: Record<string, string> = {
+                  FIXES: 'bg-green-500/20 text-green-400 border-green-500/30',
+                  CAUSES: 'bg-red-500/20 text-red-400 border-red-500/30',
+                  SUPPORTS: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                  RELATED: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+                  FOLLOWS: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+                  SUPERSEDES: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                  SIMILAR_TO: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                  CONTRADICTS: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+                };
+                return (
+                  <button
+                    key={rel}
+                    onClick={() => toggleRelFilter(rel)}
+                    className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
+                      relFilters.has(rel)
+                        ? relColors[rel]
+                        : 'bg-white/5 text-white/30 border-white/10 opacity-50'
+                    }`}
+                  >
+                    {rel.toLowerCase().replace('_', ' ')} ({EDGE_WEIGHTS[rel] || 1}px)
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card className="h-[calc(100vh-320px)] bg-[#0f0f0f] border border-white/10 shadow-2xl">
+        <Card className="h-[calc(100vh-420px)] bg-[#0f0f0f] border border-white/10 shadow-2xl">
           <CardHeader className="border-b border-white/10">
             <CardTitle className="text-white flex items-center gap-2">
               <Network className="h-5 w-5 text-purple-400" />

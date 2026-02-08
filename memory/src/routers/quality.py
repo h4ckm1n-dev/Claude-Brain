@@ -103,6 +103,53 @@ async def trigger_quality_update():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/quality/auto-rate")
+async def trigger_auto_rating():
+    """Derive user_rating from computed quality_score for all unrated memories.
+
+    Maps quality_score (0-1) to a 1-5 star rating. Only touches memories
+    that have never been manually rated (user_rating_count == 0).
+    """
+    from ..scheduler import _auto_rate_from_quality
+
+    try:
+        client = collections.get_client()
+        _auto_rate_from_quality(client)
+
+        # Return updated stats
+        from qdrant_client.http import models
+        response = client.scroll(
+            collection_name=collections.COLLECTION_NAME,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="archived",
+                        match=models.MatchValue(value=False)
+                    )
+                ]
+            ),
+            limit=10000,
+            with_payload=["user_rating", "user_rating_count"],
+            with_vectors=False,
+        )
+
+        points = response[0]
+        rated = sum(1 for p in points if p.payload.get("user_rating_count", 0) > 0)
+        ratings = [p.payload.get("user_rating", 0) for p in points if p.payload.get("user_rating_count", 0) > 0]
+        avg = round(sum(ratings) / len(ratings), 2) if ratings else 0
+
+        return {
+            "total_memories": len(points),
+            "rated_memories": rated,
+            "avg_rating": avg,
+            "action": "auto_rated_from_quality_score"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to auto-rate: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/quality/promotion-candidates")
 async def get_promotion_candidates(
     min_quality_threshold: float = Query(default=0.75, ge=0.0, le=1.0),
@@ -203,14 +250,14 @@ async def rate_memory_quality(
         # Recalculate quality score
         memory_age_days = (datetime.now(timezone.utc) - memory.created_at).days
 
-        new_quality = QualityScoreCalculator.calculate_quality_score(
+        new_quality, new_components = QualityScoreCalculator.calculate_quality_score(
             access_count=memory.access_count,
             user_rating=new_avg_rating,
             user_rating_count=new_rating_count,
-            relationship_count=len(memory.relationships),
+            relationship_count=len(memory.relations),
             current_version=memory.current_version,
             memory_age_days=memory_age_days,
-            memory_tier=memory.tier,
+            memory_tier=memory.memory_tier if isinstance(memory.memory_tier, str) else memory.memory_tier.value if memory.memory_tier else "episodic",
             content_length=len(memory.content) if memory.content else 0,
             tags_count=len(memory.tags) if memory.tags else 0,
             memory_type=memory.type if isinstance(memory.type, str) else memory.type.value if memory.type else "",
@@ -219,6 +266,10 @@ async def rate_memory_quality(
             has_prevention=bool(getattr(memory, 'prevention', None)),
             has_rationale=bool(getattr(memory, 'rationale', None)),
             is_resolved=bool(getattr(memory, 'resolved', False)),
+            has_context=bool(getattr(memory, 'context', None)),
+            has_alternatives=bool(getattr(memory, 'alternatives', None)),
+            is_auto_captured="auto-captured" in (memory.tags or []),
+            content=memory.content or "",
         )
 
         # Update Qdrant point directly
@@ -227,7 +278,9 @@ async def rate_memory_quality(
             payload={
                 "user_rating": new_avg_rating,
                 "user_rating_count": new_rating_count,
-                "quality_score": new_quality
+                "quality_score": new_quality,
+                "quality_components": new_components,
+                "quality_last_updated": datetime.now(timezone.utc).isoformat(),
             },
             points=[memory_id]
         )
@@ -408,17 +461,11 @@ async def get_recent_transitions(
     try:
         client = collections.get_client()
 
-        # Get memories with state history
+        # Get memories with state history (no filter — scroll all, then filter in Python)
         response = client.scroll(
             collection_name=collections.COLLECTION_NAME,
-            scroll_filter=models.Filter(
-                must=[
-                    # Only memories with state history
-                    models.HasIdCondition(has_id=[])  # Placeholder, we'll get all
-                ]
-            ),
-            limit=limit * 2,  # Get more to filter
-            with_payload=True,
+            limit=limit * 2,
+            with_payload=["id", "content", "state", "state_history", "state_changed_at"],
             with_vectors=False
         )
 

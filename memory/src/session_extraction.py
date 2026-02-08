@@ -430,6 +430,18 @@ class SessionManager:
             for session_id, mems in sessions.items():
                 created_dates = [m.payload.get("created_at", "") for m in mems]
                 earliest = min(created_dates) if created_dates else ""
+                latest = max(created_dates) if created_dates else ""
+
+                # Type breakdown
+                type_counts = {}
+                for m in mems:
+                    mtype = m.payload.get("type", "context")
+                    type_counts[mtype] = type_counts.get(mtype, 0) + 1
+
+                # Most common project
+                projects = [m.payload.get("project") for m in mems if m.payload.get("project")]
+                session_project = max(set(projects), key=projects.count) if projects else None
+
                 has_summary = any(
                     m.payload.get("type") == "context" and
                     "session-summary" in m.payload.get("tags", [])
@@ -439,6 +451,9 @@ class SessionManager:
                     "session_id": session_id,
                     "memory_count": len(mems),
                     "created_at": earliest,
+                    "last_activity": latest,
+                    "project": session_project,
+                    "type_breakdown": type_counts,
                     "status": "consolidated" if has_summary else "active",
                 })
             # Sort by created_at descending, limit to 50

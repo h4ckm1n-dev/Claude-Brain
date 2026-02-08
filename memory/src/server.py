@@ -83,11 +83,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for local development
+# GZip compression for JSON responses (60-80% reduction)
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["http://localhost:8100", "http://127.0.0.1:8100"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

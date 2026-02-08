@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useStats, useGraphStats, useMemories } from '../hooks/useMemories';
 import { useDocumentStats } from '../hooks/useDocuments';
 import { useQualityStats } from '../hooks/useQuality';
@@ -22,6 +22,7 @@ import { AdvancedBrainMetrics } from '../components/dashboard/AdvancedBrainMetri
 import { QualityBadge } from '../components/QualityBadge';
 import { StateDistribution } from '../components/StateBadge';
 import { AuditTimeline } from '../components/AuditTimeline';
+import { MemoryDetailPanel } from '../components/memory/MemoryDetailPanel';
 
 // Lazy load charts
 const ActivityTimeline = lazy(() => import('../components/analytics/ActivityTimeline').then(m => ({ default: m.ActivityTimeline })));
@@ -38,10 +39,10 @@ function ChartLoading() {
 }
 
 export function Dashboard() {
+  const [detailPanelId, setDetailPanelId] = useState<string | null>(null);
   const { data: stats, isLoading: statsLoading } = useStats();
   const { data: graphStats } = useGraphStats();
   const { data: documentStats } = useDocumentStats();
-  const { data: recentMemories } = useMemories({ limit: 100 });
   const { data: allMemories } = useMemories({ limit: 500 });
 
   // Phase 3-4: New hooks for quality, lifecycle, patterns, and audit
@@ -404,9 +405,9 @@ export function Dashboard() {
                   <CardTitle className="text-lg font-semibold text-white">Importance Distribution</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  {recentMemories && recentMemories.length > 0 ? (
+                  {allMemories && allMemories.length > 0 ? (
                     <Suspense fallback={<ChartLoading />}>
-                      <ImportanceDistribution memories={recentMemories} />
+                      <ImportanceDistribution memories={allMemories} />
                     </Suspense>
                   ) : (
                     <div className="h-[250px] flex items-center justify-center text-white/30 text-sm">
@@ -421,9 +422,9 @@ export function Dashboard() {
                   <CardTitle className="text-lg font-semibold text-white">Memory Types</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  {recentMemories && recentMemories.length > 0 ? (
+                  {allMemories && allMemories.length > 0 ? (
                     <Suspense fallback={<ChartLoading />}>
-                      <EnhancedPieChart memories={recentMemories} />
+                      <EnhancedPieChart memories={allMemories} />
                     </Suspense>
                   ) : (
                     <div className="h-[250px] flex items-center justify-center text-white/30 text-sm">
@@ -438,9 +439,9 @@ export function Dashboard() {
                   <CardTitle className="text-lg font-semibold text-white">Tag Cloud</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  {recentMemories && recentMemories.length > 0 ? (
+                  {allMemories && allMemories.length > 0 ? (
                     <Suspense fallback={<ChartLoading />}>
-                      <TagCloud memories={recentMemories} />
+                      <TagCloud memories={allMemories} />
                     </Suspense>
                   ) : (
                     <div className="h-[250px] flex items-center justify-center text-white/30 text-sm">
@@ -475,17 +476,18 @@ export function Dashboard() {
                 </div>
               </div>
               <Badge variant="outline" className="border-blue-500/20 text-blue-400">
-                {recentMemories?.length || 0} items
+                {allMemories?.length || 0} items
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="p-0 relative">
             <div className="divide-y divide-white/5">
-              {recentMemories && recentMemories.length > 0 ? (
-                recentMemories.slice(0, 8).map((memory: Memory) => (
+              {allMemories && allMemories.length > 0 ? (
+                allMemories.slice(0, 8).map((memory: Memory) => (
                   <div
                     key={memory.id}
                     className="p-4 hover:bg-white/5 transition-all duration-200 group cursor-pointer"
+                    onClick={() => setDetailPanelId(memory.id)}
                   >
                     <div className="flex items-start gap-4">
                       <div className="mt-1">
@@ -560,9 +562,9 @@ export function Dashboard() {
             </div>
           </CardHeader>
           <CardContent className="pt-6 relative">
-            {recentMemories && recentMemories.length > 0 ? (
+            {allMemories && allMemories.length > 0 ? (
               <Suspense fallback={<ChartLoading />}>
-                <ActivityTimeline memories={recentMemories} />
+                <ActivityTimeline memories={allMemories} />
               </Suspense>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-white/30">
@@ -649,6 +651,14 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {detailPanelId && (
+        <MemoryDetailPanel
+          memoryId={detailPanelId}
+          onClose={() => setDetailPanelId(null)}
+          onNavigate={(id) => setDetailPanelId(id)}
+        />
+      )}
     </div>
   );
 }

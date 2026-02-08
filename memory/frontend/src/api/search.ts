@@ -1,8 +1,12 @@
 import { apiClient } from './client';
 
+import type { SearchResult } from '../types/memory';
+
 export interface UnifiedSearchResult {
-  memories: Array<{ id: string; content: string; type: string; score: number }>;
+  query: string;
+  memories: SearchResult[];
   documents: Array<{ file_path: string; content: string; score: number; chunk_index: number }>;
+  total_count: number;
 }
 
 export interface EnhancedQuery {
@@ -26,6 +30,10 @@ export const unifiedSearch = (params: {
   document_limit?: number;
   type_filter?: string;
   project?: string;
+  use_graph_expansion?: boolean;
+  use_reranking?: boolean;
+  time_range_start?: string;
+  time_range_end?: string;
 }) =>
   apiClient.get<UnifiedSearchResult>('/search/unified', { params }).then(r => r.data);
 

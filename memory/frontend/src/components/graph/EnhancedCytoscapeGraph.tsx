@@ -23,25 +23,49 @@ const RELATION_STYLES: Record<string, any> = {
     'line-color': '#22c55e',
     'target-arrow-color': '#22c55e',
     'line-style': 'solid',
-    'width': 3,
+    'width': 4,
   },
   [RelationType.CAUSES]: {
     'line-color': '#ef4444',
     'target-arrow-color': '#ef4444',
     'line-style': 'dashed',
+    'width': 3,
+  },
+  [RelationType.SUPPORTS]: {
+    'line-color': '#60a5fa',
+    'target-arrow-color': '#60a5fa',
+    'line-style': 'solid',
+    'width': 3,
+  },
+  [RelationType.SUPERSEDES]: {
+    'line-color': '#3b82f6',
+    'target-arrow-color': '#3b82f6',
+    'line-style': 'solid',
+    'width': 3,
+  },
+  [RelationType.CONTRADICTS]: {
+    'line-color': '#f43f5e',
+    'target-arrow-color': '#f43f5e',
+    'line-style': 'dashed',
+    'width': 2,
+  },
+  [RelationType.FOLLOWS]: {
+    'line-color': '#06b6d4',
+    'target-arrow-color': '#06b6d4',
+    'line-style': 'solid',
     'width': 2,
   },
   [RelationType.RELATED]: {
     'line-color': '#6b7280',
     'target-arrow-color': '#6b7280',
     'line-style': 'dotted',
-    'width': 2,
+    'width': 1.5,
   },
-  [RelationType.SUPERSEDES]: {
-    'line-color': '#3b82f6',
-    'target-arrow-color': '#3b82f6',
-    'line-style': 'solid',
-    'width': 4,
+  [RelationType.SIMILAR_TO]: {
+    'line-color': '#f59e0b',
+    'target-arrow-color': '#f59e0b',
+    'line-style': 'dotted',
+    'width': 1,
   },
 };
 
@@ -162,7 +186,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
           {
             selector: 'edge',
             style: {
-              'width': 2.5,
+              'width': (ele: any) => ele.data('weight') || 2.5,
               'line-color': '#9ca3af',
               'target-arrow-color': '#9ca3af',
               'target-arrow-shape': 'triangle',

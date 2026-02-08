@@ -236,11 +236,66 @@ def create_relationship(
                 "props": props
             })
 
-            return result.single() is not None
+            created = result.single() is not None
+
+            # Dual-write: also append to Qdrant relations payload
+            if created:
+                _sync_relation_to_qdrant(source_id, target_id, relation_type)
+
+            return created
 
         except Exception as e:
             logger.error(f"Failed to create relationship: {e}")
             return False
+
+
+def _sync_relation_to_qdrant(source_id: str, target_id: str, relation_type: str):
+    """Append a relationship to the source memory's Qdrant relations payload.
+
+    Best-effort: failures are logged but don't block graph operations.
+    """
+    try:
+        from . import collections
+        from .models import RelationType
+
+        client = collections.get_client()
+
+        # Map Neo4j uppercase type to Qdrant lowercase enum
+        valid_types = {rt.value for rt in RelationType}
+        rel_type_lower = relation_type.lower()
+        if rel_type_lower not in valid_types:
+            rel_type_lower = "related"
+
+        # Read current relations
+        points = client.retrieve(
+            collection_name=collections.COLLECTION_NAME,
+            ids=[source_id],
+            with_payload=["relations"],
+            with_vectors=False,
+        )
+        if not points:
+            return
+
+        current_rels = points[0].payload.get("relations") or []
+
+        # Check for duplicate
+        for r in current_rels:
+            if r.get("target_id") == target_id and r.get("relation_type") == rel_type_lower:
+                return  # Already exists
+
+        current_rels.append({
+            "target_id": target_id,
+            "relation_type": rel_type_lower,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+        client.set_payload(
+            collection_name=collections.COLLECTION_NAME,
+            payload={"relations": current_rels},
+            points=[source_id],
+        )
+    except Exception as e:
+        logger.debug(f"Failed to sync relation to Qdrant for {source_id}: {e}")
 
 
 def get_related_memories(

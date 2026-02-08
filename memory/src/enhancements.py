@@ -397,6 +397,131 @@ def clean_content(content: str) -> str:
 
 
 # ============================================================================
+# Auto-Enrich Type-Specific Fields
+# ============================================================================
+
+def _derive_context(content: str, project: str | None, mem_type: MemoryType) -> str | None:
+    """Generate context from content — first sentence + project scope."""
+    import re as _re
+
+    # Split into sentences
+    sentences = _re.split(r'(?<=[.!?])\s+', content)
+    first = next((s.strip() for s in sentences if len(s.strip()) > 20), None)
+    if not first:
+        return None
+
+    prefix = f"While working on {project}: " if project else ""
+    # Cap at 250 chars
+    derived = f"{prefix}{first}"
+    return derived[:250]
+
+
+def _derive_prevention(content: str, solution: str) -> str | None:
+    """Derive prevention advice from solution and content."""
+    content_lower = content.lower()
+
+    # Check if content already has prevention-like phrases
+    prevention_phrases = ['to prevent', 'to avoid', 'next time', 'going forward', 'in future']
+    for phrase in prevention_phrases:
+        idx = content_lower.find(phrase)
+        if idx >= 0:
+            end = content.find('.', idx)
+            if end > idx:
+                return content[idx:end + 1].strip()
+
+    # Derive from solution
+    if solution and len(solution) > 10:
+        return f"To prevent: {solution.rstrip('.')}. Verify this proactively."
+
+    return None
+
+
+def _derive_rationale(content: str) -> str | None:
+    """Extract rationale from content using explanation keywords."""
+    content_lower = content.lower()
+    keywords = ['because ', 'since ', 'in order to ', 'so that ', 'the reason ']
+
+    for kw in keywords:
+        idx = content_lower.find(kw)
+        if idx >= 0:
+            # Take from keyword to end of sentence
+            end = content.find('.', idx)
+            if end > idx:
+                extracted = content[idx:end + 1].strip()
+            else:
+                extracted = content[idx:idx + 300].strip()
+            if len(extracted) > 15:
+                return extracted[0].upper() + extracted[1:]
+
+    return None
+
+
+def _derive_alternatives(content: str) -> list[str] | None:
+    """Extract alternatives mentioned in content."""
+    content_lower = content.lower()
+    keywords = ['instead of ', 'rather than ', 'compared to ', 'alternative', 'other option',
+                'could have used ', 'considered ']
+
+    for kw in keywords:
+        idx = content_lower.find(kw)
+        if idx >= 0:
+            end = content.find('.', idx)
+            if end > idx:
+                alt = content[idx:end + 1].strip()
+                if len(alt) > 10:
+                    return [alt]
+
+    return None
+
+
+def auto_enrich_fields(memory: MemoryCreate) -> MemoryCreate:
+    """Auto-fill missing type-specific and context fields from content analysis.
+
+    Extracts structured fields from the main content when they weren't
+    explicitly provided. This maximizes content_richness score without
+    requiring callers to always fill every field.
+
+    Pipeline:
+    1. Derive context from content (all types)
+    2. Derive prevention from solution (error type)
+    3. Derive rationale from content (decision type)
+    4. Derive alternatives from content (decision type)
+    """
+    content = memory.content.strip()
+
+    # ─── Context (all types) ───
+    if not memory.context:
+        derived = _derive_context(content, memory.project, memory.type)
+        if derived:
+            memory.context = derived
+            logger.info(f"Auto-derived context: {derived[:60]}...")
+
+    # ─── Error: prevention from solution ───
+    if memory.type == MemoryType.ERROR:
+        if memory.solution and not memory.prevention:
+            derived = _derive_prevention(content, memory.solution)
+            if derived:
+                memory.prevention = derived
+                logger.info(f"Auto-derived prevention: {derived[:60]}...")
+
+    # ─── Decision: rationale and alternatives ───
+    if memory.type == MemoryType.DECISION:
+        if not memory.rationale:
+            derived = _derive_rationale(content)
+            if derived:
+                memory.rationale = derived
+                logger.info(f"Auto-derived rationale: {derived[:60]}...")
+
+        if not memory.alternatives:
+            derived = _derive_alternatives(content)
+            if derived:
+                memory.alternatives = derived
+                logger.info(f"Auto-derived alternatives: {derived}")
+
+    return memory
+
+
+# ============================================================================
 # Auto-Enrich Tags
 # ============================================================================
 

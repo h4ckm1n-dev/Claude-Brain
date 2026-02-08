@@ -10,9 +10,12 @@ Implements Phase 1.2: Automatic Relationship Inference
 
 import logging
 import re
+import json
 from typing import List, Tuple, Dict, Optional
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+from pathlib import Path
+import threading
 
 from .graph import create_relationship, is_graph_enabled
 from .collections import get_client, COLLECTION_NAME
@@ -21,9 +24,41 @@ from .models import MemoryType, RelationType
 
 logger = logging.getLogger(__name__)
 
-# Co-access tracking (in-memory for now, could be persisted)
-_co_access_tracker: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+# Co-access tracking — persisted to /app/data/co_access_tracker.json
+CO_ACCESS_FILE = Path("/app/data/co_access_tracker.json")
 CO_ACCESS_THRESHOLD = 5  # Number of co-accesses before inferring RELATED
+_co_access_lock = threading.Lock()
+
+
+def _load_co_access_tracker() -> Dict[str, Dict[str, int]]:
+    """Load co-access tracker from disk."""
+    try:
+        if CO_ACCESS_FILE.exists():
+            with open(CO_ACCESS_FILE, "r") as f:
+                data = json.load(f)
+            # Convert back to nested defaultdict structure
+            tracker = defaultdict(lambda: defaultdict(int))
+            for k, v in data.items():
+                for k2, count in v.items():
+                    tracker[k][k2] = count
+            return tracker
+    except Exception as e:
+        logger.warning(f"Failed to load co-access tracker: {e}")
+    return defaultdict(lambda: defaultdict(int))
+
+
+def _save_co_access_tracker(tracker: Dict[str, Dict[str, int]]) -> None:
+    """Save co-access tracker to disk."""
+    try:
+        CO_ACCESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(CO_ACCESS_FILE, "w") as f:
+            json.dump({k: dict(v) for k, v in tracker.items()}, f)
+    except Exception as e:
+        logger.warning(f"Failed to save co-access tracker: {e}")
+
+
+# Legacy in-memory reference (kept for backwards compat with get_co_access_stats)
+_co_access_tracker: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
 
 class RelationshipInference:
@@ -372,6 +407,7 @@ class RelationshipInference:
             from qdrant_client import models as qmodels
 
             client = get_client()
+            MAX_ONWRITE_RELS = 5
             stats = {"fixes": 0, "supports": 0, "related": 0, "similar_to": 0}
 
             # 1. Temporal inference: Find memories in same project created recently (last 2 hours)
@@ -394,13 +430,22 @@ class RelationshipInference:
                     limit=10
                 )
 
-                # Link to most recent memory in same project (FOLLOWS)
+                # Link to most recent memory in same project (FOLLOWS) — only if within 30 min gap
                 if recent_in_project:
                     most_recent = max(recent_in_project,
                                      key=lambda m: m.payload.get("created_at", ""))
                     if str(most_recent.id) != memory_id:
-                        if create_relationship(str(most_recent.id), memory_id, "FOLLOWS"):
-                            logger.debug(f"Temporal link: {most_recent.id} FOLLOWS {memory_id}")
+                        most_recent_time = datetime.fromisoformat(most_recent.payload.get("created_at", ""))
+                        if most_recent_time.tzinfo is None:
+                            most_recent_time = most_recent_time.replace(tzinfo=timezone.utc)
+                        check_created = created_at
+                        if check_created.tzinfo is None:
+                            check_created = check_created.replace(tzinfo=timezone.utc)
+                        gap_minutes = (check_created - most_recent_time).total_seconds() / 60
+                        if gap_minutes <= 30:
+                            if sum(stats.values()) < MAX_ONWRITE_RELS:
+                                if create_relationship(str(most_recent.id), memory_id, "FOLLOWS"):
+                                    logger.debug(f"Temporal link: {most_recent.id} FOLLOWS {memory_id} (gap: {gap_minutes:.0f}min)")
 
             # 2. Semantic inference with type-based patterns
             similar = client.query_points(
@@ -414,6 +459,9 @@ class RelationshipInference:
             for candidate in similar:
                 if str(candidate.id) == memory_id:
                     continue
+                # Cap total on-write relationships
+                if sum(stats.values()) >= MAX_ONWRITE_RELS:
+                    break
 
                 candidate_type = candidate.payload.get("type")
                 similarity = candidate.score
@@ -450,7 +498,7 @@ class RelationshipInference:
                             stats["similar_to"] += 1
                             logger.debug(f"Inferred SIMILAR_TO: {memory_id} → {candidate.id}")
 
-                    elif rel_type == "RELATED" and similarity > 0.8:
+                    elif rel_type == "RELATED" and similarity > 0.82:
                         if create_relationship(memory_id, str(candidate.id), rel_type):
                             stats["related"] += 1
                             logger.debug(f"Inferred RELATED: {memory_id} → {candidate.id}")
@@ -473,12 +521,15 @@ class RelationshipInference:
                 for match in tag_matches:
                     if str(match.id) == memory_id:
                         continue
+                    # Cap total on-write relationships
+                    if sum(stats.values()) >= MAX_ONWRITE_RELS:
+                        break
 
                     match_tags = set(match.payload.get("tags", []))
                     common_tags = set(memory_tags) & match_tags
 
-                    # If >50% tags overlap, create RELATED
-                    if len(common_tags) >= max(2, len(memory_tags) // 2):
+                    # Require at least 3 overlapping tags (or 50% of tags, whichever is larger)
+                    if len(common_tags) >= max(3, len(memory_tags) // 2):
                         if create_relationship(memory_id, str(match.id), "RELATED"):
                             stats["related"] += 1
                             logger.debug(f"Tag-based RELATED: {memory_id} → {match.id} (tags: {common_tags})")
@@ -516,11 +567,11 @@ class RelationshipInference:
             Relationship type or None
         """
         # High similarity error-error → SIMILAR_TO (potential duplicates)
-        if type1 == "error" and type2 == "error" and similarity > 0.85:
+        if type1 == "error" and type2 == "error" and similarity > 0.88:
             return "SIMILAR_TO"
 
         # Learning/Decision after error → FIXES (temporal check done in caller)
-        if type1 in ["learning", "decision"] and type2 == "error" and similarity > 0.85:
+        if type1 in ["learning", "decision"] and type2 == "error" and similarity > 0.88:
             return "FIXES"
 
         # Pattern supports decision/learning
@@ -534,7 +585,7 @@ class RelationshipInference:
             return "SUPPORTS"
 
         # Moderate similarity → RELATED
-        if similarity > 0.8:
+        if similarity > 0.82:
             return "RELATED"
 
         return None
@@ -544,34 +595,38 @@ class RelationshipInference:
         """
         Track that multiple memories were accessed together (e.g., in same search).
         After threshold co-accesses, infer RELATED relationships.
+        Persisted to /app/data/co_access_tracker.json.
 
         Args:
             memory_ids: List of memory IDs accessed together
         """
-        global _co_access_tracker
+        with _co_access_lock:
+            tracker = _load_co_access_tracker()
 
-        # Update co-access counts for all pairs
-        for i, id1 in enumerate(memory_ids):
-            for id2 in memory_ids[i+1:]:
-                # Store both directions for easier lookup
-                _co_access_tracker[id1][id2] += 1
-                _co_access_tracker[id2][id1] += 1
+            # Update co-access counts for all pairs
+            for i, id1 in enumerate(memory_ids):
+                for id2 in memory_ids[i+1:]:
+                    # Store both directions for easier lookup
+                    tracker[id1][id2] += 1
+                    tracker[id2][id1] += 1
 
-                # Check if threshold reached
-                if _co_access_tracker[id1][id2] == CO_ACCESS_THRESHOLD:
-                    logger.info(f"Co-access threshold reached for {id1} and {id2}")
-                    if is_graph_enabled():
-                        if create_relationship(id1, id2, "RELATED"):
-                            logger.info(f"Created RELATED relationship from co-access: {id1} ↔ {id2}")
+                    # Check if threshold reached (exactly at threshold to fire once)
+                    if tracker[id1][id2] == CO_ACCESS_THRESHOLD:
+                        logger.info(f"Co-access threshold reached for {id1} and {id2}")
+                        if is_graph_enabled():
+                            if create_relationship(id1, id2, "RELATED"):
+                                logger.info(f"Created RELATED relationship from co-access: {id1} ↔ {id2}")
+
+            _save_co_access_tracker(tracker)
 
     @staticmethod
     def get_co_access_stats() -> Dict:
-        """Get statistics about co-access tracking."""
-        global _co_access_tracker
+        """Get statistics about co-access tracking (reads from persisted file)."""
+        tracker = _load_co_access_tracker()
 
-        total_pairs = sum(len(targets) for targets in _co_access_tracker.values()) // 2
+        total_pairs = sum(len(targets) for targets in tracker.values()) // 2
         high_cooccurrence = sum(
-            1 for targets in _co_access_tracker.values()
+            1 for targets in tracker.values()
             for count in targets.values()
             if count >= CO_ACCESS_THRESHOLD
         ) // 2
@@ -579,12 +634,17 @@ class RelationshipInference:
         return {
             "total_pairs_tracked": total_pairs,
             "pairs_above_threshold": high_cooccurrence,
-            "threshold": CO_ACCESS_THRESHOLD
+            "threshold": CO_ACCESS_THRESHOLD,
+            "persisted": CO_ACCESS_FILE.exists()
         }
 
     @staticmethod
     def reset_co_access_tracker() -> None:
         """Reset the co-access tracker (for testing or maintenance)."""
-        global _co_access_tracker
-        _co_access_tracker.clear()
+        with _co_access_lock:
+            try:
+                if CO_ACCESS_FILE.exists():
+                    CO_ACCESS_FILE.unlink()
+            except Exception:
+                pass
         logger.info("Co-access tracker reset")

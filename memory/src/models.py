@@ -183,33 +183,14 @@ class MemoryCreate(MemoryBase):
     def validate_type_specific_requirements(self) -> 'MemoryCreate':
         """Validate type-specific requirements after all fields are set.
 
-        Every memory type has mandatory fields that make it actionable.
-        Reject memories that would be low-quality from the start.
+        Pydantic catches HARD failures (fields that can't be auto-derived).
+        Soft requirements (context, prevention, rationale, alternatives) are
+        handled by the auto_enrich_fields() pipeline at route level, which
+        derives them from content before quality scoring.
         """
 
-        # ALL types benefit from context — require it for structured types
-        if self.type in (MemoryType.DECISION, MemoryType.ERROR, MemoryType.PATTERN):
-            if not self.context:
-                raise ValueError(
-                    f"{self.type.value} memories must include 'context' field. "
-                    "Explain the situation: what were you working on, what triggered this, "
-                    "and why is this knowledge important for future reference."
-                )
-
-        # DECISION memories: rationale + alternatives required
-        if self.type == MemoryType.DECISION:
-            if not self.rationale:
-                raise ValueError(
-                    "Decision memories must include 'rationale' field explaining WHY this was chosen. "
-                    "Example: rationale='Need ACID compliance for transactions, strong JSON support'"
-                )
-            if not self.alternatives:
-                raise ValueError(
-                    "Decision memories must include 'alternatives' field listing options considered. "
-                    "Example: alternatives=['MongoDB (no ACID)', 'MySQL (weaker JSON)']"
-                )
-
-        # ERROR memories: all three fields required for complete actionability
+        # ERROR memories: error_message and solution are hard requirements
+        # (can't be auto-derived from content)
         if self.type == MemoryType.ERROR:
             if not self.error_message:
                 raise ValueError(
@@ -220,11 +201,6 @@ class MemoryCreate(MemoryBase):
                 raise ValueError(
                     "Error memories must include 'solution' explaining how it was fixed. "
                     "Example: solution='Upgraded package to v3.0.0 which fixes the race condition'"
-                )
-            if not self.prevention:
-                raise ValueError(
-                    "Error memories must include 'prevention' explaining how to avoid it. "
-                    "Example: prevention='Pin dependency versions in requirements.txt'"
                 )
 
         # PATTERN memories: need enough detail to be reusable

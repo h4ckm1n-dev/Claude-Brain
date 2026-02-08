@@ -5,6 +5,8 @@ Enforces quality standards for memories to ensure they are:
 - Searchable (proper tags)
 - Contextual (explain WHY, not just WHAT)
 - Actionable (include solutions, rationales, etc.)
+
+Enforcement mode defaults to STRICT — low-quality memories are rejected at store time.
 """
 
 import os
@@ -13,16 +15,12 @@ from .models import MemoryCreate, MemoryType
 
 logger = logging.getLogger(__name__)
 
-# Configuration from environment
-QUALITY_ENFORCEMENT = os.getenv("MEMORY_QUALITY_ENFORCEMENT", "warn")  # strict|warn|off
-# Quality scores are 0.0-1.0 (unified with quality_tracking.py)
-MIN_QUALITY_SCORE = float(os.getenv("MEMORY_MIN_QUALITY_SCORE", "0.5"))
-REQUIRE_CONTEXT_FOR_DECISIONS = os.getenv("MEMORY_REQUIRE_CONTEXT_FOR_DECISIONS", "true").lower() == "true"
-REQUIRE_CONTEXT_FOR_PATTERNS = os.getenv("MEMORY_REQUIRE_CONTEXT_FOR_PATTERNS", "true").lower() == "true"
-REQUIRE_CONTEXT_FOR_ERRORS = os.getenv("MEMORY_REQUIRE_CONTEXT_FOR_ERRORS", "true").lower() == "true"
-MIN_TAGS = int(os.getenv("MEMORY_MIN_TAGS", "2"))
-MIN_CONTENT_LENGTH = int(os.getenv("MEMORY_MIN_CONTENT_LENGTH", "30"))
-MIN_WORDS = int(os.getenv("MEMORY_MIN_WORDS", "5"))
+# Configuration from environment — defaults to STRICT enforcement
+QUALITY_ENFORCEMENT = os.getenv("MEMORY_QUALITY_ENFORCEMENT", "strict")  # strict|warn|off
+MIN_QUALITY_SCORE = float(os.getenv("MEMORY_MIN_QUALITY_SCORE", "0.6"))
+MIN_TAGS = int(os.getenv("MEMORY_MIN_TAGS", "3"))
+MIN_CONTENT_LENGTH = int(os.getenv("MEMORY_MIN_CONTENT_LENGTH", "50"))
+MIN_WORDS = int(os.getenv("MEMORY_MIN_WORDS", "10"))
 
 
 class QualityValidationError(Exception):
@@ -36,163 +34,173 @@ class QualityValidationError(Exception):
 
 def calculate_quality_score(memory: MemoryCreate) -> tuple[float, list[str]]:
     """
-    Calculate quality score (0.0-1.0) and return warnings.
+    Calculate quality score (0.0-1.0) at capture time.
 
-    Uses 0.0-1.0 scale consistent with quality_tracking.py.
-
-    Args:
-        memory: Memory to validate
-
-    Returns:
-        tuple: (score, warnings)
+    A well-formed memory with all required fields scores 1.0.
+    Each missing or weak element reduces the score.
+    The Pydantic validators catch hard failures; this catches soft quality issues.
     """
     score = 1.0
     warnings = []
 
     content = memory.content.strip()
     word_count = len(content.split())
+    tag_count = len(memory.tags) if memory.tags else 0
 
-    # ===== CRITICAL ISSUES (High penalty) =====
+    # ===== CONTENT QUALITY =====
 
-    # Minimum content length
     if len(content) < MIN_CONTENT_LENGTH:
-        score -= 0.30
+        score -= 0.25
         warnings.append(f"Content too short ({len(content)} chars, need {MIN_CONTENT_LENGTH}+)")
 
-    # Minimum word count
     if word_count < MIN_WORDS:
-        score -= 0.25
-        warnings.append(f"Content has only {word_count} words (need {MIN_WORDS}+)")
-
-    # Placeholder/test content
-    placeholder_phrases = {'test', 'todo', 'placeholder', 'tbd', 'fixme', 'xxx'}
-    if content.lower() in placeholder_phrases:
-        score -= 0.50
-        warnings.append("Content is a placeholder - provide actual information")
-
-    # Generic/useless tags
-    if memory.tags:
-        useless_tags = {'test', 'todo', 'temp', 'misc', 'other', 'general'}
-        if all(tag.lower() in useless_tags for tag in memory.tags):
-            score -= 0.30
-            warnings.append("All tags are generic - use descriptive tags")
-
-    # ===== IMPORTANT ISSUES (Medium penalty) =====
-
-    # Tag count
-    tag_count = len(memory.tags) if memory.tags else 0
-    if tag_count < MIN_TAGS:
         score -= 0.20
-        warnings.append(f"Only {tag_count} tags (need {MIN_TAGS}+ for searchability)")
+        warnings.append(f"Only {word_count} words (need {MIN_WORDS}+)")
 
-    # Vague content (short + contains trigger words)
+    # Bonus tiers for rich content
+    if len(content) < 100:
+        score -= 0.05
+        warnings.append("Content under 100 chars — consider adding more detail")
+    elif len(content) >= 200:
+        pass  # Good length, no penalty
+
+    # Vague content detection — proportional to content length
     vague_phrases = ['fixed', 'updated', 'done', 'working', 'resolved', 'completed', 'finished']
     content_lower = content.lower()
-    has_vague_words = any(phrase in content_lower for phrase in vague_phrases)
-    if has_vague_words and len(content) < 80:
-        score -= 0.20
-        warnings.append("Content seems vague - explain HOW and WHY, not just WHAT")
+    vague_count = sum(1 for phrase in vague_phrases if phrase in content_lower)
+    if vague_count > 0 and len(content) < 100:
+        # Short + any vague phrase → strong penalty
+        score -= 0.15
+        warnings.append("Content seems vague — explain HOW and WHY, not just WHAT")
+    elif vague_count >= 3 and len(content) < 300:
+        # Medium-length but saturated with vague phrases → mild penalty
+        score -= 0.05
+        warnings.append("Content has multiple vague phrases — add specifics about approach and outcome")
 
-    # ===== TYPE-SPECIFIC VALIDATION =====
+    # Auto-captured boilerplate detection — heavily penalize machine-generated session noise
+    # Only triggers when tagged as auto-captured AND content matches boilerplate patterns
+    auto_capture_tags = {'auto-captured', 'session-start', 'session-end'}
+    has_auto_tag = bool(memory.tags and auto_capture_tags & {t.lower() for t in memory.tags})
+    if has_auto_tag:
+        boilerplate_patterns = [
+            'session started for project',
+            'session closed at',
+            'session ended at',
+            'session resumed for project',
+            'uncommitted files',
+            'on branch main with',
+            'on branch master with',
+        ]
+        if any(bp in content_lower for bp in boilerplate_patterns):
+            score -= 0.40
+            warnings.append("Content is auto-captured boilerplate — not a genuine memory")
 
-    # DECISION memories
-    if memory.type == MemoryType.DECISION:
+    # ===== TAG QUALITY =====
+
+    if tag_count < MIN_TAGS:
+        score -= 0.15
+        warnings.append(f"Only {tag_count} tags (need {MIN_TAGS}+ for searchability)")
+
+    if memory.tags:
+        useless_tags = {'test', 'todo', 'temp', 'misc', 'other', 'general', 'stuff', 'code', 'fix', 'bug', 'update', 'auto-captured', 'session-start', 'session-end'}
+        useful = [t for t in memory.tags if t.lower() not in useless_tags]
+        if len(useful) < 2:
+            score -= 0.15
+            warnings.append("Too many generic tags — use specific, descriptive tags")
+
+    # ===== PROJECT FIELD =====
+
+    if not memory.project:
+        score -= 0.05
+        warnings.append("No project specified — add project for better organization")
+
+    # ===== CONTEXT FIELD (universal quality signal) =====
+
+    if not memory.context:
+        if memory.type in (MemoryType.ERROR, MemoryType.DECISION, MemoryType.PATTERN):
+            score -= 0.15
+            warnings.append(f"Missing context — explain the situation that led to this {memory.type.value}")
+        elif memory.type in (MemoryType.LEARNING, MemoryType.DOCS, MemoryType.CONTEXT):
+            score -= 0.05
+            warnings.append("Consider adding context for better future retrieval")
+
+    # ===== TYPE-SPECIFIC COMPLETENESS =====
+
+    if memory.type == MemoryType.ERROR:
+        if not memory.error_message:
+            score -= 0.15
+            warnings.append("Missing error_message — include the actual error text")
+        if not memory.solution:
+            score -= 0.15
+            warnings.append("Missing solution — explain how it was fixed")
+        if not memory.prevention:
+            score -= 0.10
+            warnings.append("Missing prevention — explain how to avoid this in future")
+
+    elif memory.type == MemoryType.DECISION:
         if not memory.rationale:
-            score -= 0.30
-            warnings.append("Decision must include rationale explaining WHY this was chosen")
-
+            score -= 0.20
+            warnings.append("Missing rationale — explain WHY this was chosen")
         if not memory.alternatives:
             score -= 0.10
-            warnings.append("Decision should list alternatives that were considered")
+            warnings.append("Missing alternatives — list options that were considered")
 
-        if REQUIRE_CONTEXT_FOR_DECISIONS and not memory.context:
-            score -= 0.15
-            warnings.append("Decision should include context explaining the situation")
-
-    # ERROR memories
-    elif memory.type == MemoryType.ERROR:
-        if not memory.solution and not memory.prevention:
-            score -= 0.25
-            warnings.append("Error should include either solution (how it was fixed) or prevention (how to avoid)")
-
-        if not memory.error_message:
-            score -= 0.10
-            warnings.append("Error should include the actual error message")
-
-        if REQUIRE_CONTEXT_FOR_ERRORS and not memory.context:
-            score -= 0.10
-            warnings.append("Error should include context about when/why it occurred")
-
-    # PATTERN memories
     elif memory.type == MemoryType.PATTERN:
-        if REQUIRE_CONTEXT_FOR_PATTERNS and not memory.context:
-            score -= 0.15
-            warnings.append("Pattern should include context explaining when to use this pattern")
-
         if len(content) < 100:
             score -= 0.10
-            warnings.append("Pattern should be detailed enough to be reusable (100+ chars)")
+            warnings.append("Pattern too short — need 100+ chars to be reusable")
 
-    # DOCS memories
     elif memory.type == MemoryType.DOCS:
         if not memory.source:
+            score -= 0.10
+            warnings.append("Missing source URL or reference")
+
+    # ===== FIELD SUBSTANCE (penalize trivially short type-specific fields) =====
+
+    if memory.type == MemoryType.ERROR:
+        if memory.solution and len(memory.solution.strip()) < 15:
+            score -= 0.10
+            warnings.append(f"Solution too brief ({len(memory.solution.strip())} chars) — explain the actual fix")
+        if memory.prevention and len(memory.prevention.strip()) < 15:
             score -= 0.05
-            warnings.append("Docs should include source URL or reference")
+            warnings.append(f"Prevention too brief ({len(memory.prevention.strip())} chars) — explain how to avoid this")
+        if memory.error_message and len(memory.error_message.strip()) < 10:
+            score -= 0.05
+            warnings.append(f"Error message too brief ({len(memory.error_message.strip())} chars) — include the actual error text")
 
-    # ===== MINOR ISSUES (Low penalty) =====
-
-    # No project specified (for project-specific knowledge)
-    if not memory.project and memory.type in [MemoryType.DECISION, MemoryType.PATTERN]:
-        score -= 0.05
-        warnings.append("Consider adding project name for project-specific knowledge")
-
-    # Short content for detailed types
-    if memory.type in [MemoryType.DECISION, MemoryType.PATTERN] and len(content) < 50:
-        score -= 0.10
-        warnings.append(f"{memory.type.value} should be more detailed (50+ chars)")
+    elif memory.type == MemoryType.DECISION:
+        if memory.rationale and len(memory.rationale.strip()) < 15:
+            score -= 0.10
+            warnings.append(f"Rationale too brief ({len(memory.rationale.strip())} chars) — explain WHY this was chosen")
 
     return max(0.0, round(score, 2)), warnings
 
 
 def validate_memory_quality(memory: MemoryCreate) -> tuple[bool, float, list[str]]:
     """
-    Validate memory quality and optionally raise exception.
+    Validate memory quality and enforce standards.
 
-    Args:
-        memory: Memory to validate
-
-    Returns:
-        tuple: (is_valid, score, warnings)
-
-    Raises:
-        QualityValidationError: If enforcement is 'strict' and score < threshold
+    Default mode is STRICT: rejects memories below MIN_QUALITY_SCORE.
+    This ensures only high-quality memories enter the database.
     """
-    # Calculate quality score
     score, warnings = calculate_quality_score(memory)
-
-    # Determine if valid
     is_valid = score >= MIN_QUALITY_SCORE
 
-    # Log results
     if warnings:
         log_level = logging.WARNING if not is_valid else logging.INFO
         logger.log(log_level, f"Memory quality score: {score:.2f}/1.0 (type={memory.type.value})")
         for warning in warnings:
             logger.log(log_level, f"  - {warning}")
 
-    # Handle enforcement modes
     if QUALITY_ENFORCEMENT == "off":
-        # No enforcement, always allow
         return True, score, warnings
 
     elif QUALITY_ENFORCEMENT == "warn":
-        # Warn but allow
         if not is_valid:
-            logger.warning(f"LOW QUALITY MEMORY (but allowed): score={score:.2f}, threshold={MIN_QUALITY_SCORE:.2f}")
+            logger.warning(f"LOW QUALITY MEMORY (allowed in warn mode): score={score:.2f}")
         return True, score, warnings
 
     elif QUALITY_ENFORCEMENT == "strict":
-        # Block if below threshold
         if not is_valid:
             raise QualityValidationError(score, warnings)
         return True, score, warnings
@@ -207,58 +215,56 @@ def get_quality_suggestions(memory_type: MemoryType) -> str:
 
     suggestions = {
         MemoryType.ERROR: """
-Quality tips for ERROR memories:
-  - Include the actual error message
-  - Explain what you were trying to do
-  - Document the solution that worked
-  - Add prevention advice for future
-  - Use tags like: [error-type, technology, component]
+To store an ERROR memory, you MUST provide:
+  - content: Detailed description (50+ chars, 10+ words)
+  - error_message: The actual error text
+  - solution: How you fixed it
+  - prevention: How to avoid it in future
+  - context: What you were working on when this happened
+  - tags: 3+ specific tags (e.g., ['python', 'fastapi', 'import-error'])
+  - project: Project name
         """,
 
         MemoryType.DECISION: """
-Quality tips for DECISION memories:
-  - Explain WHY this decision was made (rationale)
-  - List alternatives that were considered
-  - Add context about the situation/requirements
-  - Mention trade-offs or impact
-  - Use tags like: [decision-type, technology, architecture]
+To store a DECISION memory, you MUST provide:
+  - content: What was decided and its impact (50+ chars, 10+ words)
+  - rationale: WHY this option was chosen
+  - alternatives: List of other options considered
+  - context: The situation/requirements that drove this decision
+  - tags: 3+ specific tags (e.g., ['architecture', 'database', 'postgresql'])
+  - project: Project name
         """,
 
         MemoryType.PATTERN: """
-Quality tips for PATTERN memories:
-  - Describe the pattern in detail (100+ chars)
-  - Explain when to use this pattern
-  - Include code examples if applicable
-  - Add context about benefits/trade-offs
-  - Use tags like: [pattern-type, technology, use-case]
+To store a PATTERN memory, you MUST provide:
+  - content: Detailed pattern description (100+ chars)
+  - context: When and where to apply this pattern
+  - tags: 3+ specific tags (e.g., ['caching', 'redis', 'ttl-pattern'])
+  - project: Project name
         """,
 
         MemoryType.DOCS: """
-Quality tips for DOCS memories:
-  - Include source URL or reference
-  - Summarize key points (don't just copy)
-  - Add context about when this is useful
-  - Use specific tags (library version, etc.)
-  - Use tags like: [library, version, topic]
+To store a DOCS memory, you MUST provide:
+  - content: Key points summarized (50+ chars, 10+ words)
+  - source: URL or reference
+  - tags: 3+ specific tags (e.g., ['qdrant', 'api', 'filtering'])
+  - project: Project name
         """,
 
         MemoryType.LEARNING: """
-Quality tips for LEARNING memories:
-  - Explain what you learned (not just what happened)
-  - Add context about why this was surprising/useful
-  - Include examples or scenarios
-  - Use tags to categorize the learning
-  - Use tags like: [technology, concept, insight]
+To store a LEARNING memory, you MUST provide:
+  - content: What you learned and why it matters (50+ chars, 10+ words)
+  - context: Why this was surprising or useful (recommended)
+  - tags: 3+ specific tags (e.g., ['python', 'asyncio', 'event-loop'])
+  - project: Project name
         """,
 
         MemoryType.CONTEXT: """
-Quality tips for CONTEXT memories:
-  - Provide enough detail for future reference
-  - Explain why this context is important
-  - Add project name if project-specific
-  - Use descriptive tags
-  - Use tags like: [project, component, requirement]
+To store a CONTEXT memory, you MUST provide:
+  - content: Important project context (50+ chars, 10+ words)
+  - tags: 3+ specific tags (e.g., ['infrastructure', 'docker', 'production'])
+  - project: Project name
         """
     }
 
-    return suggestions.get(memory_type, "Add detail, context, and descriptive tags.")
+    return suggestions.get(memory_type, "Add detail, context, and 3+ descriptive tags.")

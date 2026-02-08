@@ -1,16 +1,21 @@
 import { apiClient } from './client';
 
+export interface RecentSession {
+  session_id: string;
+  memory_count: number;
+  created_at: string;
+  last_activity: string;
+  project: string | null;
+  type_breakdown: Record<string, number>;
+  status: string;
+}
+
 export interface SessionStats {
   total_sessions: number;
   active_sessions: number;
   avg_memories_per_session: number;
   consolidation_rate: number;
-  recent_sessions: Array<{
-    session_id: string;
-    memory_count: number;
-    created_at: string;
-    status: string;
-  }>;
+  recent_sessions: RecentSession[];
 }
 
 export interface SessionMemory {

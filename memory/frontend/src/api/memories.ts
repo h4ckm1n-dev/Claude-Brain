@@ -76,7 +76,9 @@ export const consolidateMemories = (request: ConsolidateRequest) =>
 
 // Graph Operations
 export const getRelatedMemories = (memoryId: string, maxHops?: number, limit?: number) =>
-  apiClient.post<Memory[]>(`/memories/related/${memoryId}`, { max_hops: maxHops, limit }).then(r => r.data);
+  apiClient.get<{ memory_id: string; related: Memory[]; count: number }>(`/graph/related/${memoryId}`, {
+    params: { max_hops: maxHops, limit },
+  }).then(r => r.data.related);
 
 export const getTimeline = (project?: string, memoryType?: string, limit?: number) =>
   apiClient.get<any>('/graph/timeline', { params: { project, memory_type: memoryType, limit } }).then(r => r.data);
@@ -218,6 +220,10 @@ export const getQualityLeaderboard = (limit?: number, memoryType?: string) =>
       access_count: e.access_count ?? e.rating_count ?? 0,
     })) as QualityLeaderboardEntry[];
   });
+
+// Bulk action on multiple memories
+export const bulkAction = (operation: string, memoryIds: string[], tag?: string) =>
+  apiClient.post(`/memories/bulk-action?operation=${encodeURIComponent(operation)}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`, memoryIds).then(r => r.data);
 
 // Quality report
 export const getQualityReport = () =>

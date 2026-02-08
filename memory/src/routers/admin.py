@@ -828,3 +828,91 @@ async def list_backups():
     except Exception as e:
         logger.error(f"Backup list failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/admin/sync-graph-to-qdrant")
+async def sync_graph_relations_to_qdrant():
+    """Backfill Neo4j relationships into Qdrant relations payload.
+
+    Queries Neo4j for all Memory-to-Memory relationships and writes them
+    to the Qdrant `relations` payload field. Fixes orphaned memories
+    that have graph relationships but empty Qdrant relations.
+    """
+    from ..graph import is_graph_enabled, get_driver
+    from ..models import RelationType
+
+    if not is_graph_enabled():
+        raise HTTPException(status_code=400, detail="Graph not enabled")
+
+    try:
+        driver = get_driver()
+        if driver == "disabled":
+            raise HTTPException(status_code=400, detail="Neo4j driver disabled")
+
+        client = collections.get_client()
+
+        # Valid relation types for Qdrant (lowercase)
+        valid_types = {rt.value for rt in RelationType}
+
+        # Query all Memory-to-Memory relationships from Neo4j
+        with driver.session() as session:
+            result = session.run("""
+                MATCH (a:Memory)-[r]->(b:Memory)
+                RETURN a.id AS source_id, b.id AS target_id, type(r) AS rel_type
+            """)
+            neo4j_rels = [
+                {
+                    "source_id": record["source_id"],
+                    "target_id": record["target_id"],
+                    "rel_type": record["rel_type"].lower()
+                }
+                for record in result
+            ]
+
+        # Group by source_id
+        from collections import defaultdict
+        rels_by_source = defaultdict(list)
+        for rel in neo4j_rels:
+            # Remap unknown types to 'related'
+            rel_type = rel["rel_type"] if rel["rel_type"] in valid_types else "related"
+            rels_by_source[rel["source_id"]].append({
+                "target_id": rel["target_id"],
+                "relation_type": rel_type,
+                "created_at": datetime.now().isoformat(),
+            })
+
+        # Write to Qdrant payload
+        synced = 0
+        errors = 0
+        for source_id, relations in rels_by_source.items():
+            try:
+                # Deduplicate by (target_id, relation_type)
+                seen = set()
+                unique_rels = []
+                for r in relations:
+                    key = (r["target_id"], r["relation_type"])
+                    if key not in seen:
+                        seen.add(key)
+                        unique_rels.append(r)
+
+                client.set_payload(
+                    collection_name=collections.COLLECTION_NAME,
+                    payload={"relations": unique_rels},
+                    points=[source_id],
+                )
+                synced += 1
+            except Exception as e:
+                logger.warning(f"Failed to sync relations for {source_id}: {e}")
+                errors += 1
+
+        return {
+            "neo4j_relationships": len(neo4j_rels),
+            "memories_synced": synced,
+            "errors": errors,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Graph-to-Qdrant sync failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

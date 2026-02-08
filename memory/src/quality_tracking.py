@@ -44,76 +44,114 @@ class QualityScoreCalculator:
         has_prevention: bool = False,
         has_rationale: bool = False,
         is_resolved: bool = False,
+        has_context: bool = False,
+        has_alternatives: bool = False,
+        is_auto_captured: bool = False,
+        content: str = "",
     ) -> Tuple[float, Dict[str, float]]:
         """
         Calculate comprehensive quality score.
 
-        Formula:
+        Formula (rebalanced to reward completeness at capture time):
         quality_score = (
-            content_richness * 0.30 +
-            access_frequency * 0.25 +
-            maturity * 0.15 +
-            stability * 0.10 +
-            relationship_density * 0.10 +
+            content_richness * 0.50 +    # Dominant: quality at capture time
+            access_frequency * 0.15 +    # Grows over time
+            maturity * 0.10 +            # Grows over time
+            stability * 0.05 +           # Near-constant
+            relationship_density * 0.10 + # Grows via inference
             user_rating_normalized * 0.10
         )
 
-        Returns:
-            Tuple of (overall_score, component_scores)
+        A well-formed memory with all required fields should score >= 0.7 on day one.
         """
         # Component 1: Content richness (how complete is the memory)
-        # Tags score: 2 tags = 0.4, 3 = 0.6, 4 = 0.8, 5+ = 1.0
+        # Tags score: 3 tags = 0.6, 4 = 0.8, 5+ = 1.0
         if tags_count >= 5:
             tags_score = 1.0
+        elif tags_count >= 3:
+            tags_score = 0.4 + (tags_count * 0.12)  # 3=0.76, 4=0.88
         elif tags_count >= 2:
-            tags_score = 0.2 + (tags_count * 0.16)
+            tags_score = 0.4
         else:
             tags_score = tags_count * 0.15
 
-        # Content length score: 50+ = 0.4, 100+ = 0.6, 200+ = 0.8, 500+ = 1.0
+        # Content length score: 50+ = 0.5, 100+ = 0.7, 200+ = 0.85, 500+ = 1.0
         if content_length >= 500:
             length_score = 1.0
         elif content_length >= 200:
-            length_score = 0.8
+            length_score = 0.85
         elif content_length >= 100:
-            length_score = 0.6
+            length_score = 0.7
         elif content_length >= 50:
-            length_score = 0.4
+            length_score = 0.5
         else:
-            length_score = max(0.1, content_length / 125)
+            length_score = max(0.1, content_length / 100)
 
-        # Type-specific completeness bonuses
+        # Type-specific completeness — full marks for complete memories
         type_bonus = 0.0
         if memory_type == "error":
+            # Max 1.0: error_msg(0.25) + solution(0.30) + prevention(0.20) + context(0.15) + resolved(0.10)
             if has_error_message:
-                type_bonus += 0.3
+                type_bonus += 0.25
             if has_solution:
-                type_bonus += 0.4
+                type_bonus += 0.30
             if has_prevention:
-                type_bonus += 0.2
+                type_bonus += 0.20
+            if has_context:
+                type_bonus += 0.15
             if is_resolved:
-                type_bonus += 0.1
+                type_bonus += 0.10
         elif memory_type == "decision":
+            # Max 1.0: rationale(0.35) + alternatives(0.25) + context(0.25) + base(0.15)
+            type_bonus += 0.15  # Decisions are inherently valuable
             if has_rationale:
-                type_bonus += 0.5
-            type_bonus += 0.3  # Decisions are inherently valuable
+                type_bonus += 0.35
+            if has_alternatives:
+                type_bonus += 0.25
+            if has_context:
+                type_bonus += 0.25
         elif memory_type == "pattern":
-            type_bonus += 0.4  # Patterns are valuable
+            # Max 1.0: base(0.35) + length(0.25) + context(0.25) + detail(0.15)
+            type_bonus += 0.35
             if content_length >= 100:
-                type_bonus += 0.2
+                type_bonus += 0.25
+            if has_context:
+                type_bonus += 0.25
+            if content_length >= 200:
+                type_bonus += 0.15  # Extra detail bonus
         elif memory_type == "learning":
-            type_bonus += 0.3
+            # Max 1.0: base(0.50) + context(0.30) + length(0.20)
+            type_bonus += 0.50
+            if has_context:
+                type_bonus += 0.30
+            if content_length >= 100:
+                type_bonus += 0.20
         elif memory_type == "docs":
-            type_bonus += 0.2
+            # Max 1.0: base(0.30) + context(0.30) + length(0.20) + source(0.20)
+            type_bonus += 0.30
+            if has_context:
+                type_bonus += 0.30
+            if content_length >= 100:
+                type_bonus += 0.20
+            # has_source not tracked yet, give benefit of doubt
+            type_bonus += 0.20
+        elif memory_type == "context":
+            # Max 1.0: base(0.50) + length(0.30) + tags(0.20)
+            type_bonus += 0.50
+            if content_length >= 100:
+                type_bonus += 0.30
+            if tags_count >= 3:
+                type_bonus += 0.20
 
         type_bonus = min(type_bonus, 1.0)
 
-        content_richness = (tags_score * 0.25 + length_score * 0.35 + type_bonus * 0.40)
+        # Weighted: tags(20%) + length(30%) + type completeness(50%)
+        content_richness = (tags_score * 0.20 + length_score * 0.30 + type_bonus * 0.50)
 
-        # Component 2: Access frequency (more generous scaling)
-        # 1-3 accesses = 0.3-0.5, 4-10 = 0.5-0.75, 10-30 = 0.75-0.9, 30+ = 0.9-1.0
+        # Component 2: Access frequency
+        # Generous baseline — new memories shouldn't be penalized for not being accessed yet
         if access_count == 0:
-            access_frequency = 0.1  # Baseline for existing memories
+            access_frequency = 0.55  # New memories get benefit of doubt
         elif access_count <= 3:
             access_frequency = 0.3 + (access_count * 0.067)  # 0.3-0.5
         elif access_count <= 10:
@@ -125,7 +163,7 @@ class QualityScoreCalculator:
 
         # Component 3: Maturity (older surviving memories are higher quality)
         if memory_age_days <= 1:
-            maturity = 0.3  # Too new to judge
+            maturity = 0.70  # New memories get strong baseline — quality is proven at capture
         elif memory_age_days <= 7:
             maturity = 0.3 + (memory_age_days / 14)  # 0.3-0.8
         elif memory_age_days <= 30:
@@ -147,7 +185,7 @@ class QualityScoreCalculator:
         # Component 5: Relationship density (bonus, not penalty)
         # Having relationships boosts score but lacking them doesn't hurt much
         if relationship_count == 0:
-            relationship_density = 0.3  # Neutral baseline instead of 0
+            relationship_density = 0.50  # Relationships come via inference, don't penalize at creation
         elif relationship_count <= 3:
             relationship_density = 0.3 + (relationship_count * 0.167)  # 0.3-0.8
         elif relationship_count <= 10:
@@ -169,18 +207,32 @@ class QualityScoreCalculator:
         elif memory_tier == "semantic":
             tier_bonus = 0.03
 
-        # Weighted overall score
+        # Auto-captured boilerplate penalty — crush scores for machine-generated noise
+        boilerplate_penalty = 0.0
+        if is_auto_captured:
+            boilerplate_patterns = [
+                'session started for project', 'session closed at',
+                'session ended at', 'session resumed for project',
+                'uncommitted files', 'on branch main with', 'on branch master with',
+            ]
+            content_lower = content.lower() if content else ""
+            if any(bp in content_lower for bp in boilerplate_patterns):
+                boilerplate_penalty = 0.35
+
+        # Weighted overall score — content_richness dominates so well-formed
+        # memories score high from day one, with growth room from usage metrics
         overall_score = (
-            content_richness * 0.30 +
-            access_frequency * 0.25 +
-            maturity * 0.15 +
-            stability * 0.10 +
+            content_richness * 0.50 +
+            access_frequency * 0.15 +
+            maturity * 0.10 +
+            stability * 0.05 +
             relationship_density * 0.10 +
             user_rating_normalized * 0.10 +
-            tier_bonus
+            tier_bonus -
+            boilerplate_penalty
         )
 
-        overall_score = min(overall_score, 1.0)
+        overall_score = max(0.0, min(overall_score, 1.0))
 
         component_scores = {
             "content_richness": round(content_richness, 3),
@@ -189,10 +241,86 @@ class QualityScoreCalculator:
             "stability": round(stability, 3),
             "relationship_density": round(relationship_density, 3),
             "user_rating_normalized": round(user_rating_normalized, 3),
-            "tier_bonus": round(tier_bonus, 3)
+            "tier_bonus": round(tier_bonus, 3),
+            "boilerplate_penalty": round(boilerplate_penalty, 3),
         }
 
         return round(overall_score, 3), component_scores
+
+    @staticmethod
+    def recalculate_single_memory_quality(
+        client: 'QdrantClient',
+        collection_name: str,
+        memory_id: str,
+    ) -> Optional[Tuple[float, Dict[str, float]]]:
+        """Recalculate quality score for a single memory and write it back to Qdrant.
+
+        Extracts all necessary params from the Qdrant payload and calls
+        calculate_quality_score(), then writes the updated score back.
+
+        Returns (score, components) or None if memory not found.
+        """
+        try:
+            results = client.retrieve(
+                collection_name=collection_name,
+                ids=[memory_id],
+                with_payload=True,
+                with_vectors=False,
+            )
+            if not results:
+                logger.warning(f"recalculate_single: memory {memory_id} not found")
+                return None
+
+            payload = results[0].payload
+
+            created_at = payload.get("created_at")
+            if isinstance(created_at, str):
+                created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+
+            age_days = (utc_now() - created_at).total_seconds() / 86400 if created_at else 0
+
+            content = payload.get("content", "")
+            tags = payload.get("tags", [])
+            mem_type = payload.get("type", "")
+
+            quality_score, components = QualityScoreCalculator.calculate_quality_score(
+                access_count=payload.get("access_count", 0),
+                user_rating=payload.get("user_rating"),
+                user_rating_count=payload.get("user_rating_count", 0),
+                relationship_count=len(payload.get("relations", [])),
+                current_version=payload.get("current_version", 1),
+                memory_age_days=age_days,
+                memory_tier=payload.get("memory_tier", "episodic"),
+                content_length=len(content) if content else 0,
+                tags_count=len(tags) if tags else 0,
+                memory_type=mem_type,
+                has_solution=bool(payload.get("solution")),
+                has_error_message=bool(payload.get("error_message")),
+                has_prevention=bool(payload.get("prevention")),
+                has_rationale=bool(payload.get("rationale")),
+                is_resolved=bool(payload.get("resolved")),
+                has_context=bool(payload.get("context")),
+                has_alternatives=bool(payload.get("alternatives")),
+                is_auto_captured="auto-captured" in (tags or []),
+                content=content,
+            )
+
+            client.set_payload(
+                collection_name=collection_name,
+                payload={
+                    "quality_score": quality_score,
+                    "quality_components": components,
+                    "quality_last_updated": utc_now().isoformat(),
+                },
+                points=[memory_id],
+            )
+
+            logger.info(f"Recalculated quality for {memory_id}: {quality_score}")
+            return quality_score, components
+
+        except Exception as e:
+            logger.error(f"Failed to recalculate quality for {memory_id}: {e}")
+            return None
 
     @staticmethod
     def calculate_quality_trend(
@@ -336,6 +464,10 @@ class QualityTracker:
                             has_prevention=bool(payload.get("prevention")),
                             has_rationale=bool(payload.get("rationale")),
                             is_resolved=bool(payload.get("resolved")),
+                            has_context=bool(payload.get("context")),
+                            has_alternatives=bool(payload.get("alternatives")),
+                            is_auto_captured="auto-captured" in (tags or []),
+                            content=content,
                         )
 
                         # Update payload
