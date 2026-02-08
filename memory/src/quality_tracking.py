@@ -706,6 +706,12 @@ class TierPromotionEngine:
             )
 
             logger.info(f"Promoted memory {memory_id} to {target_tier} (reason: {reason})")
+
+            # Recalculate quality so tier bonus is applied immediately
+            QualityScoreCalculator.recalculate_single_memory_quality(
+                client, collection_name, memory_id
+            )
+
             return True
 
         except Exception as e:

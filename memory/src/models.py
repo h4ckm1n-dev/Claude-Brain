@@ -251,7 +251,7 @@ class Memory(MemoryBase):
     usefulness_score: float = 0.5
     importance_score: float = 0.5  # Heuristic-based importance
     recency_score: float = 1.0     # Decays over time
-    quality_score: float = 0.5     # Phase 3.2: Multi-factor quality score (0.0-1.0)
+    quality_score: float = Field(default=0.5, ge=0.0, le=1.0)  # Phase 3.2: Multi-factor quality score
     pinned: bool = False           # Pinned memories never decay
 
     # Adaptive forgetting (FadeMem-inspired)

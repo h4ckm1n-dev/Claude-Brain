@@ -300,6 +300,15 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
 
     logger.info(f"Stored memory {memory.id} of type {memory.type}")
 
+    # Calculate and store initial quality score (avoid stale default 0.5)
+    try:
+        from .quality_tracking import QualityScoreCalculator
+        QualityScoreCalculator.recalculate_single_memory_quality(
+            client, COLLECTION_NAME, str(memory.id)
+        )
+    except Exception as e:
+        logger.warning(f"Initial quality calculation failed for {memory.id}: {e}")
+
     # Create corresponding node in knowledge graph
     if is_graph_enabled():
         try:
@@ -341,7 +350,9 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
     except Exception as e:
         logger.warning(f"Auto-supersede failed for {memory.id}: {e}")
 
-    return memory
+    # Re-fetch so the returned object has the fresh quality_score
+    # (recalc wrote it to Qdrant but the in-memory object still has 0.5)
+    return get_memory(memory.id) or memory
 
 
 def _load_lifecycle_settings() -> dict:
@@ -998,6 +1009,37 @@ def update_memory(memory_id: str, update: MemoryUpdate) -> Optional[Memory]:
 
     # Apply updates
     update_data = update.model_dump(exclude_unset=True)
+
+    # Clean content and normalize tags (same as store_memory pipeline)
+    from .enhancements import clean_content, normalize_tags
+    if "content" in update_data and update_data["content"]:
+        update_data["content"] = clean_content(update_data["content"])
+    if "tags" in update_data and update_data["tags"]:
+        update_data["tags"] = normalize_tags(update_data["tags"])
+
+    # Validate type-specific required fields if type is being changed
+    if "type" in update_data:
+        new_type = update_data["type"]
+        # Merge existing memory fields with update to check completeness
+        merged = {**memory.model_dump(), **update_data}
+        if new_type == "error" or (hasattr(new_type, 'value') and new_type.value == "error"):
+            missing = []
+            if not merged.get("error_message"):
+                missing.append("error_message")
+            if not merged.get("solution"):
+                missing.append("solution")
+            if missing:
+                raise ValueError(
+                    f"Changing type to 'error' requires: {', '.join(missing)}. "
+                    f"Include them in the PATCH or set them first."
+                )
+        elif new_type == "decision" or (hasattr(new_type, 'value') and new_type.value == "decision"):
+            if not merged.get("rationale"):
+                raise ValueError(
+                    "Changing type to 'decision' requires 'rationale'. "
+                    "Include it in the PATCH or set it first."
+                )
+
     for key, value in update_data.items():
         setattr(memory, key, value)
 
@@ -1076,6 +1118,12 @@ def mark_resolved(memory_id: str, solution: str) -> Optional[Memory]:
     Auto-derives prevention from solution if the memory doesn't already have one.
     Quality score is recalculated via the post-update pipeline in update_memory().
     """
+    # Validate solution is non-empty and meaningful
+    if not solution or not solution.strip():
+        raise ValueError("Solution cannot be empty")
+    if len(solution.strip()) < 15:
+        raise ValueError("Solution too brief — explain the actual fix (min 15 chars)")
+
     # Check if memory already has prevention
     memory = get_memory(memory_id)
     if not memory:
