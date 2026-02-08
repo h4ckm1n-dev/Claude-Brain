@@ -343,3 +343,110 @@ def extract_metadata(content: str) -> dict:
             metadata["technologies"].append(tech)
 
     return metadata
+
+
+# ============================================================================
+# Tag Normalization
+# ============================================================================
+
+def normalize_tags(tags: list[str] | None) -> list[str]:
+    """Normalize tags: lowercase, strip, deduplicate, remove junk.
+
+    Rules:
+    - Lowercase all tags
+    - Strip whitespace
+    - Remove empty/blank tags and tags shorter than 2 chars
+    - Deduplicate (preserving order)
+    - Cap at 15 tags max
+    """
+    if not tags:
+        return []
+
+    seen: set[str] = set()
+    normalized: list[str] = []
+
+    for tag in tags:
+        t = tag.strip().lower()
+        if len(t) < 2 or t in seen:
+            continue
+        seen.add(t)
+        normalized.append(t)
+
+    return normalized[:15]
+
+
+# ============================================================================
+# Content Cleaning
+# ============================================================================
+
+def clean_content(content: str) -> str:
+    """Clean memory content: strip, collapse excess whitespace/newlines.
+
+    - Strip leading/trailing whitespace
+    - Collapse 3+ consecutive newlines to 2
+    - Collapse multiple consecutive spaces to single space (within lines)
+    """
+    import re
+
+    content = content.strip()
+    # Collapse 3+ newlines to 2
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    # Collapse multiple spaces to single (within lines, not across newlines)
+    content = re.sub(r'[^\S\n]+', ' ', content)
+    return content
+
+
+# ============================================================================
+# Auto-Enrich Tags
+# ============================================================================
+
+def auto_enrich_tags(memory: MemoryCreate) -> MemoryCreate:
+    """Auto-enrich memory tags: normalize, suggest from similar, extract from content.
+
+    Pipeline:
+    1. Normalize existing tags
+    2. If below MIN_TAGS, suggest from similar memories
+    3. Extract technologies from content and add as tags
+    4. Re-normalize final list
+    """
+    from .quality import MIN_TAGS
+
+    # 1. Normalize existing
+    memory.tags = normalize_tags(memory.tags)
+
+    # 2. If below minimum, suggest from similar memories
+    if len(memory.tags) < MIN_TAGS:
+        suggested = suggest_tags_from_similar(
+            content=memory.content,
+            existing_tags=memory.tags,
+            limit=MIN_TAGS - len(memory.tags)
+        )
+        if suggested:
+            memory.tags.extend(suggested)
+            logger.info(f"Auto-enriched tags with suggestions: {suggested}")
+
+    # 3. Extract technologies from content
+    metadata = extract_metadata(memory.content)
+    existing_lower = {t.lower() for t in memory.tags}
+    for tech in metadata.get("technologies", []):
+        if tech.lower() not in existing_lower:
+            memory.tags.append(tech)
+            existing_lower.add(tech.lower())
+
+    # 4. Fallback: use memory type and project as tags if still below minimum
+    if len(memory.tags) < MIN_TAGS:
+        existing_lower = {t.lower() for t in memory.tags}
+        fallbacks = [memory.type.value]
+        if memory.project:
+            fallbacks.append(memory.project)
+        for fb in fallbacks:
+            if fb.lower() not in existing_lower and len(fb) >= 2:
+                memory.tags.append(fb.lower())
+                existing_lower.add(fb.lower())
+            if len(memory.tags) >= MIN_TAGS:
+                break
+
+    # 5. Re-normalize (dedup, cap)
+    memory.tags = normalize_tags(memory.tags)
+
+    return memory

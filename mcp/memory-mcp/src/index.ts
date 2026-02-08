@@ -1138,22 +1138,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }>;
         };
 
-        const results = await Promise.all(
-          memories.map((m) =>
-            apiCall<Memory>("/memories", {
-              method: "POST",
-              body: JSON.stringify(m),
-            })
-          )
-        );
+        const bulkResult = await apiCall<{
+          stored: number;
+          failed: number;
+          results: Array<{ index: number; id: string; status: string; duplicate_warning?: string }>;
+          errors: Array<{ index: number; error: string | object }>;
+        }>("/memories/bulk", {
+          method: "POST",
+          body: JSON.stringify(memories),
+        });
+
+        const lines: string[] = [];
+        lines.push(`Stored ${bulkResult.stored} memories:\n`);
+        for (const r of bulkResult.results) {
+          let line = `- ${r.id} (${memories[r.index]?.type || "unknown"})`;
+          if (r.duplicate_warning) line += ` [duplicate warning]`;
+          lines.push(line);
+        }
+        if (bulkResult.failed > 0) {
+          lines.push(`\nFailed ${bulkResult.failed}:\n`);
+          for (const e of bulkResult.errors) {
+            const errMsg = typeof e.error === "string" ? e.error : JSON.stringify(e.error);
+            lines.push(`- index ${e.index}: ${errMsg}`);
+          }
+        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Stored ${results.length} memories:\n\n${results
-                .map((m) => `- ${m.id} (${m.type})`)
-                .join("\n")}`,
+              text: lines.join("\n"),
             },
           ],
         };

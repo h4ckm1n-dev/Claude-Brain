@@ -6,10 +6,11 @@ quality rating, versioning, consolidation, forgetting, and migration.
 
 import logging
 import os
+import time
 from typing import Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from qdrant_client import models
@@ -22,12 +23,19 @@ from ..models import (
 from .. import collections
 from ..embeddings import embed_text, get_embedding_dim
 from ..quality import validate_memory_quality, QualityValidationError, get_quality_suggestions
-from ..enhancements import check_duplicate_before_store, suggest_tags_from_similar, get_template_hints
+from ..enhancements import (
+    check_duplicate_before_store, suggest_tags_from_similar, get_template_hints,
+    normalize_tags, auto_enrich_tags, clean_content,
+)
 from ..server_deps import manager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["memories"])
+
+# TTL caches for expensive endpoints (60s)
+_quality_report_cache: dict = {"data": None, "expires": 0}
+_quality_leaderboard_cache: dict = {"data": None, "expires": 0}
 
 # Frontend build path (for SPA fallback in list endpoint)
 FRONTEND_BUILD = os.path.normpath(
@@ -143,6 +151,75 @@ async def generate_embedding(request: EmbedRequest):
 
 
 # ---------------------------------------------------------------------------
+# Shared quality pipeline
+# ---------------------------------------------------------------------------
+
+def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]:
+    """Run full quality pipeline: clean content, enrich tags, dedup check, validate.
+
+    Returns (enhanced_memory, duplicate_info).
+    Raises HTTPException(422) if quality too low.
+    Raises HTTPException(400) for useless/empty content patterns.
+    """
+    # 1. Clean content
+    data.content = clean_content(data.content)
+
+    # 2. Normalize + auto-enrich tags
+    data = auto_enrich_tags(data)
+
+    # 3. Semantic dedup check
+    duplicate_info = check_duplicate_before_store(data)
+    if duplicate_info:
+        logger.warning(
+            f"Duplicate detected: {duplicate_info['message']} "
+            f"(existing: {duplicate_info['existing_id']}, similarity: {duplicate_info['similarity_score']})"
+        )
+
+    # 4. Quality validation
+    try:
+        is_valid, score, warnings = validate_memory_quality(data)
+        if warnings:
+            logger.info(f"Memory quality: {score}/100 with {len(warnings)} warnings")
+    except QualityValidationError as e:
+        suggestions = get_quality_suggestions(data.type)
+        template_hints = get_template_hints(data.type)
+
+        error_detail: dict = {
+            "error": "Memory quality too low",
+            "score": e.score,
+            "issues": e.warnings,
+            "suggestions": suggestions,
+        }
+        if template_hints and "example" in template_hints:
+            error_detail["example"] = template_hints["example"]
+            error_detail["structure"] = template_hints.get("suggested_structure", "")
+        if duplicate_info:
+            error_detail["duplicate_warning"] = {
+                "message": duplicate_info["message"],
+                "existing_id": duplicate_info["existing_id"],
+                "similarity": duplicate_info["similarity_score"],
+            }
+
+        raise HTTPException(status_code=422, detail=error_detail)
+
+    # 5. Legacy content filters
+    content = data.content.strip()
+
+    if "session-end" in (data.tags or []):
+        if "Duration: unknown" in content and ("Files edited: 0" in content or "Files edited:" not in content):
+            raise HTTPException(status_code=400, detail="Session summary contains no useful information")
+
+    useless_patterns = [
+        "Duration: unknown.",
+        "Session ended (session_end) - Duration: unknown.",
+    ]
+    if any(content == pattern.strip() for pattern in useless_patterns):
+        raise HTTPException(status_code=400, detail="Memory content is too generic/empty")
+
+    return data, duplicate_info
+
+
+# ---------------------------------------------------------------------------
 # Memory CRUD
 # ---------------------------------------------------------------------------
 
@@ -150,72 +227,7 @@ async def generate_embedding(request: EmbedRequest):
 async def create_memory(data: MemoryCreate):
     """Store a new memory with quality validation and enhancement suggestions."""
     try:
-        # ===== ENHANCEMENT 1: SEMANTIC DEDUPLICATION =====
-        duplicate_info = check_duplicate_before_store(data)
-        if duplicate_info:
-            logger.warning(
-                f"Duplicate detected: {duplicate_info['message']} "
-                f"(existing: {duplicate_info['existing_id']}, similarity: {duplicate_info['similarity_score']})"
-            )
-
-        # ===== ENHANCEMENT 2: TAG SUGGESTIONS =====
-        suggested_tags = suggest_tags_from_similar(
-            content=data.content,
-            existing_tags=data.tags or [],
-            limit=3
-        )
-        if suggested_tags:
-            logger.info(f"Tag suggestions for new memory: {suggested_tags}")
-
-        # QUALITY VALIDATION
-        try:
-            is_valid, score, warnings = validate_memory_quality(data)
-
-            if warnings:
-                logger.info(f"Memory quality: {score}/100 with {len(warnings)} warnings")
-
-        except QualityValidationError as e:
-            suggestions = get_quality_suggestions(data.type)
-            template_hints = get_template_hints(data.type)
-
-            error_detail = {
-                "error": "Memory quality too low",
-                "score": e.score,
-                "issues": e.warnings,
-                "suggestions": suggestions
-            }
-
-            if template_hints and "example" in template_hints:
-                error_detail["example"] = template_hints["example"]
-                error_detail["structure"] = template_hints.get("suggested_structure", "")
-
-            if suggested_tags:
-                error_detail["suggested_tags"] = suggested_tags
-
-            if duplicate_info:
-                error_detail["duplicate_warning"] = {
-                    "message": duplicate_info["message"],
-                    "existing_id": duplicate_info["existing_id"],
-                    "similarity": duplicate_info["similarity_score"]
-                }
-
-            raise HTTPException(status_code=422, detail=error_detail)
-
-        # LEGACY QUALITY FILTER: Keep existing checks for backward compatibility
-        content = data.content.strip()
-
-        # Reject useless session summaries with no data
-        if "session-end" in (data.tags or []):
-            if "Duration: unknown" in content and ("Files edited: 0" in content or "Files edited:" not in content):
-                raise HTTPException(status_code=400, detail="Session summary contains no useful information")
-
-        # Reject generic/empty content patterns
-        useless_patterns = [
-            "Duration: unknown.",
-            "Session ended (session_end) - Duration: unknown.",
-        ]
-        if any(content == pattern.strip() for pattern in useless_patterns):
-            raise HTTPException(status_code=400, detail="Memory content is too generic/empty")
+        data, duplicate_info = enhance_and_validate(data)
 
         # Store memory
         memory = collections.store_memory(data)
@@ -230,38 +242,104 @@ async def create_memory(data: MemoryCreate):
 
     except HTTPException:
         raise
-    except QualityValidationError as e:
-        suggestions = get_quality_suggestions(data.type)
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "error": "Memory quality too low",
-                "score": e.score,
-                "issues": e.warnings,
-                "suggestions": suggestions
-            }
-        )
     except Exception as e:
         logger.error(f"Failed to store memory: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/memories/bulk")
-async def bulk_store_memories(memories: list[MemoryCreate]):
-    """Store multiple memories in a single operation."""
+async def bulk_store_memories(memories: list[dict] = Body(...)):
+    """Store multiple memories with full quality pipeline (same as single store).
+
+    Accepts raw dicts and validates each item individually so one bad
+    memory doesn't reject the entire batch.
+    """
+    import asyncio
+    from pydantic import ValidationError
+
     results = []
     errors = []
 
-    for i, data in enumerate(memories):
+    for i, raw in enumerate(memories):
         try:
-            memory = collections.store_memory(data)
-            results.append({"index": i, "id": memory.id, "status": "success"})
+            # Per-item Pydantic validation
+            data = MemoryCreate(**raw)
+        except (ValidationError, Exception) as e:
+            logger.warning(f"Bulk store memory {i} validation failed: {e}")
+            errors.append({"index": i, "error": str(e)})
+            continue
+
+        try:
+            data, duplicate_info = enhance_and_validate(data)
+            memory = await asyncio.to_thread(collections.store_memory, data)
+            entry: dict = {"index": i, "id": memory.id, "status": "success"}
+            if duplicate_info:
+                entry["duplicate_warning"] = duplicate_info["message"]
+            results.append(entry)
+        except HTTPException as e:
+            logger.warning(f"Bulk store memory {i} rejected: {e.detail}")
+            errors.append({"index": i, "error": e.detail})
         except Exception as e:
             logger.error(f"Failed to store memory {i}: {e}")
             errors.append({"index": i, "error": str(e)})
 
     return {
         "stored": len(results),
+        "failed": len(errors),
+        "results": results,
+        "errors": errors
+    }
+
+
+@router.post("/memories/bulk-action")
+async def bulk_action(
+    operation: str = Query(..., description="Operation: archive, delete, tag, pin, reinforce"),
+    memory_ids: list[str] = Body(..., description="List of memory IDs to operate on"),
+    tag: Optional[str] = Query(default=None, description="Tag to add (for 'tag' operation)")
+):
+    """Perform bulk operations on multiple memories."""
+    results = []
+    errors = []
+    client = collections.get_client()
+
+    for memory_id in memory_ids:
+        try:
+            if operation == "archive":
+                collections.archive_memory(memory_id)
+                results.append({"id": memory_id, "status": "archived"})
+            elif operation == "delete":
+                collections.delete_memory(memory_id)
+                results.append({"id": memory_id, "status": "deleted"})
+            elif operation == "pin":
+                client.set_payload(
+                    collection_name=collections.COLLECTION_NAME,
+                    payload={"pinned": True, "importance_score": 1.0},
+                    points=[memory_id]
+                )
+                results.append({"id": memory_id, "status": "pinned"})
+            elif operation == "reinforce":
+                from ..forgetting import reinforce_memory as _reinforce
+                _reinforce(client, collections.COLLECTION_NAME, memory_id, boost_amount=0.2)
+                results.append({"id": memory_id, "status": "reinforced"})
+            elif operation == "tag" and tag:
+                memory = collections.get_memory(memory_id)
+                if memory:
+                    existing_tags = list(memory.tags or [])
+                    if tag not in existing_tags:
+                        existing_tags.append(tag)
+                        from ..models import MemoryUpdate as MU
+                        collections.update_memory(memory_id, MU(tags=existing_tags))
+                    results.append({"id": memory_id, "status": "tagged"})
+                else:
+                    errors.append({"id": memory_id, "error": "not found"})
+            else:
+                errors.append({"id": memory_id, "error": f"unknown operation: {operation}"})
+        except Exception as e:
+            errors.append({"id": memory_id, "error": str(e)})
+
+    return {
+        "operation": operation,
+        "succeeded": len(results),
         "failed": len(errors),
         "results": results,
         "errors": errors
@@ -380,13 +458,17 @@ async def get_quality_leaderboard(
 @router.get("/memories/quality-report")
 async def get_quality_report():
     """Get quality rating distribution across all memories."""
+    # Return cached result if fresh (60s TTL)
+    if time.time() < _quality_report_cache["expires"] and _quality_report_cache["data"]:
+        return _quality_report_cache["data"]
+
     try:
         client = collections.get_client()
 
         all_records, _ = client.scroll(
             collection_name=collections.COLLECTION_NAME,
             limit=10000,
-            with_payload=True,
+            with_payload=["user_rating", "user_rating_count", "quality_score"],
             with_vectors=False
         )
 
@@ -412,7 +494,7 @@ async def get_quality_report():
             avg_rating = 0
             five_star = four_star = three_star = two_star = one_star = 0
 
-        return {
+        result = {
             "total_memories": total_memories,
             "rated_memories": len(rated_memories),
             "unrated_memories": total_memories - len(rated_memories),
@@ -427,6 +509,10 @@ async def get_quality_report():
             },
             "total_ratings": sum(m["count"] for m in rated_memories)
         }
+
+        _quality_report_cache["data"] = result
+        _quality_report_cache["expires"] = time.time() + 60
+        return result
 
     except Exception as e:
         logger.error(f"Quality report failed: {e}")

@@ -136,17 +136,24 @@ class MemoryCreate(MemoryBase):
         """Enforce minimum content quality standards."""
         content = v.strip()
 
-        # Minimum length check
-        if len(content) < 30:
-            raise ValueError(f"Content too short ({len(content)} chars). Minimum 30 characters required for searchability and usefulness.")
+        # Minimum length — 50 chars for any memory to be useful
+        if len(content) < 50:
+            raise ValueError(
+                f"Content too short ({len(content)} chars, need 50+). "
+                "Explain WHAT happened, WHY it matters, and HOW to use this knowledge."
+            )
 
         # Minimum word count
         word_count = len(content.split())
-        if word_count < 5:
-            raise ValueError(f"Content has only {word_count} words. Minimum 5 words required. Avoid placeholders like 'test', 'todo', 'tbd'.")
+        if word_count < 10:
+            raise ValueError(
+                f"Content has only {word_count} words (need 10+). "
+                "Write a complete sentence explaining the context and key insight."
+            )
 
         # Reject placeholder content
-        if content.lower() in ['test', 'todo', 'placeholder', 'tbd', 'fixme', 'xxx']:
+        placeholder_phrases = {'test', 'todo', 'placeholder', 'tbd', 'fixme', 'xxx', 'wip', 'temp'}
+        if content.lower() in placeholder_phrases:
             raise ValueError(f"Content '{content}' is a placeholder. Provide actual information.")
 
         return content
@@ -154,37 +161,87 @@ class MemoryCreate(MemoryBase):
     @field_validator('tags')
     @classmethod
     def validate_tags(cls, v: list[str]) -> list[str]:
-        """Enforce minimum tag requirements for searchability."""
-        if len(v) < 2:
-            raise ValueError(f"Only {len(v)} tags provided. Minimum 2 descriptive tags required for searchability. Examples: ['python', 'error'], ['decision', 'architecture', 'database']")
+        """Basic tag validation — auto-enrichment pipeline handles getting to 3+ tags."""
+        if len(v) < 1:
+            raise ValueError(
+                "At least 1 tag required. The quality pipeline will auto-enrich to 3+ tags. "
+                "Example: ['python', 'fastapi', 'authentication'] not ['code', 'fix']"
+            )
 
         # Check for useless tags
-        useless_tags = {'test', 'todo', 'temp', 'misc', 'other', 'general', 'stuff'}
-        if all(tag.lower() in useless_tags for tag in v):
-            raise ValueError(f"All tags are generic ({v}). Use specific, descriptive tags related to the content.")
+        useless_tags = {'test', 'todo', 'temp', 'misc', 'other', 'general', 'stuff', 'code', 'fix', 'bug', 'update'}
+        useful = [t for t in v if t.lower() not in useless_tags]
+        if len(v) >= 3 and len(useful) < 2:
+            raise ValueError(
+                f"Too many generic tags ({v}). Need at least 2 specific tags describing "
+                "the technology, component, or domain (e.g., 'qdrant', 'neo4j', 'scheduler')."
+            )
 
         return v
 
     @model_validator(mode='after')
     def validate_type_specific_requirements(self) -> 'MemoryCreate':
-        """Validate type-specific requirements after all fields are set."""
+        """Validate type-specific requirements after all fields are set.
 
-        # DECISION memories must have rationale
+        Every memory type has mandatory fields that make it actionable.
+        Reject memories that would be low-quality from the start.
+        """
+
+        # ALL types benefit from context — require it for structured types
+        if self.type in (MemoryType.DECISION, MemoryType.ERROR, MemoryType.PATTERN):
+            if not self.context:
+                raise ValueError(
+                    f"{self.type.value} memories must include 'context' field. "
+                    "Explain the situation: what were you working on, what triggered this, "
+                    "and why is this knowledge important for future reference."
+                )
+
+        # DECISION memories: rationale + alternatives required
         if self.type == MemoryType.DECISION:
             if not self.rationale:
                 raise ValueError(
-                    "Decision memories must include 'rationale' field explaining WHY this decision was made. "
-                    "What problem does it solve? What are the benefits? "
+                    "Decision memories must include 'rationale' field explaining WHY this was chosen. "
                     "Example: rationale='Need ACID compliance for transactions, strong JSON support'"
                 )
-
-        # ERROR memories must have solution OR prevention
-        if self.type == MemoryType.ERROR:
-            if not self.solution and not self.prevention:
+            if not self.alternatives:
                 raise ValueError(
-                    "Error memories must include either 'solution' (how it was fixed) or 'prevention' (how to avoid it). "
-                    "This makes the memory actionable for future reference. "
-                    "Example: solution='Upgrade package to v3.0.0' or prevention='Pin version in requirements.txt'"
+                    "Decision memories must include 'alternatives' field listing options considered. "
+                    "Example: alternatives=['MongoDB (no ACID)', 'MySQL (weaker JSON)']"
+                )
+
+        # ERROR memories: all three fields required for complete actionability
+        if self.type == MemoryType.ERROR:
+            if not self.error_message:
+                raise ValueError(
+                    "Error memories must include 'error_message' with the actual error text. "
+                    "This is critical for future search matching."
+                )
+            if not self.solution:
+                raise ValueError(
+                    "Error memories must include 'solution' explaining how it was fixed. "
+                    "Example: solution='Upgraded package to v3.0.0 which fixes the race condition'"
+                )
+            if not self.prevention:
+                raise ValueError(
+                    "Error memories must include 'prevention' explaining how to avoid it. "
+                    "Example: prevention='Pin dependency versions in requirements.txt'"
+                )
+
+        # PATTERN memories: need enough detail to be reusable
+        if self.type == MemoryType.PATTERN:
+            if len(self.content.strip()) < 100:
+                raise ValueError(
+                    f"Pattern content is only {len(self.content.strip())} chars (need 100+). "
+                    "Patterns must be detailed enough to reuse: describe the pattern, "
+                    "when to apply it, and include an example if applicable."
+                )
+
+        # DOCS memories: need source
+        if self.type == MemoryType.DOCS:
+            if not self.source:
+                raise ValueError(
+                    "Docs memories must include 'source' field with the URL or reference. "
+                    "Example: source='https://docs.python.org/3/library/asyncio.html'"
                 )
 
         return self
@@ -424,12 +481,32 @@ class Memory(MemoryBase):
 
 
 class MemoryUpdate(BaseModel):
-    """Model for updating an existing memory."""
+    """Model for updating an existing memory.
+
+    Supports all mutable fields from MemoryCreate + Memory so that
+    enrichment scripts and the dashboard can patch any quality-relevant
+    attribute via PATCH /memories/{id}.
+    """
     content: Optional[str] = None
     tags: Optional[list[str]] = None
+    project: Optional[str] = None
+    source: Optional[str] = None
+    context: Optional[str] = None
+
+    # Error-specific
+    error_message: Optional[str] = None
     solution: Optional[str] = None
     prevention: Optional[str] = None
     resolved: Optional[bool] = None
+
+    # Decision-specific
+    decision: Optional[str] = None
+    rationale: Optional[str] = None
+    alternatives: Optional[list[str]] = None
+    reversible: Optional[bool] = None
+    impact: Optional[str] = None
+
+    # Scoring / lifecycle
     usefulness_score: Optional[float] = None
     importance_score: Optional[float] = None
     memory_tier: Optional[MemoryTier] = None
@@ -455,6 +532,8 @@ class SearchQuery(BaseModel):
     memory_tier: Optional[MemoryTier] = None
     importance_threshold: Optional[float] = None
     time_range_hours: Optional[int] = None
+    time_range_start: Optional[datetime] = None
+    time_range_end: Optional[datetime] = None
 
 
 class SearchResult(BaseModel):
@@ -462,6 +541,7 @@ class SearchResult(BaseModel):
     memory: Memory
     score: float
     composite_score: Optional[float] = None  # Combined importance/recency/relevance
+    memory_strength: Optional[float] = None  # Current memory strength (for lifecycle visibility)
 
 
 class EmbedRequest(BaseModel):
@@ -504,6 +584,7 @@ class StatsResponse(BaseModel):
     archived_memories: int
     by_type: dict[str, int]
     by_tier: dict[str, int] = Field(default_factory=dict)
+    by_project: dict[str, int] = Field(default_factory=dict)
     unresolved_errors: int
     hybrid_search_enabled: bool = False
     embedding_dim: int = 0
