@@ -462,6 +462,32 @@ class RestoreManager:
                 points=[memory_id]
             )
 
+            # Sanitize restored content and tags (snapshots may predate enrichment pipeline)
+            try:
+                from .enhancements import clean_content, normalize_tags
+                sanitized = {}
+                if "content" in restored_values and restored_values["content"]:
+                    sanitized["content"] = clean_content(restored_values["content"])
+                if "tags" in restored_values and restored_values["tags"]:
+                    sanitized["tags"] = normalize_tags(restored_values["tags"])
+                if sanitized:
+                    client.set_payload(
+                        collection_name=collection_name,
+                        payload=sanitized,
+                        points=[memory_id]
+                    )
+            except Exception as e:
+                logger.warning(f"Sanitization failed for restored {memory_id}: {e}")
+
+            # Recalculate quality score after restoration
+            try:
+                from .quality_tracking import QualityScoreCalculator
+                QualityScoreCalculator.recalculate_single_memory_quality(
+                    client, collection_name, memory_id
+                )
+            except Exception as e:
+                logger.warning(f"Quality recalc failed for restored {memory_id}: {e}")
+
             # Log the restore action
             AuditLogger.log_action(
                 client,

@@ -17,6 +17,22 @@ CONSOLIDATION_INTERVAL_HOURS = int(os.getenv("CONSOLIDATION_INTERVAL_HOURS", "24
 CONSOLIDATION_OLDER_THAN_DAYS = int(os.getenv("CONSOLIDATION_OLDER_THAN_DAYS", "7"))
 SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "false").lower() == "true"
 
+
+def _load_intelligence_settings() -> dict:
+    """Load persisted intelligence settings from settings.json."""
+    import json
+    settings_path = os.path.join(os.path.expanduser("~"), ".claude", "memory", "data", "settings.json")
+    try:
+        with open(settings_path, "r") as f:
+            data = json.load(f)
+        return {
+            "qualityUpdateIntervalHours": int(data.get("qualityUpdateIntervalHours", 24)),
+            "patternDetectionIntervalHours": int(data.get("patternDetectionIntervalHours", 24)),
+        }
+    except Exception:
+        return {"qualityUpdateIntervalHours": 24, "patternDetectionIntervalHours": 24}
+
+
 _scheduler = None
 
 
@@ -30,6 +46,11 @@ def get_scheduler():
             from apscheduler.triggers.interval import IntervalTrigger
 
             _scheduler = BackgroundScheduler()
+
+            # Load persisted intelligence settings
+            intel_settings = _load_intelligence_settings()
+            quality_hours = intel_settings["qualityUpdateIntervalHours"]
+            pattern_hours = intel_settings["patternDetectionIntervalHours"]
 
             # Add consolidation job
             _scheduler.add_job(
@@ -61,7 +82,7 @@ def get_scheduler():
             # Add quality score update job (Phase 3.2)
             _scheduler.add_job(
                 run_quality_score_update,
-                trigger=IntervalTrigger(hours=24),
+                trigger=IntervalTrigger(hours=quality_hours),
                 id="quality_score_update_job",
                 name="Quality Score Update & Tier Promotion",
                 replace_existing=True
@@ -79,7 +100,7 @@ def get_scheduler():
             # Add brain intelligence jobs
             _scheduler.add_job(
                 run_relationship_inference,
-                trigger=IntervalTrigger(hours=24),
+                trigger=IntervalTrigger(hours=pattern_hours),
                 id="relationship_inference_job",
                 name="Relationship Inference",
                 replace_existing=True

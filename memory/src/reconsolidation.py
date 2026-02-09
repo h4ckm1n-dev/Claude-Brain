@@ -109,6 +109,16 @@ def reconsolidate_memory(
             payload=updated_payload
         )
 
+        # Recalculate quality score for real (non-internal) access
+        if not internal:
+            try:
+                from .quality_tracking import QualityScoreCalculator
+                QualityScoreCalculator.recalculate_single_memory_quality(
+                    get_client(), COLLECTION_NAME, memory_id
+                )
+            except Exception as e:
+                logger.warning(f"Quality recalc failed for reconsolidated {memory_id}: {e}")
+
         # Strengthen relationships to co-accessed memories
         new_links = 0
         if co_accessed_ids:

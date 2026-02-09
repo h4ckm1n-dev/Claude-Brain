@@ -111,8 +111,9 @@ def merge_with_existing(
 
         existing = results[0].payload
 
-        # Merge tags (union)
-        merged_tags = list(set(existing.get("tags", []) + new_memory.tags))
+        # Merge tags (union + normalize)
+        from .enhancements import normalize_tags
+        merged_tags = normalize_tags(list(set(existing.get("tags", []) + new_memory.tags)))
 
         # Increment access count
         access_count = existing.get("access_count", 0)
@@ -130,6 +131,15 @@ def merge_with_existing(
             },
             points=[existing_id]
         )
+
+        # Recalculate quality score (tags and access_count changed)
+        try:
+            from .quality_tracking import QualityScoreCalculator
+            QualityScoreCalculator.recalculate_single_memory_quality(
+                client, collection_name, existing_id
+            )
+        except Exception as e:
+            logger.warning(f"Quality recalc failed for merged {existing_id}: {e}")
 
         logger.info(f"Merged new memory into existing {existing_id}")
         return existing_id
@@ -438,11 +448,12 @@ def consolidate_cluster(
         from uuid6 import uuid7
         consolidated_id = str(uuid7())
 
+        from .enhancements import normalize_tags
         consolidated_payload = {
             "id": consolidated_id,
             "content": consolidated_content,
             "type": cluster.suggested_type.value,
-            "tags": list(all_tags)[:15],
+            "tags": normalize_tags(list(all_tags))[:15],
             "memory_tier": MemoryTier.SEMANTIC.value,
             "access_count": total_access,
             "importance_score": 0.8,  # Consolidated memories are valuable
@@ -463,6 +474,15 @@ def consolidate_cluster(
                 )
             ]
         )
+
+        # Calculate quality score for the new consolidated memory
+        try:
+            from .quality_tracking import QualityScoreCalculator
+            QualityScoreCalculator.recalculate_single_memory_quality(
+                client, collection_name, consolidated_id
+            )
+        except Exception as e:
+            logger.warning(f"Quality calc failed for consolidated {consolidated_id}: {e}")
 
         # Archive originals if requested
         if archive_originals:
