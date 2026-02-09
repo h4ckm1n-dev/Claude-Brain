@@ -1,0 +1,19 @@
+{
+  "name": "brain-upgrade",
+  "description": "Claude Brain Major Upgrade — Search, Graph, Lifecycle, Frontend",
+  "createdAt": 1770462753210,
+  "leadAgentId": "team-lead@brain-upgrade",
+  "leadSessionId": "59a1d32d-5cf3-4093-877d-ad6d25f612bf",
+  "members": [
+    {
+      "agentId": "team-lead@brain-upgrade",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1770462753210,
+      "tmuxPaneId": "",
+      "cwd": "/Users/h4ckm1n/.claude",
+      "subscriptions": []
+    }
+  ]
+}

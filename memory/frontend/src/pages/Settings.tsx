@@ -40,6 +40,11 @@ interface UserSettings {
   autoSupersedeThreshold: number;
   autoSupersedeUpper: number;
   dedupThreshold: number;
+
+  // Intelligence & Analytics
+  auditRetentionDays: number;
+  patternDetectionIntervalHours: number;
+  qualityUpdateIntervalHours: number;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -58,6 +63,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   autoSupersedeThreshold: 0.85,
   autoSupersedeUpper: 0.91,
   dedupThreshold: 0.92,
+  auditRetentionDays: 90,
+  patternDetectionIntervalHours: 24,
+  qualityUpdateIntervalHours: 24,
 };
 
 export function Settings() {
@@ -1215,74 +1223,90 @@ export function Settings() {
           </CardContent>
         </Card>
 
-        {/* Phase 3-4: Intelligence Settings */}
-        <Card className="bg-[#0f0f0f] border-white/10">
+        {/* Intelligence & Analytics Settings */}
+        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-purple-400" />
               <CardTitle className="text-white">Intelligence & Analytics</CardTitle>
             </div>
             <CardDescription className="text-white/60">
-              Advanced memory intelligence settings (configured in backend)
+              Advanced memory intelligence settings
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Audit Trail Settings */}
-            <div className="space-y-3">
+            {/* Audit Trail Retention */}
+            <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Audit Trail Retention Period</Label>
+              <p className="text-sm text-white/50 mb-2">
+                How long to keep archived memories before purging (30-365 days)
+              </p>
               <div className="flex items-center gap-3">
                 <Input
                   type="number"
-                  defaultValue={90}
-                  disabled
-                  className="w-32 bg-[#0a0a0a] border-white/10 text-white/50"
+                  min="30"
+                  max="365"
+                  value={settings.auditRetentionDays}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      auditRetentionDays: parseInt(e.target.value) || 90,
+                    }))
+                  }
+                  className="w-32 bg-[#0f0f0f] border-white/10 text-white"
                 />
                 <span className="text-sm text-white/50">days</span>
               </div>
-              <p className="text-xs text-white/40">
-                Configure in backend: <code className="text-purple-400">src/config.py</code>
-              </p>
             </div>
 
             {/* Pattern Detection Schedule */}
-            <div className="space-y-3">
+            <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Pattern Detection Schedule</Label>
-              <Select
-                defaultValue="12h"
-                disabled
-                className="bg-[#0a0a0a] border-white/10 text-white/50"
-              >
-                <option value="6h">Every 6 hours</option>
-                <option value="12h">Every 12 hours</option>
-                <option value="24h">Every 24 hours</option>
-              </Select>
-              <p className="text-xs text-white/40">
-                Configure in backend: <code className="text-purple-400">src/scheduler.py</code>
+              <p className="text-sm text-white/50 mb-2">
+                How often to run relationship inference
               </p>
+              <Select
+                value={String(settings.patternDetectionIntervalHours)}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    patternDetectionIntervalHours: parseInt(e.target.value) || 24,
+                  }))
+                }
+                className="bg-[#0f0f0f] border-white/10 text-white"
+              >
+                <option value="6">Every 6 hours</option>
+                <option value="12">Every 12 hours</option>
+                <option value="24">Every 24 hours</option>
+              </Select>
             </div>
 
             {/* Quality Score Update Frequency */}
-            <div className="space-y-3">
+            <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Quality Score Update Frequency</Label>
-              <Select
-                defaultValue="12h"
-                disabled
-                className="bg-[#0a0a0a] border-white/10 text-white/50"
-              >
-                <option value="6h">Every 6 hours</option>
-                <option value="12h">Every 12 hours</option>
-                <option value="24h">Every 24 hours</option>
-              </Select>
-              <p className="text-xs text-white/40">
-                Configure in backend: <code className="text-purple-400">src/scheduler.py</code>
+              <p className="text-sm text-white/50 mb-2">
+                How often to recalculate quality scores and promote tiers
               </p>
+              <Select
+                value={String(settings.qualityUpdateIntervalHours)}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    qualityUpdateIntervalHours: parseInt(e.target.value) || 24,
+                  }))
+                }
+                className="bg-[#0f0f0f] border-white/10 text-white"
+              >
+                <option value="6">Every 6 hours</option>
+                <option value="12">Every 12 hours</option>
+                <option value="24">Every 24 hours</option>
+              </Select>
             </div>
 
             <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
               <p className="text-xs text-purple-300">
-                💡 These settings control Phase 3-4 intelligence features including quality tracking,
-                pattern detection, lifecycle state machine, and audit trail. Manual triggers available
-                in Brain Intelligence page.
+                These settings control quality tracking, pattern detection, lifecycle state machine,
+                and audit trail. Changes take effect immediately for scheduler jobs, and persist across restarts.
               </p>
             </div>
           </CardContent>

@@ -48,7 +48,7 @@ Save a `before_stats` snapshot with these values:
 - `knowledge_gaps` — list of gap descriptions
 
 Also build these derived lists from the Qdrant scroll for Phase 2:
-- `unresolved_errors` — error memories where `resolved` is false/missing BUT `solution` exists (non-empty)
+- `unresolved_errors` — error memories where `resolved` is false/missing BUT `solution` exists (non-empty, 15+ chars)
 - `unlinked_pairs` — pairs of memories that share the same `session_id` but have no relationships between them (check `relations` array in payload)
 - `boilerplate_memories` — memories tagged with `auto-captured` AND content starts with boilerplate phrases: "session started for project", "session closed at", "session ended at", "session resumed for project"
 - `orphan_memories` — memories with 0 entries in their `relations` array (completely isolated)
@@ -92,10 +92,13 @@ Log: "Contradictions: resolved N via supersedes links"
 ### Step 6: Auto-resolve errors with solutions
 From `unresolved_errors` built in Phase 1:
 - For each error memory that has a `solution` field but `resolved` is false/missing:
-  - Call: `curl -s -X POST "http://localhost:8100/memories/{memory_id}/resolve?solution={url_encoded_solution}"`
+  - **Skip** if the `solution` field is shorter than 15 characters (resolve endpoint rejects short solutions)
+  - Call: `curl -s -o /tmp/resolve.json -w "%{http_code}" -X POST "http://localhost:8100/memories/{memory_id}/resolve?solution={url_encoded_solution}"`
   - The solution text comes from the memory's own `solution` field
+  - Handle HTTP 409 gracefully (already resolved between Phase 1 and now) — count as skipped, not error
+  - Handle HTTP 400 gracefully (solution too short) — count as skipped, not error
 - If none found, log "No unresolved errors with solutions"
-Log: "Auto-resolved: marked N errors as resolved (had solutions but weren't flagged)"
+Log: "Auto-resolved: marked N errors as resolved, skipped N (already resolved or short solution)"
 
 ### Step 7: Auto-link session siblings
 From `unlinked_pairs` built in Phase 1 (memories in same session with no relationships):

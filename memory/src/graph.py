@@ -294,6 +294,16 @@ def _sync_relation_to_qdrant(source_id: str, target_id: str, relation_type: str)
             payload={"relations": current_rels},
             points=[source_id],
         )
+
+        # Recalculate quality score (relations changed — 10% of quality formula)
+        try:
+            from .quality_tracking import QualityScoreCalculator
+            QualityScoreCalculator.recalculate_single_memory_quality(
+                client, collections.COLLECTION_NAME, source_id
+            )
+        except Exception as e:
+            logger.debug(f"Quality recalc failed after relation sync for {source_id}: {e}")
+
     except Exception as e:
         logger.debug(f"Failed to sync relation to Qdrant for {source_id}: {e}")
 

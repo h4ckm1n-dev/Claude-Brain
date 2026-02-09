@@ -660,7 +660,18 @@ async def resolve_error(
     The underlying mark_resolved() auto-derives prevention if missing
     and recalculates quality score.
     """
-    memory = collections.mark_resolved(memory_id, solution)
+    # Check if already resolved — prevent silent overwrite
+    existing = collections.get_memory(memory_id)
+    if existing and existing.resolved:
+        raise HTTPException(
+            status_code=409,
+            detail="Memory already resolved. Use PATCH to update solution."
+        )
+
+    try:
+        memory = collections.mark_resolved(memory_id, solution)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not memory:
         raise HTTPException(status_code=404, detail="Memory not found")
 
@@ -744,6 +755,12 @@ async def rate_memory(memory_id: str, request: RatingRequest):
             collection_name=collections.COLLECTION_NAME,
             payload=update_payload,
             points=[memory_id]
+        )
+
+        # Recalculate quality — user_rating is 10% of the formula
+        from ..quality_tracking import QualityScoreCalculator
+        QualityScoreCalculator.recalculate_single_memory_quality(
+            client, collections.COLLECTION_NAME, memory_id
         )
 
         await manager.broadcast({
@@ -977,10 +994,11 @@ async def restore_version(memory_id: str, version: int):
             changed_by="user"
         )
 
-        # Restore fields from target version
-        memory.content = target_version.content
+        # Restore fields from target version (sanitize in case snapshot predates enrichment pipeline)
+        from ..enhancements import clean_content, normalize_tags
+        memory.content = clean_content(target_version.content) if target_version.content else target_version.content
         memory.importance_score = target_version.importance_score
-        memory.tags = target_version.tags.copy()
+        memory.tags = normalize_tags(target_version.tags.copy()) if target_version.tags else target_version.tags.copy()
 
         # Restore type-specific fields
         if target_version.error_message is not None:
@@ -999,6 +1017,12 @@ async def restore_version(memory_id: str, version: int):
             collection_name=collections.COLLECTION_NAME,
             payload=memory.model_dump(mode='json', exclude={'embedding'}),
             points=[memory_id]
+        )
+
+        # Recalculate quality score after content restoration
+        from ..quality_tracking import QualityScoreCalculator
+        QualityScoreCalculator.recalculate_single_memory_quality(
+            client, collections.COLLECTION_NAME, memory_id
         )
 
         return {

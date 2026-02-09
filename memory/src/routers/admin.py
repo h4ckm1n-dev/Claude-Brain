@@ -67,7 +67,10 @@ def ensure_settings_file():
             "autoSupersedeEnabled": True,
             "autoSupersedeThreshold": 0.85,
             "autoSupersedeUpper": 0.91,
-            "dedupThreshold": 0.92
+            "dedupThreshold": 0.92,
+            "auditRetentionDays": 90,
+            "patternDetectionIntervalHours": 24,
+            "qualityUpdateIntervalHours": 24
         }
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(default_settings, f, indent=2)
@@ -85,6 +88,50 @@ def ensure_indexing_config():
         }
         with open(INDEXING_CONFIG_FILE, 'w') as f:
             json.dump(default_config, f, indent=2)
+
+
+def _apply_intelligence_settings(settings: dict):
+    """Validate and apply intelligence & analytics settings at runtime."""
+    # Apply audit retention days
+    retention = settings.get("auditRetentionDays")
+    if retention is not None:
+        retention = max(30, min(365, int(retention)))
+        try:
+            from ..lifecycle import MemoryLifecycleManager
+            MemoryLifecycleManager.PURGE_RETENTION_DAYS = retention
+            logger.info(f"Updated PURGE_RETENTION_DAYS to {retention}")
+        except Exception as e:
+            logger.warning(f"Failed to update retention days: {e}")
+
+    # Reschedule pattern detection (relationship inference) job
+    pattern_hours = settings.get("patternDetectionIntervalHours")
+    if pattern_hours is not None:
+        pattern_hours = max(1, min(168, int(pattern_hours)))
+        _reschedule_job("relationship_inference_job", pattern_hours)
+
+    # Reschedule quality score update job
+    quality_hours = settings.get("qualityUpdateIntervalHours")
+    if quality_hours is not None:
+        quality_hours = max(1, min(168, int(quality_hours)))
+        _reschedule_job("quality_score_update_job", quality_hours)
+
+
+def _reschedule_job(job_id: str, hours: int):
+    """Reschedule an APScheduler job with a new interval."""
+    try:
+        from ..scheduler import get_scheduler
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler = get_scheduler()
+        if scheduler and scheduler != "disabled":
+            job = scheduler.get_job(job_id)
+            if job:
+                job.reschedule(trigger=IntervalTrigger(hours=hours))
+                logger.info(f"Rescheduled {job_id} to every {hours}h")
+            else:
+                logger.warning(f"Job {job_id} not found in scheduler")
+    except Exception as e:
+        logger.warning(f"Failed to reschedule {job_id}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -364,6 +411,7 @@ async def update_settings(settings: dict):
     try:
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings, f, indent=2)
+        _apply_intelligence_settings(settings)
         logger.info("Settings updated successfully")
         return {"status": "success", "settings": settings}
     except Exception as e:
