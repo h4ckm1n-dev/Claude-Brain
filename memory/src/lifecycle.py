@@ -11,7 +11,9 @@ State transitions based on:
 - Manual interventions
 """
 
+import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from qdrant_client import QdrantClient
@@ -20,6 +22,17 @@ from qdrant_client.http import models
 from .models import MemoryState
 
 logger = logging.getLogger(__name__)
+
+
+def _load_retention_default() -> int:
+    """Load audit retention days from settings.json, defaulting to 90."""
+    settings_path = os.path.join(os.path.expanduser("~"), ".claude", "memory", "data", "settings.json")
+    try:
+        with open(settings_path, "r") as f:
+            data = json.load(f)
+        return max(30, min(365, int(data.get("auditRetentionDays", 90))))
+    except Exception:
+        return 90
 
 
 def utc_now() -> datetime:
@@ -68,7 +81,7 @@ class MemoryLifecycleManager:
     ARCHIVED_LOW_QUALITY = 0.2  # Archive if quality < 0.2
     ARCHIVED_LOW_QUALITY_AGE_DAYS = 30  # ... and older than 30 days
 
-    PURGE_RETENTION_DAYS = 90  # Purge after 90 days in ARCHIVED state
+    PURGE_RETENTION_DAYS = _load_retention_default()  # Loaded from settings.json
 
     @staticmethod
     def evaluate_episodic_transition(

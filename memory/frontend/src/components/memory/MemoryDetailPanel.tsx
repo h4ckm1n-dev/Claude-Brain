@@ -241,14 +241,17 @@ export function MemoryDetailPanel({ memoryId, onClose, onNavigate }: MemoryDetai
                         <Badge className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20">
                           {rel.type}
                         </Badge>
-                        {rel.relations?.length > 0 && (
-                          <Badge className="text-[10px] bg-white/5 text-white/50 border-white/10">
-                            {rel.relations[0]?.relation_type}
+                        {rel.relationship_path?.length > 0 && (
+                          <Badge className="text-[10px] bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            {rel.relationship_path[0]?.toLowerCase().replace('_', ' ')}
                           </Badge>
+                        )}
+                        {rel.distance > 1 && (
+                          <span className="text-[10px] text-white/30">{rel.distance} hops</span>
                         )}
                       </div>
                       <p className="text-xs text-white/70 group-hover:text-white/90 line-clamp-2 transition-colors">
-                        {rel.content}
+                        {rel.preview || rel.content || 'No preview available'}
                       </p>
                     </button>
                   ))}

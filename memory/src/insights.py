@@ -271,22 +271,25 @@ class InsightGenerator:
                 if len(content) < 20:
                     reasons.append("extremely_short")
 
-                # Check relationships (orphaned)
-                relations = payload.get("relations", [])
-                if not relations:
-                    reasons.append("orphaned")
-
-                # Check age vs access
+                # Compute age early — needed by multiple checks below
                 created_at = datetime.fromisoformat(payload["created_at"].replace('Z', '+00:00'))
                 age_days = (now - created_at).days
                 access_count = payload.get("access_count", 0)
 
+                # Check relationships (orphaned) — only flag after 3 days
+                # (inference needs time to connect new memories)
+                relations = payload.get("relations", [])
+                if not relations and age_days >= 3:
+                    reasons.append("orphaned")
+
+                # Check age vs access
                 if age_days > 30 and access_count == 0:
                     reasons.append("old_unaccessed")
 
-                # Check importance vs access
+                # Check importance vs access — only flag after 7 days
+                # (new high-quality memories naturally start with low access)
                 importance = payload.get("importance", 0.5)
-                if importance > 0.8 and access_count < 2:
+                if importance > 0.8 and access_count < 2 and age_days >= 7:
                     reasons.append("high_importance_low_access")
 
                 # If any anomalies found, add to list

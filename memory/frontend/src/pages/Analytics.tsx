@@ -951,7 +951,7 @@ function DocumentationGapsSection() {
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     : 'bg-green-500/20 text-green-300 border border-green-500/30'
               }`}>
-                P{Math.ceil(topic.priority * 3)}
+                {topic.priority > 0.7 ? 'High' : topic.priority > 0.4 ? 'Medium' : 'Low'}
               </Badge>
             </div>
           </div>
