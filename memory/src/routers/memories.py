@@ -747,12 +747,6 @@ async def rate_memory(memory_id: str, request: RatingRequest):
 
         collections.safe_set_payload(memory_id, update_payload)
 
-        # Recalculate quality — user_rating is 10% of the formula
-        from ..quality_tracking import QualityScoreCalculator
-        QualityScoreCalculator.recalculate_single_memory_quality(
-            client, collections.COLLECTION_NAME, memory_id
-        )
-
         await manager.broadcast({
             "type": "memory_rated",
             "data": {
