@@ -271,6 +271,7 @@ class Memory(MemoryBase):
 
     # Status
     resolved: bool = False
+    resolved_at: Optional[str] = None  # ISO timestamp of when error was resolved
     relations: list[Relation] = Field(default_factory=list)
     relationships: list[dict] = Field(default_factory=list)  # Neo4j relationships
 

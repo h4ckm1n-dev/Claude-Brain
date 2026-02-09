@@ -413,12 +413,9 @@ class MemoryLifecycleManager:
                 # But for now, just mark it
                 updates["archived"] = True
 
-            # Apply update
-            client.set_payload(
-                collection_name=collection_name,
-                payload=updates,
-                points=[memory_id]
-            )
+            # Apply update with quality recalc (applies tier bonus immediately)
+            from .collections import safe_set_payload
+            safe_set_payload(memory_id, updates, collection_name=collection_name)
 
             logger.info(
                 f"State transition applied: {memory_id} "
