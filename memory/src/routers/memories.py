@@ -329,11 +329,7 @@ async def bulk_action(
                 collections.delete_memory(memory_id)
                 results.append({"id": memory_id, "status": "deleted"})
             elif operation == "pin":
-                client.set_payload(
-                    collection_name=collections.COLLECTION_NAME,
-                    payload={"pinned": True, "importance_score": 1.0},
-                    points=[memory_id]
-                )
+                collections.safe_set_payload(memory_id, {"pinned": True, "importance_score": 1.0})
                 results.append({"id": memory_id, "status": "pinned"})
             elif operation == "reinforce":
                 from ..forgetting import reinforce_memory as _reinforce
@@ -727,8 +723,6 @@ async def rate_memory(memory_id: str, request: RatingRequest):
         raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
 
     try:
-        client = collections.get_client()
-
         memory = collections.get_memory(memory_id)
         if not memory:
             raise HTTPException(status_code=404, detail="Memory not found")
@@ -751,17 +745,7 @@ async def rate_memory(memory_id: str, request: RatingRequest):
             })
             update_payload["user_feedback"] = user_feedback
 
-        client.set_payload(
-            collection_name=collections.COLLECTION_NAME,
-            payload=update_payload,
-            points=[memory_id]
-        )
-
-        # Recalculate quality — user_rating is 10% of the formula
-        from ..quality_tracking import QualityScoreCalculator
-        QualityScoreCalculator.recalculate_single_memory_quality(
-            client, collections.COLLECTION_NAME, memory_id
-        )
+        collections.safe_set_payload(memory_id, update_payload)
 
         await manager.broadcast({
             "type": "memory_rated",
@@ -791,15 +775,10 @@ async def rate_memory(memory_id: str, request: RatingRequest):
 async def archive_memory(memory_id: str):
     """Manually archive a specific memory."""
     try:
-        client = collections.get_client()
-
-        client.set_payload(
-            collection_name=collections.COLLECTION_NAME,
-            payload={
-                "archived": True,
-                "archived_at": datetime.now(timezone.utc).isoformat()
-            },
-            points=[memory_id]
+        collections.safe_set_payload(
+            memory_id,
+            {"archived": True, "archived_at": datetime.now(timezone.utc).isoformat()},
+            recalc_quality=False,  # No need to recalc quality for archived memories
         )
         return {"status": "archived", "id": memory_id}
     except Exception as e:
@@ -811,16 +790,7 @@ async def archive_memory(memory_id: str):
 async def pin_memory(memory_id: str):
     """Pin a memory so it never decays in importance."""
     try:
-        client = collections.get_client()
-
-        client.set_payload(
-            collection_name=collections.COLLECTION_NAME,
-            payload={
-                "pinned": True,
-                "importance_score": 1.0
-            },
-            points=[memory_id]
-        )
+        collections.safe_set_payload(memory_id, {"pinned": True, "importance_score": 1.0})
         return {"status": "pinned", "id": memory_id}
     except Exception as e:
         logger.error(f"Pin failed: {e}")
@@ -831,15 +801,7 @@ async def pin_memory(memory_id: str):
 async def unpin_memory(memory_id: str):
     """Unpin a memory to allow normal decay."""
     try:
-        client = collections.get_client()
-
-        client.set_payload(
-            collection_name=collections.COLLECTION_NAME,
-            payload={
-                "pinned": False
-            },
-            points=[memory_id]
-        )
+        collections.safe_set_payload(memory_id, {"pinned": False})
         return {"status": "unpinned", "id": memory_id}
     except Exception as e:
         logger.error(f"Unpin failed: {e}")
@@ -972,7 +934,6 @@ async def restore_version(memory_id: str, version: int):
     allowing future restoration if needed.
     """
     try:
-        client = collections.get_client()
         memory = collections.get_memory(memory_id)
 
         if not memory:
@@ -1012,17 +973,11 @@ async def restore_version(memory_id: str, version: int):
 
         memory.updated_at = utc_now()
 
-        # Update in Qdrant
-        client.set_payload(
-            collection_name=collections.COLLECTION_NAME,
-            payload=memory.model_dump(mode='json', exclude={'embedding'}),
-            points=[memory_id]
-        )
-
-        # Recalculate quality score after content restoration
-        from ..quality_tracking import QualityScoreCalculator
-        QualityScoreCalculator.recalculate_single_memory_quality(
-            client, collections.COLLECTION_NAME, memory_id
+        # Update in Qdrant with quality recalc and enrichment
+        collections.safe_set_payload(
+            memory_id,
+            memory.model_dump(mode='json', exclude={'embedding'}),
+            run_enrichment=True,  # Run enrichment on restored content
         )
 
         return {

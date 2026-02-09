@@ -121,25 +121,17 @@ def merge_with_existing(
             access_count = 0
         access_count += 1
 
-        # Update payload
-        client.set_payload(
-            collection_name=collection_name,
-            payload={
+        # Update payload — safe_set_payload auto-recalcs quality (tags affect scoring)
+        from .collections import safe_set_payload
+        safe_set_payload(
+            existing_id,
+            {
                 "tags": merged_tags,
                 "access_count": access_count,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             },
-            points=[existing_id]
+            collection_name=collection_name,
         )
-
-        # Recalculate quality score (tags and access_count changed)
-        try:
-            from .quality_tracking import QualityScoreCalculator
-            QualityScoreCalculator.recalculate_single_memory_quality(
-                client, collection_name, existing_id
-            )
-        except Exception as e:
-            logger.warning(f"Quality recalc failed for merged {existing_id}: {e}")
 
         logger.info(f"Merged new memory into existing {existing_id}")
         return existing_id
@@ -486,14 +478,16 @@ def consolidate_cluster(
 
         # Archive originals if requested
         if archive_originals:
+            from .collections import safe_set_payload
             for mem_id in cluster.memory_ids:
-                client.set_payload(
-                    collection_name=collection_name,
-                    payload={
+                safe_set_payload(
+                    mem_id,
+                    {
                         "archived": True,
                         "archived_at": datetime.now(timezone.utc).isoformat()
                     },
-                    points=[mem_id]
+                    recalc_quality=False,  # No need to recalc archived memories
+                    collection_name=collection_name,
                 )
 
         logger.info(f"Consolidated {len(cluster.memory_ids)} memories into {consolidated_id}")

@@ -65,15 +65,16 @@ def update_memory_strength(
 
     # Update in Qdrant
     try:
-        client.set_payload(
-            collection_name=collection_name,
-            payload={
+        from .collections import safe_set_payload
+        safe_set_payload(
+            memory_id,
+            {
                 "memory_strength": new_strength,
                 "decay_rate": memory.decay_rate,
                 "last_decay_update": memory.last_decay_update.isoformat(),
                 "archived": action == "archive" or action == "purge"
             },
-            points=[memory_id]
+            collection_name=collection_name,
         )
     except Exception as e:
         logger.error(f"Failed to update memory {memory_id}: {e}")

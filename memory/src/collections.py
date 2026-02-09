@@ -38,6 +38,14 @@ from .query_understanding import route_query
 
 logger = logging.getLogger(__name__)
 
+# Fields that affect quality score — any set_payload touching these should recalculate
+QUALITY_AFFECTING_FIELDS = frozenset({
+    "content", "tags", "importance_score", "pinned", "resolved", "solution",
+    "prevention", "rationale", "alternatives", "decision", "error_message",
+    "context", "state", "relations", "access_count", "memory_strength",
+    "user_rating", "user_rating_count", "user_feedback", "archived",
+})
+
 # Configuration
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
@@ -56,6 +64,55 @@ def get_client() -> QdrantClient:
     if _client is None:
         _client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
     return _client
+
+
+def safe_set_payload(
+    memory_id: str,
+    payload: dict,
+    *,
+    recalc_quality: bool = True,
+    run_enrichment: bool = False,
+    collection_name: str | None = None,
+) -> None:
+    """Centralized wrapper for Qdrant set_payload that auto-triggers quality recalc.
+
+    This is the ONLY function that should be used to modify memory payloads
+    outside of full upserts (which go through store_memory/update_memory).
+
+    Args:
+        memory_id: ID of the memory to update
+        payload: Dict of fields to set/update
+        recalc_quality: Auto-recalculate quality if quality-affecting fields changed (default True)
+        run_enrichment: Run post-update enrichment pipeline (default False)
+        collection_name: Override collection name (defaults to COLLECTION_NAME)
+    """
+    col = collection_name or COLLECTION_NAME
+    client = get_client()
+
+    # Apply the payload update
+    client.set_payload(
+        collection_name=col,
+        payload=payload,
+        points=[memory_id],
+    )
+
+    # Run enrichment pipeline if requested (derives prevention, rationale, context, alternatives)
+    if run_enrichment:
+        try:
+            _post_update_pipeline(memory_id, payload)
+            return  # _post_update_pipeline already recalculates quality
+        except Exception as e:
+            logger.warning(f"safe_set_payload enrichment failed for {memory_id}: {e}")
+
+    # Auto-recalculate quality if any quality-affecting field was touched
+    if recalc_quality and (set(payload.keys()) & QUALITY_AFFECTING_FIELDS):
+        try:
+            from .quality_tracking import QualityScoreCalculator
+            QualityScoreCalculator.recalculate_single_memory_quality(
+                client, col, memory_id
+            )
+        except Exception as e:
+            logger.warning(f"safe_set_payload quality recalc failed for {memory_id}: {e}")
 
 
 def init_collections() -> None:
@@ -472,12 +529,8 @@ def _auto_supersede(
         try:
             link_memories(new_memory.id, cid, RelationType.SUPERSEDES)
 
-            # Archive the superseded memory
-            client.set_payload(
-                collection_name=COLLECTION_NAME,
-                payload={"archived": True},
-                points=[cid],
-            )
+            # Archive the superseded memory (quality recalc not needed for archived)
+            safe_set_payload(cid, {"archived": True}, recalc_quality=False)
 
             superseded += 1
             logger.info(
@@ -936,7 +989,7 @@ def _post_update_pipeline(memory_id: str, update_data: dict) -> None:
     If content/solution/rationale changed, auto-derive missing fields.
     Always recalculates quality score so it stays fresh.
     """
-    from .enhancements import _derive_prevention, _derive_rationale, _derive_context
+    from .enhancements import _derive_prevention, _derive_rationale, _derive_context, _derive_alternatives
     from .quality_tracking import QualityScoreCalculator
 
     client = get_client()
@@ -959,6 +1012,12 @@ def _post_update_pipeline(memory_id: str, update_data: dict) -> None:
                 derived = _derive_rationale(memory.content)
                 if derived:
                     enriched_fields["rationale"] = derived
+
+            # Derive alternatives from content if missing (for decisions)
+            if not memory.alternatives and memory.type and memory.type.value == "decision":
+                derived = _derive_alternatives(memory.content)
+                if derived:
+                    enriched_fields["alternatives"] = derived
 
             # Derive context if missing
             if not memory.context:
@@ -1010,12 +1069,15 @@ def update_memory(memory_id: str, update: MemoryUpdate) -> Optional[Memory]:
     # Apply updates
     update_data = update.model_dump(exclude_unset=True)
 
-    # Clean content and normalize tags (same as store_memory pipeline)
+    # Clean content, tags, and type-specific fields (same as store_memory pipeline)
     from .enhancements import clean_content, normalize_tags
     if "content" in update_data and update_data["content"]:
         update_data["content"] = clean_content(update_data["content"])
     if "tags" in update_data and update_data["tags"]:
         update_data["tags"] = normalize_tags(update_data["tags"])
+    for field in ("solution", "prevention", "rationale", "decision", "context", "error_message"):
+        if field in update_data and update_data[field] and isinstance(update_data[field], str):
+            update_data[field] = clean_content(update_data[field])
 
     # Validate type-specific required fields if type is being changed
     if "type" in update_data:
@@ -1028,6 +1090,8 @@ def update_memory(memory_id: str, update: MemoryUpdate) -> Optional[Memory]:
                 missing.append("error_message")
             if not merged.get("solution"):
                 missing.append("solution")
+            if not merged.get("prevention"):
+                missing.append("prevention")
             if missing:
                 raise ValueError(
                     f"Changing type to 'error' requires: {', '.join(missing)}. "
@@ -1129,7 +1193,11 @@ def mark_resolved(memory_id: str, solution: str) -> Optional[Memory]:
     if not memory:
         return None
 
-    update_fields = {"solution": solution, "resolved": True}
+    update_fields = {
+        "solution": solution,
+        "resolved": True,
+        "resolved_at": datetime.now(timezone.utc).isoformat(),
+    }
 
     # Auto-derive prevention if missing
     if not memory.prevention:
@@ -1152,17 +1220,13 @@ def link_memories(source_id: str, target_id: str, relation_type: RelationType) -
     if relation not in memory.relations:
         memory.relations.append(relation)
         # Write relations directly to Qdrant payload (MemoryUpdate doesn't include relations)
-        client = get_client()
         relations_payload = [r.model_dump() for r in memory.relations]
         # Serialize datetime fields to ISO strings
         for r in relations_payload:
             if hasattr(r.get("created_at", ""), "isoformat"):
                 r["created_at"] = r["created_at"].isoformat()
-        client.set_payload(
-            collection_name=COLLECTION_NAME,
-            payload={"relations": relations_payload},
-            points=[source_id],
-        )
+        # Use safe_set_payload — auto-recalcs quality for source memory
+        safe_set_payload(source_id, {"relations": relations_payload})
 
     # Also create relationship in knowledge graph
     if is_graph_enabled():
@@ -1173,15 +1237,15 @@ def link_memories(source_id: str, target_id: str, relation_type: RelationType) -
         except Exception as e:
             logger.warning(f"Failed to create graph relationship: {e}")
 
-    # Recalculate quality for source memory so relationship_density updates immediately
+    # Recalculate quality for TARGET memory too (it gained an inbound relationship)
     try:
         from .quality_tracking import QualityScoreCalculator
         client = get_client()
         QualityScoreCalculator.recalculate_single_memory_quality(
-            client, COLLECTION_NAME, source_id
+            client, COLLECTION_NAME, target_id
         )
     except Exception as e:
-        logger.warning(f"Quality recalc after link failed for {source_id}: {e}")
+        logger.warning(f"Quality recalc after link failed for target {target_id}: {e}")
 
     return True
 
@@ -1341,16 +1405,11 @@ def get_stats() -> dict:
 def _increment_access_count(memory_id: str) -> None:
     """Increment the access count for a memory."""
     try:
-        client = get_client()
-        # Get current memory to increment properly
         memory = get_memory(memory_id)
         if memory:
             new_count = (memory.access_count or 0) + 1
-            client.set_payload(
-                collection_name=COLLECTION_NAME,
-                payload={"access_count": new_count},
-                points=[memory_id]
-            )
+            # Skip quality recalc for simple access increment (high-frequency operation)
+            safe_set_payload(memory_id, {"access_count": new_count}, recalc_quality=False)
     except Exception as e:
         logger.debug(f"Failed to increment access count: {e}")
 
@@ -1501,13 +1560,14 @@ def track_access(memory_id: str) -> bool:
 
         current_access_count = results[0].payload.get("access_count", 0)
 
-        client.set_payload(
-            collection_name=COLLECTION_NAME,
-            payload={
+        # Skip quality recalc for access tracking (high-frequency, batched by scheduler)
+        safe_set_payload(
+            memory_id,
+            {
                 "access_count": current_access_count + 1,
                 "last_accessed": datetime.now(timezone.utc).isoformat()
             },
-            points=[memory_id]
+            recalc_quality=False,
         )
 
         # Reinforce memory strength on access to prevent monotonic decay
