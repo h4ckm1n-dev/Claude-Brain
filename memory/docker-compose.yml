@@ -21,6 +21,7 @@ x-backend-base: &backend-base
   volumes:
     - ./data:/app/data
     - ./src:/app/src
+    - ./scripts:/app/scripts
   restart: unless-stopped
 
 services:

@@ -11,7 +11,8 @@ import json
 import urllib.request
 from typing import List, Dict, Set
 
-MEMORY_API = "http://localhost:8100"
+import os
+MEMORY_API = os.environ.get("MEMORY_SERVICE_URL", "http://claude-mem-frontend:80")
 
 # Tech stack dictionary
 TECH_ENTITIES = {
@@ -154,7 +155,12 @@ class NLPTagger:
             self.log("❌ Failed to fetch memories")
             return
 
-        memories = response if isinstance(response, list) else []
+        if isinstance(response, dict):
+            memories = response.get("items", [])
+        elif isinstance(response, list):
+            memories = response
+        else:
+            memories = []
         total = len(memories)
         self.log(f"Found: {total} memories\n")
 

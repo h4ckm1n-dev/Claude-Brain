@@ -9,7 +9,8 @@ import sys
 import urllib.request
 import urllib.error
 
-MEMORY_API = "http://localhost:8100"
+import os
+MEMORY_API = os.environ.get("MEMORY_SERVICE_URL", "http://claude-mem-frontend:80")
 
 def get_all_memories():
     """Fetch all memories"""

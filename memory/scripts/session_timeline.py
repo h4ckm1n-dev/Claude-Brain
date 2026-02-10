@@ -12,7 +12,8 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 from collections import defaultdict
 
-MEMORY_API = "http://localhost:8100"
+import os
+MEMORY_API = os.environ.get("MEMORY_SERVICE_URL", "http://claude-mem-frontend:80")
 
 class SessionTimeline:
     def __init__(self):
@@ -90,7 +91,7 @@ class SessionTimeline:
             self.log("❌ Failed to fetch memories")
             return
 
-        memories = response if isinstance(response, list) else []
+        memories = response.get("items", []) if isinstance(response, dict) else (response if isinstance(response, list) else [])
 
         # Group by session
         for item in memories:
@@ -148,7 +149,7 @@ class SessionTimeline:
         if not response:
             return
 
-        memories = response if isinstance(response, list) else []
+        memories = response.get("items", []) if isinstance(response, dict) else (response if isinstance(response, list) else [])
 
         # Group by session
         sessions_data = {}

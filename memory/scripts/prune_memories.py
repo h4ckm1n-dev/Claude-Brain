@@ -12,7 +12,8 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict
 
-MEMORY_API = "http://localhost:8100"
+import os
+MEMORY_API = os.environ.get("MEMORY_SERVICE_URL", "http://claude-mem-frontend:80")
 
 class MemoryPruner:
     def __init__(self, dry_run=True):
@@ -110,7 +111,7 @@ class MemoryPruner:
             self.log("❌ Failed to fetch memories")
             return
 
-        memories = response if isinstance(response, list) else []
+        memories = response.get("items", []) if isinstance(response, dict) else (response if isinstance(response, list) else [])
         self.log(f"Found: {len(memories)} total memories\n")
 
         # Analyze each memory

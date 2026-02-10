@@ -24,7 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configuration
 DOCUMENTS_ROOT = None  # Will be set dynamically based on --path argument
-MEMORY_API = "http://localhost:8100"
+MEMORY_API = os.environ.get("MEMORY_SERVICE_URL", "http://claude-mem-frontend:80")
 CHUNK_SIZE = 2000  # Characters per chunk
 OVERLAP = 200  # Overlap between chunks
 STATE_FILE = os.path.expanduser("~/.claude/memory/data/watch-state.json")

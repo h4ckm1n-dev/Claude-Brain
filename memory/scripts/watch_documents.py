@@ -18,7 +18,7 @@ import urllib.request
 import urllib.error
 
 # Configuration
-MEMORY_API = "http://localhost:8100"
+MEMORY_API = os.environ.get("MEMORY_SERVICE_URL", "http://claude-mem-frontend:80")
 STATE_FILE = os.path.expanduser("~/.claude/memory/data/watch-state.json")
 CHECK_INTERVAL = 30  # Check every 30 seconds
 LOG_FILE = os.path.expanduser("~/.claude/memory/logs/watcher.log")
