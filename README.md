@@ -6,56 +6,85 @@ Long-term memory system for [Claude Code](https://docs.anthropic.com/en/docs/cla
 
 ## What Is This
 
-Claude Brain gives Claude Code persistent memory backed by vector search (Qdrant), a knowledge graph (Neo4j), and neuroscience-inspired features like adaptive forgetting, memory reconsolidation, and spaced repetition. It runs as three Docker containers on your local machine and integrates with Claude Code via MCP.
+Claude Brain gives Claude Code persistent memory backed by vector search (Qdrant), a knowledge graph (Neo4j), and neuroscience-inspired features like adaptive forgetting, memory reconsolidation, and spaced repetition. It runs as 12 Docker containers (8 microservices + worker + frontend + 2 databases) on your local machine and integrates with Claude Code via MCP.
 
 ## Quick Start
 
+**One command:**
+
 ```bash
-git clone https://github.com/h4ckm1n-dev/Claude-Brain.git
-cd Claude-Brain/memory
-docker compose up -d
+curl -fsSL https://raw.githubusercontent.com/h4ckm1n-dev/Claude-Brain/main/memory/install.sh | bash
 ```
 
-This starts three containers:
+The installer checks prerequisites, clones the repo, builds all containers, starts services with phased health checks, installs the MCP server, registers it with Claude Code, and verifies everything works.
+
+**Prerequisites:** git, curl, Node.js 18+, Docker with Compose v2. On Linux, Docker is auto-installed if missing.
+
+**Already installed?** Re-run `bash ~/.claude/memory/setup.sh` (idempotent) or update manually:
+
+```bash
+cd ~/.claude/memory
+git pull && docker compose -f docker-compose.yml build
+docker compose -f docker-compose.yml up -d --remove-orphans
+```
+
+This runs 12 containers:
 
 | Container | Port | Purpose |
 |-----------|------|---------|
-| `claude-mem-qdrant` | 6333 | Vector database (Qdrant) |
-| `claude-mem-neo4j` | 7474 / 7687 | Knowledge graph (Neo4j 5 Community) |
-| `claude-mem-service` | 8100 | FastAPI server + React dashboard |
+| `claude-mem-frontend` | **8100** (host) | Nginx gateway — React SPA + API routing |
+| `claude-mem-core` | 8100 | Memory CRUD, WebSocket, ratings |
+| `claude-mem-embeddings` | 8102 | ML models (nomic-embed-text-v1.5, BM42, cross-encoder) |
+| `claude-mem-search` | 8103 | Hybrid search, BM25, reranking |
+| `claude-mem-graph` | 8104 | Neo4j operations, relationship inference |
+| `claude-mem-brain` | 8105 | Dream, replay, inference, conflict detection |
+| `claude-mem-quality` | 8106 | Quality scoring, lifecycle management |
+| `claude-mem-analytics` | 8107 | Trends, gaps, expertise profiling |
+| `claude-mem-admin` | 8108 | Export, sessions, documents, temporal queries |
+| `claude-mem-worker` | 8101 | APScheduler — 14 background jobs |
+| `claude-mem-qdrant` | 6333 | Qdrant vector database |
+| `claude-mem-neo4j` | 7474 / 7687 | Neo4j 5 Community knowledge graph |
 
 **Access points:**
 - Dashboard: http://localhost:8100
-- API docs: http://localhost:8100/docs
 - Qdrant UI: http://localhost:6333/dashboard
 - Neo4j Browser: http://localhost:7474
 
 ## Architecture
 
 ```
-┌───────────────────────────────────────────────────────┐
-│                    Claude Code CLI                      │
-│              (MCP client via memory bridge)             │
-└──────────────────────┬────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Claude Code CLI                       │
+│              (MCP client via memory bridge)              │
+└──────────────────────┬──────────────────────────────────┘
                        │ MCP protocol (stdio)
                        ▼
-┌───────────────────────────────────────────────────────┐
-│              MCP Bridge (Node.js)                       │
-│        Exposes 33 tools + 3 resources to Claude        │
-└──────────────────────┬────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              MCP Bridge (Node.js)                        │
+│        Exposes 33 tools + 3 resources to Claude         │
+└──────────────────────┬──────────────────────────────────┘
                        │ HTTP (localhost:8100)
                        ▼
-┌───────────────────────────────────────────────────────┐
-│              FastAPI Server (Python 3.11)               │
-│    11 routers · 144 endpoints · 13 scheduler jobs      │
-│    React dashboard served as static SPA                 │
-├───────────┬───────────────────────────┬───────────────┤
-│  Qdrant   │        Neo4j              │  Scheduler    │
-│  Vector   │    Knowledge Graph        │  (APScheduler)│
-│  Search   │  8 relationship types     │  13 bg jobs   │
-│  768-dim  │  temporal validity        │               │
-└───────────┴───────────────────────────┴───────────────┘
+┌─────────────────────────────────────────────────────────┐
+│         Nginx Gateway (port 8100)                       │
+│    React SPA + reverse proxy to microservices           │
+└──┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬────┘
+   │      │      │      │      │      │      │      │
+   ▼      ▼      ▼      ▼      ▼      ▼      ▼      ▼
+ Core  Search  Graph  Brain  Qual.  Analy. Admin  Worker
+ :8100 :8103   :8104  :8105  :8106  :8107  :8108  :8101
+   │      │      │      │      │      │      │    14 jobs
+   └──────┴──────┴──┬───┴──────┴──────┴──────┘
+                    │
+         ┌──────────┼──────────┐
+         ▼          ▼          ▼
+      Qdrant     Neo4j    Embeddings
+      :6333     :7687       :8102
+     768-dim   8 rel.    nomic-embed
+     BM42      types    cross-encoder
 ```
+
+All 8 backend services share the same Docker image (different entrypoints). The embedding service has its own Dockerfile with ML models (~650MB). Services communicate internally via Docker network.
 
 ## Core Features
 
@@ -113,21 +142,22 @@ Memories are not static records. They have a lifecycle:
 
 ### Background Scheduler Jobs
 
-13 jobs run automatically via APScheduler:
+14 jobs run automatically via APScheduler in the dedicated worker container:
 
 | Job | Interval | Purpose |
 |-----|----------|---------|
 | Memory Consolidation | 24h | Merge similar old memories |
 | Adaptive Forgetting | 24h | Decay memory strength, archive/purge weak memories |
 | Session Consolidation | 12h | Summarize completed work sessions |
-| Quality Score Update | 24h | Recalculate quality scores for all memories |
+| Quality Score Update | 6h | Recalculate quality scores for all memories |
 | Memory State Machine | 12h | Evaluate and execute lifecycle state transitions |
-| Relationship Inference | 24h | Discover error→solution, semantic, and temporal links |
+| Relationship Inference | 12h | Discover error→solution, semantic, and temporal links |
 | Adaptive Importance | 24h | Recalculate importance scores in batch |
 | Utility-Based Archival | 24h | Archive low-utility memories |
 | Memory Replay | 12h | Replay important and underutilized memories |
 | Spaced Repetition | 6h | Review memories due for reconsolidation |
 | Emotional Analysis | 24h | Analyze and weight emotional content |
+| Tag Enrichment | 6h | Auto-enrich sparse tags on memories |
 | Interference Detection | Weekly | Find and resolve conflicting memories |
 | Meta-Learning | Weekly | Track performance metrics and tune parameters |
 
@@ -293,57 +323,65 @@ Full API docs: http://localhost:8100/docs
 
 ## Installation & Configuration
 
-### Docker Compose (recommended)
+### One-Command Install (recommended)
 
 ```bash
-cd Claude-Brain/memory
-docker compose up -d
+curl -fsSL https://raw.githubusercontent.com/h4ckm1n-dev/Claude-Brain/main/memory/install.sh | bash
 ```
 
-Environment variables (set in `docker-compose.yml`):
+Or clone and run the setup script directly:
+
+```bash
+git clone https://github.com/h4ckm1n-dev/Claude-Brain.git ~/.claude
+bash ~/.claude/memory/setup.sh
+```
+
+### Production Mode
+
+```bash
+cd ~/.claude/memory
+docker compose -f docker-compose.yml up -d
+```
+
+### Development Mode (with Vite HMR)
+
+```bash
+cd ~/.claude/memory
+docker compose up -d  # auto-merges docker-compose.override.yml
+# Frontend dev server at http://localhost:5173 with hot reload
+# API exposed directly on :8100 (no Nginx)
+```
+
+Environment variables (set in `docker-compose.yml` via YAML anchors):
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `QDRANT_HOST` | `claude-mem-qdrant` | Qdrant hostname |
 | `QDRANT_PORT` | `6333` | Qdrant port |
 | `NEO4J_URI` | `bolt://claude-mem-neo4j:7687` | Neo4j connection URI |
-| `NEO4J_USER` | `neo4j` | Neo4j username |
 | `NEO4J_PASSWORD` | `memory_graph_2024` | Neo4j password |
+| `EMBEDDING_SERVICE_URL` | `http://claude-mem-embeddings:8102` | Embedding service URL |
+| `SCHEDULER_ENABLED` | `true` (worker only) | Enable background scheduler jobs |
 | `LOG_LEVEL` | `INFO` | Logging level |
-| `SCHEDULER_ENABLED` | `true` | Enable background scheduler jobs |
 
-### Local Development
-
-Run databases in Docker, API server locally:
-
-```bash
-# Start databases only
-cd Claude-Brain/memory
-docker compose up -d claude-mem-qdrant claude-mem-neo4j
-
-# Run API server
-pip install -r requirements.txt
-python -m src.server
-
-# Run frontend in dev mode (separate terminal)
-cd frontend
-npm install
-npm run dev  # http://localhost:5173 with hot reload
-```
-
-**Note**: Backend source is volume-mounted — restart the container to reload code changes. Frontend requires a Docker rebuild (`docker compose build --no-cache && docker compose up -d`) after changes.
+**Note**: Backend source is volume-mounted — restart containers to reload code changes. Frontend requires a Docker rebuild (`docker compose -f docker-compose.yml build claude-mem-frontend`) after changes.
 
 ### Claude Code MCP Setup
 
-Create or edit `~/.claude/.mcp.json` (or your project's `.mcp.json`):
+**Automatic** (recommended): The `setup.sh` script registers the MCP server in `~/.claude.json` automatically.
+
+**Manual**: Add to the top-level `mcpServers` in `~/.claude.json`:
 
 ```json
 {
-  "memory": {
-    "command": "node",
-    "args": ["/path/to/Claude-Brain/mcp/memory-mcp/dist/index.js"],
-    "env": {
-      "MEMORY_API_URL": "http://localhost:8100"
+  "mcpServers": {
+    "memory": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/YOU/.claude/mcp/memory-mcp/dist/index.js"],
+      "env": {
+        "MEMORY_SERVICE_URL": "http://localhost:8100"
+      }
     }
   }
 }
@@ -356,26 +394,30 @@ Then restart Claude Code. The 33 memory tools will appear in tool listings.
 ### Service won't start
 
 ```bash
-# Check containers
-docker compose ps
+cd ~/.claude/memory
+
+# Check all 12 containers
+docker compose -f docker-compose.yml ps
 
 # Check ports are free
-lsof -i :8100   # FastAPI
+lsof -i :8100   # Nginx gateway
 lsof -i :6333   # Qdrant
 lsof -i :7687   # Neo4j
 
-# Restart
-docker compose down && docker compose up -d
+# Remove orphan containers from old monolith and restart
+docker compose -f docker-compose.yml up -d --remove-orphans
 
-# Check logs
-docker compose logs claude-mem-service
+# Check logs for a specific service
+docker compose -f docker-compose.yml logs claude-mem-core
+docker compose -f docker-compose.yml logs claude-mem-embeddings
+docker compose -f docker-compose.yml logs claude-mem-worker
 ```
 
 ### MCP tools not appearing in Claude Code
 
 1. Verify the service is running: `curl http://localhost:8100/health`
-2. Check your `.mcp.json` path is correct
-3. Restart Claude Code after changing `.mcp.json`
+2. Check `~/.claude.json` has the `memory` entry in top-level `mcpServers`
+3. Restart Claude Code after changing MCP config
 
 ### Search returns no results
 
@@ -389,11 +431,20 @@ curl http://localhost:6333/collections
 
 ### Dashboard not loading
 
-The dashboard is built into the Docker image and served as a static SPA at port 8100. If you see API JSON instead of the dashboard, rebuild the image:
+The dashboard is an Nginx container serving a React SPA and proxying API routes to backend services. If you see raw JSON instead of the dashboard:
 
 ```bash
-cd Claude-Brain/memory
-docker compose build --no-cache && docker compose up -d
+cd ~/.claude/memory
+docker compose -f docker-compose.yml build claude-mem-frontend
+docker compose -f docker-compose.yml up -d claude-mem-frontend
+```
+
+### Embedding service slow to start
+
+The embedding service downloads ~650MB of ML models on first run and takes 60s+ to load them on each start. Other services wait via `depends_on: condition: service_healthy`. Check progress with:
+
+```bash
+docker compose -f docker-compose.yml logs -f claude-mem-embeddings
 ```
 
 ## Tech Stack
@@ -405,10 +456,11 @@ docker compose build --no-cache && docker compose up -d
 | Knowledge Graph | Neo4j 5 Community (APOC plugin) |
 | Dense Embeddings | nomic-ai/nomic-embed-text-v1.5 (768-dim) |
 | Sparse Embeddings | Qdrant/bm42-all-minilm-l6-v2-attentions |
-| Scheduler | APScheduler (13 background jobs) |
+| Scheduler | APScheduler (14 background jobs, dedicated worker container) |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Recharts |
+| Gateway | Nginx (SPA + API reverse proxy) |
 | MCP Bridge | Node.js TypeScript (stdio transport) |
-| Containerization | Docker Compose (3 services) |
+| Containerization | Docker Compose (12 containers: 8 microservices + worker + frontend + 2 DBs) |
 
 ## License
 
