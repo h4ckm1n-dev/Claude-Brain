@@ -233,6 +233,8 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
         raise HTTPException(status_code=400, detail="Memory content is too generic/empty")
 
     # 8. Auto-captured boilerplate rejection
+    # Exempt session lifecycle memories (session-start/session-end) since they
+    # serve session tracking, not knowledge storage.
     boilerplate_starts = [
         "session started for project",
         "session closed at",
@@ -240,8 +242,10 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
         "session resumed for project",
     ]
     content_lower = content.lower()
-    is_auto_captured = "auto-captured" in (data.tags or [])
-    if is_auto_captured and any(content_lower.startswith(bp) for bp in boilerplate_starts):
+    tags = data.tags or []
+    is_auto_captured = "auto-captured" in tags
+    is_session_lifecycle = "session-start" in tags or "session-end" in tags
+    if is_auto_captured and not is_session_lifecycle and any(content_lower.startswith(bp) for bp in boilerplate_starts):
         raise HTTPException(
             status_code=400,
             detail="Auto-captured session boilerplate rejected — not a genuine memory"

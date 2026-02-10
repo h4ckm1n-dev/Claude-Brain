@@ -77,11 +77,13 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[float, list[str]]:
         score -= 0.05
         warnings.append("Content has multiple vague phrases — add specifics about approach and outcome")
 
-    # Auto-captured boilerplate detection — heavily penalize machine-generated session noise
-    # Only triggers when tagged as auto-captured AND content matches boilerplate patterns
-    auto_capture_tags = {'auto-captured', 'session-start', 'session-end'}
-    has_auto_tag = bool(memory.tags and auto_capture_tags & {t.lower() for t in memory.tags})
-    if has_auto_tag:
+    # Auto-captured boilerplate detection — heavily penalize machine-generated noise
+    # Exempt session lifecycle memories (session-start/session-end) since they
+    # serve session tracking on the Sessions page, not knowledge storage.
+    tag_set = {t.lower() for t in memory.tags} if memory.tags else set()
+    is_auto_captured = 'auto-captured' in tag_set
+    is_session_lifecycle = 'session-start' in tag_set or 'session-end' in tag_set
+    if is_auto_captured and not is_session_lifecycle:
         boilerplate_patterns = [
             'session started for project',
             'session closed at',
