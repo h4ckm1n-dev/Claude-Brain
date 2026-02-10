@@ -792,7 +792,7 @@ def update_importance_scores_batch(
             client.set_payload(
                 collection_name=collection_name,
                 points=[point.id],
-                payload={"importance": new_importance}
+                payload={"importance_score": new_importance}
             )
             updated += 1
 

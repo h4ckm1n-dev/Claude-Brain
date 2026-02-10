@@ -308,6 +308,17 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
         **({"validity_start": data.validity_start} if data.validity_start is not None else {})
     )
 
+    # Calculate initial importance score based on memory type and content
+    from .consolidation import calculate_adaptive_importance
+    memory.importance_score = calculate_adaptive_importance(
+        memory_id=str(memory.id),
+        access_count=0,
+        created_at=memory.created_at,
+        memory_type=data.type.value,
+        has_solution=data.solution is not None,
+        co_accessed_with=[]
+    )
+
     # Create initial version snapshot
     memory.create_version_snapshot(
         change_type=ChangeType.CREATED,
