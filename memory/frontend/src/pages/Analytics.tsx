@@ -24,7 +24,8 @@ import {
 
 export function Analytics() {
   const { data: stats } = useStats();
-  const { data: memories } = useMemories({ limit: 500 });
+  const { data: memoriesData } = useMemories({ limit: 500 });
+  const memories = memoriesData?.items;
   const { data: graphStats } = useGraphStats(); // Fetch graph stats for relationship count
 
   // Phase 3-4: Intelligence analytics

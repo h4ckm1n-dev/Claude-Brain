@@ -76,6 +76,13 @@ export interface Memory {
   consolidation_summary?: string;
 }
 
+export interface PaginatedMemories {
+  items: Memory[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface MemoryCreate {
   type: MemoryType;
   content: string;

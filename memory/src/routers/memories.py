@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from qdrant_client import models
 
 from ..models import (
@@ -30,6 +30,15 @@ from ..enhancements import (
 from ..server_deps import manager
 
 logger = logging.getLogger(__name__)
+
+
+class PaginatedMemories(BaseModel):
+    """Paginated response wrapper for memory listings."""
+    items: list[Memory]
+    total: int
+    limit: int
+    offset: int
+
 
 router = APIRouter(tags=["memories"])
 
@@ -360,38 +369,6 @@ async def bulk_action(
     }
 
 
-@router.post("/memories/search", response_model=list[SearchResult])
-async def search_memories(
-    query: SearchQuery,
-    search_mode: str = "hybrid",
-    use_cache: bool = True,
-    use_reranking: bool = True,
-    use_graph_expansion: bool = False
-):
-    """
-    Search memories using semantic similarity with optional enhancements.
-
-    Args:
-        query: Search query with filters
-        search_mode: "semantic", "keyword", or "hybrid" (default: hybrid)
-        use_cache: Enable query cache (default: true)
-        use_reranking: Enable cross-encoder reranking (default: true)
-        use_graph_expansion: Enable graph-based search expansion (Phase 2.1, default: false)
-    """
-    try:
-        results = collections.search_memories(
-            query,
-            search_mode=search_mode,
-            use_cache=use_cache,
-            use_reranking=use_reranking,
-            use_graph_expansion=use_graph_expansion
-        )
-        return results
-    except Exception as e:
-        logger.error(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/memories/link")
 async def link_memories(request: LinkRequest):
     """Create a relationship between two memories."""
@@ -537,15 +514,16 @@ async def get_quality_report():
 # List / Get / Update / Delete (parameterised paths)
 # ---------------------------------------------------------------------------
 
-@router.get("/memories", response_model=list[Memory])
+@router.get("/memories", response_model=PaginatedMemories)
 async def list_memories(
     request: Request,
     type: Optional[str] = None,
     project: Optional[str] = None,
+    archived: bool = False,
     limit: int = 100,
     offset: int = 0
 ):
-    """List memories with optional filters."""
+    """List memories with optional filters and pagination metadata."""
     try:
         # Check if this is a browser request (SPA navigation)
         accept_header = request.headers.get('accept', '')
@@ -575,27 +553,48 @@ async def list_memories(
                     match=models.MatchValue(value=project)
                 )
             )
+        if not archived:
+            must_conditions.append(
+                models.FieldCondition(
+                    key="archived",
+                    match=models.MatchValue(value=False)
+                )
+            )
 
-        scroll_filter = None
-        if must_conditions:
-            scroll_filter = models.Filter(must=must_conditions)
+        query_filter = models.Filter(must=must_conditions) if must_conditions else None
 
-        records, _ = client.scroll(
+        # Get total count matching the same filter
+        count_result = client.count(
             collection_name=COLLECTION_NAME,
-            scroll_filter=scroll_filter,
+            count_filter=query_filter,
+            exact=True,
+        )
+
+        # Use query_points with OrderBy for proper integer offset pagination
+        result = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=models.OrderByQuery(
+                order_by=models.OrderBy(key="created_at", direction="desc"),
+            ),
+            query_filter=query_filter,
             limit=limit,
-            offset=offset,
+            offset=offset if offset > 0 else None,
             with_payload=True,
-            with_vectors=False
+            with_vectors=False,
         )
 
         memories = []
-        for record in records:
-            payload = record.payload
-            payload["id"] = str(record.id)
+        for point in result.points:
+            payload = point.payload
+            payload["id"] = str(point.id)
             memories.append(MemoryModel(**payload))
 
-        return memories
+        return PaginatedMemories(
+            items=memories,
+            total=count_result.count,
+            limit=limit,
+            offset=offset,
+        )
     except Exception as e:
         logger.error(f"Failed to list memories: {e}")
         raise HTTPException(status_code=500, detail=str(e))

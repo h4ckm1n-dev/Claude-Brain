@@ -43,7 +43,8 @@ export function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useStats();
   const { data: graphStats } = useGraphStats();
   const { data: documentStats } = useDocumentStats();
-  const { data: allMemories } = useMemories({ limit: 500 });
+  const { data: allMemoriesData } = useMemories({ limit: 500 });
+  const allMemories = allMemoriesData?.items;
 
   // Phase 3-4: New hooks for quality, lifecycle, patterns, and audit
   const { data: qualityStats } = useQualityStats();

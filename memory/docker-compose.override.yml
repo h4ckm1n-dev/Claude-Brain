@@ -1,0 +1,33 @@
+# Dev mode override: Vite HMR instead of Nginx
+# Active by default with `docker compose up -d`
+# Production: `docker compose -f docker-compose.yml up -d`
+
+services:
+  # Disable the Nginx frontend in dev mode
+  claude-mem-frontend:
+    profiles: ["production"]
+
+  # Expose core directly on host port 8100 (MCP calls this)
+  claude-mem-core:
+    ports:
+      - "8100:8100"
+
+  # Vite dev server with HMR
+  claude-mem-vite:
+    image: node:20-slim
+    container_name: claude-mem-vite
+    working_dir: /app
+    command: ["sh", "-c", "npm install --legacy-peer-deps && npm run dev -- --host 0.0.0.0"]
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - vite_node_modules:/app/node_modules
+    environment:
+      - TZ=Asia/Bangkok
+    depends_on:
+      claude-mem-core:
+        condition: service_healthy
+
+volumes:
+  vite_node_modules:

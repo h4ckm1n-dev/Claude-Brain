@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useMemories, useDeleteMemory, usePinMemory, useArchiveMemory, useReinforceMemory, useForgettingStats, useWeakMemories, useQualityLeaderboard, useQualityReport } from '../hooks/useMemories';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '../components/layout/Header';
@@ -39,7 +39,7 @@ const TYPE_HOVER_GLOW: Record<string, string> = {
 
 export function Memories() {
   const [page, setPage] = useState(0);
-  const [limit] = useState(50);
+  const [limit] = useState(30);
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'created' | 'accessed' | 'count'>('created');
@@ -76,21 +76,28 @@ export function Memories() {
     }
   };
 
-  const { data: memories, isLoading } = useMemories({
+  const { data, isLoading } = useMemories({
     type: typeFilter || undefined,
     limit,
     offset: page * limit,
   });
 
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
   const deleteMemory = useDeleteMemory();
   const pinMemory = usePinMemory();
   const archiveMemory = useArchiveMemory();
 
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [typeFilter, searchQuery, accessFilter]);
+
   const filteredMemories = useMemo(() => {
-    let filtered = memories?.filter((m: Memory) =>
+    let filtered = items.filter((m: Memory) =>
       !searchQuery || m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    ) || [];
+    );
 
     if (accessFilter === 'never') {
       filtered = filtered.filter(m => m.access_count === 0);
@@ -106,7 +113,7 @@ export function Memories() {
     });
 
     return filtered;
-  }, [memories, searchQuery, accessFilter, sortBy]);
+  }, [items, searchQuery, accessFilter, sortBy]);
 
   const accessStats = useMemo(() => {
     if (!filteredMemories.length) return { totalAccesses: 0, mostAccessed: null as Memory | null, neverAccessed: 0, avgAccess: 0 };
@@ -149,7 +156,7 @@ export function Memories() {
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white">Memory Management</h1>
                 <p className="text-white/50 text-sm mt-0.5">
-                  {filteredMemories.length} memories{typeFilter && ` \u00b7 ${typeFilter}`}
+                  {total} memories{typeFilter && ` \u00b7 ${typeFilter}`}{filteredMemories.length !== items.length && ` \u00b7 ${filteredMemories.length} shown`}
                 </p>
               </div>
             </div>
@@ -457,25 +464,32 @@ export function Memories() {
         {/* Pagination */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-white/50">
-            Showing {Math.min(page * limit + 1, filteredMemories.length)} to {Math.min((page + 1) * limit, filteredMemories.length)} of {filteredMemories.length}
+            {total > 0
+              ? `Showing ${page * limit + 1}\u2013${Math.min((page + 1) * limit, total)} of ${total}`
+              : 'No memories'}
           </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="bg-[#0f0f0f] border-white/10 text-white/90 hover:bg-white/5 hover:border-blue-500/50"
-              onClick={() => setPage(Math.max(0, page - 1))}
-              disabled={page === 0}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-[#0f0f0f] border-white/10 text-white/90 hover:bg-white/5 hover:border-blue-500/50"
-              onClick={() => setPage(page + 1)}
-              disabled={filteredMemories.length < limit}
-            >
-              Next
-            </Button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-white/40">
+              Page {page + 1} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="bg-[#0f0f0f] border-white/10 text-white/90 hover:bg-white/5 hover:border-blue-500/50"
+                onClick={() => setPage(Math.max(0, page - 1))}
+                disabled={page === 0}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-[#0f0f0f] border-white/10 text-white/90 hover:bg-white/5 hover:border-blue-500/50"
+                onClick={() => setPage(page + 1)}
+                disabled={(page + 1) >= totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </div>
 

@@ -1,7 +1,8 @@
 """FastAPI server for Claude Memory Service.
 
-Thin orchestrator that wires up routers, middleware, WebSocket, and SPA serving.
-All endpoint logic lives in src/routers/*.py modules.
+Thin orchestrator that wires up routers, middleware, WebSocket, and CORS.
+Frontend serving is handled by Nginx (docker/frontend.Dockerfile).
+Background scheduler is handled by the worker (src/worker.py).
 """
 
 import logging
@@ -9,10 +10,8 @@ import os
 from contextlib import asynccontextmanager
 import json
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 import uvicorn
 
 from . import collections
@@ -25,9 +24,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-# Frontend build path
-FRONTEND_BUILD = os.path.normpath(os.path.join(os.path.dirname(__file__), "../frontend/dist"))
 
 
 @asynccontextmanager
@@ -50,17 +46,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Embedding validation skipped: {e}")
 
-    # Start background scheduler for brain intelligence
-    try:
-        from .scheduler import start_scheduler
-        if start_scheduler():
-            logger.info("Background scheduler started for brain intelligence jobs")
-        else:
-            logger.info("Background scheduler disabled (set SCHEDULER_ENABLED=true to enable)")
-    except Exception as e:
-        logger.warning(f"Failed to start scheduler: {e}")
+    # Start background scheduler if enabled (disabled by default in microservice mode)
+    scheduler_enabled = os.getenv("SCHEDULER_ENABLED", "false").lower() == "true"
+    if scheduler_enabled:
+        try:
+            from .scheduler import start_scheduler
+            if start_scheduler():
+                logger.info("Background scheduler started (in-process mode)")
+            else:
+                logger.info("Background scheduler disabled")
+        except Exception as e:
+            logger.warning(f"Failed to start scheduler: {e}")
 
-    logger.info("Memory Service ready (memories + documents)")
+    logger.info("Memory Service ready")
     yield
     # Cleanup on shutdown
     logger.info("Shutting down Memory Service")
@@ -69,11 +67,12 @@ async def lifespan(app: FastAPI):
         close_driver()
     except Exception:
         pass
-    try:
-        from .scheduler import stop_scheduler
-        stop_scheduler()
-    except Exception:
-        pass
+    if scheduler_enabled:
+        try:
+            from .scheduler import stop_scheduler
+            stop_scheduler()
+        except Exception:
+            pass
 
 
 app = FastAPI(
@@ -87,10 +86,15 @@ app = FastAPI(
 from starlette.middleware.gzip import GZipMiddleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# CORS for local development
+# CORS for local development and Vite dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8100", "http://127.0.0.1:8100"],
+    allow_origins=[
+        "http://localhost:8100",
+        "http://127.0.0.1:8100",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -125,53 +129,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
-
-
-# Serve React Dashboard (Static Files)
-if os.path.exists(FRONTEND_BUILD):
-    logger.info(f"Serving React dashboard from {FRONTEND_BUILD}")
-
-    # Mount static assets (JS, CSS, images)
-    app.mount("/assets", StaticFiles(directory=f"{FRONTEND_BUILD}/assets"), name="assets")
-
-    @app.get("/{full_path:path}")
-    async def serve_spa(request: Request, full_path: str):
-        """
-        Serve React SPA for all non-API routes.
-        API routes are handled by FastAPI, everything else returns index.html
-        for client-side routing.
-        """
-        # Check Accept header to distinguish browser navigation from API calls
-        accept_header = request.headers.get('accept', '')
-        is_browser_request = 'text/html' in accept_header
-
-        # If browser navigation, always return SPA (let React Router handle it)
-        if is_browser_request:
-            index_path = os.path.join(FRONTEND_BUILD, "index.html")
-            if os.path.exists(index_path):
-                return FileResponse(index_path, media_type='text/html')
-            raise HTTPException(status_code=404, detail="Dashboard not built. Run: cd frontend && npm run build")
-
-        # For API requests, check if it's a known API route
-        api_prefixes = [
-            'memories', 'documents', 'health', 'stats', 'graph', 'context',
-            'consolidate', 'migrate', 'embed', 'notifications', 'settings',
-            'processes', 'jobs', 'logs', 'scheduler', 'database', 'indexing',
-            'docs', 'openapi.json', 'brain/'  # Changed to 'brain/' to avoid blocking brain.svg
-        ]
-        if any(full_path.startswith(prefix) for prefix in api_prefixes):
-            raise HTTPException(status_code=404, detail="API route not found")
-
-        # Check if it's a specific file request (e.g., /brain.svg, /manifest.json)
-        file_path = os.path.join(FRONTEND_BUILD, full_path)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            return FileResponse(file_path)
-
-        # Unknown route
-        raise HTTPException(status_code=404, detail="Not found")
-else:
-    logger.warning(f"Frontend build not found at {FRONTEND_BUILD}. Dashboard not available.")
-    logger.warning("To build the dashboard, run: cd frontend && npm run build")
 
 
 # Run server

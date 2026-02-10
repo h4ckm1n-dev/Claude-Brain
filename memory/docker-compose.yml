@@ -1,6 +1,31 @@
 name: claude-mem
 
+# ── Shared anchors ──────────────────────────────────────────────────────────
+
+x-backend-env: &backend-env
+  QDRANT_HOST: claude-mem-qdrant
+  QDRANT_PORT: "6333"
+  NEO4J_URI: bolt://claude-mem-neo4j:7687
+  NEO4J_USER: neo4j
+  NEO4J_PASSWORD: memory_graph_2024
+  LOG_LEVEL: INFO
+  USE_QUERY_UNDERSTANDING: "true"
+  MEMORY_PURGE_ENABLED: "true"
+  EMBEDDING_SERVICE_URL: http://claude-mem-embeddings:8102
+  TZ: Asia/Bangkok
+
+x-backend-base: &backend-base
+  build:
+    context: .
+    dockerfile: docker/backend.Dockerfile
+  volumes:
+    - ./data:/app/data
+    - ./src:/app/src
+  restart: unless-stopped
+
 services:
+  # ─── Data stores (unchanged) ───────────────────────────────────────────────
+
   claude-mem-qdrant:
     image: qdrant/qdrant:latest
     container_name: claude-mem-qdrant
@@ -40,30 +65,39 @@ services:
       timeout: 5s
       retries: 5
 
-  claude-mem-service:
-    build: .
-    container_name: claude-mem-service
-    ports:
-      - "8100:8100"
+  # ─── Embedding service (standalone ML model) ──────────────────────────────
+
+  claude-mem-embeddings:
+    build:
+      context: .
+      dockerfile: docker/embedding.Dockerfile
+    container_name: claude-mem-embeddings
     environment:
-      - QDRANT_HOST=claude-mem-qdrant
-      - QDRANT_PORT=6333
-      - NEO4J_URI=bolt://claude-mem-neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=memory_graph_2024
-      - LOG_LEVEL=INFO
-      - SCHEDULER_ENABLED=true
-      - USE_QUERY_UNDERSTANDING=true
-      - MEMORY_PURGE_ENABLED=true
-      - TZ=Asia/Bangkok
-    volumes:
-      - ./data:/app/data
-      - ./src:/app/src
-      # frontend/dist is built into the Docker image, no need to mount
+      LOG_LEVEL: INFO
+      TZ: Asia/Bangkok
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8102/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # ─── Domain services ──────────────────────────────────────────────────────
+
+  claude-mem-core:
+    <<: *backend-base
+    container_name: claude-mem-core
+    command: ["python", "-m", "src.services.core_app"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "false"
     depends_on:
       claude-mem-qdrant:
         condition: service_healthy
       claude-mem-neo4j:
+        condition: service_healthy
+      claude-mem-embeddings:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
@@ -71,6 +105,157 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  claude-mem-search:
+    <<: *backend-base
+    container_name: claude-mem-search
+    command: ["python", "-m", "src.services.search_app"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "false"
+    depends_on:
+      claude-mem-qdrant:
+        condition: service_healthy
+      claude-mem-embeddings:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8103/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  claude-mem-graph:
+    <<: *backend-base
+    container_name: claude-mem-graph
+    command: ["python", "-m", "src.services.graph_app"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "false"
+    depends_on:
+      claude-mem-neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8104/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  claude-mem-brain:
+    <<: *backend-base
+    container_name: claude-mem-brain
+    command: ["python", "-m", "src.services.brain_app"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "false"
+    depends_on:
+      claude-mem-qdrant:
+        condition: service_healthy
+      claude-mem-neo4j:
+        condition: service_healthy
+      claude-mem-embeddings:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8105/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  claude-mem-quality:
+    <<: *backend-base
+    container_name: claude-mem-quality
+    command: ["python", "-m", "src.services.quality_app"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "false"
+    depends_on:
+      claude-mem-qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8106/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  claude-mem-analytics:
+    <<: *backend-base
+    container_name: claude-mem-analytics
+    command: ["python", "-m", "src.services.analytics_app"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "false"
+    depends_on:
+      claude-mem-qdrant:
+        condition: service_healthy
+      claude-mem-neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8107/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  claude-mem-admin:
+    <<: *backend-base
+    container_name: claude-mem-admin
+    command: ["python", "-m", "src.services.admin_app"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "false"
+    depends_on:
+      claude-mem-qdrant:
+        condition: service_healthy
+      claude-mem-neo4j:
+        condition: service_healthy
+      claude-mem-embeddings:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ─── Background worker (scheduler only) ───────────────────────────────────
+
+  claude-mem-worker:
+    <<: *backend-base
+    container_name: claude-mem-worker
+    command: ["python", "-m", "src.worker"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_ENABLED: "true"
+      HEALTH_PORT: "8101"
+    depends_on:
+      claude-mem-qdrant:
+        condition: service_healthy
+      claude-mem-neo4j:
+        condition: service_healthy
+      claude-mem-embeddings:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8101/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ─── Frontend (Nginx + React SPA) ─────────────────────────────────────────
+
+  claude-mem-frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: claude-mem-frontend
+    ports:
+      - "8100:80"
+    depends_on:
+      claude-mem-core:
+        condition: service_healthy
     restart: unless-stopped
 
 networks:

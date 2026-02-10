@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type {
   Memory,
   MemoryCreate,
+  PaginatedMemories,
   SearchQuery,
   SearchResult,
   HealthResponse,
@@ -29,7 +30,7 @@ export const getMemories = (params?: {
   project?: string;
   limit?: number;
   offset?: number;
-}) => apiClient.get<Memory[]>('/memories', { params }).then(r => r.data);
+}) => apiClient.get<PaginatedMemories>('/memories', { params }).then(r => r.data);
 
 export const getMemory = (id: string) =>
   apiClient.get<Memory>(`/memories/${id}`).then(r => r.data);

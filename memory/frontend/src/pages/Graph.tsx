@@ -32,10 +32,11 @@ export function Graph() {
     queryFn: () => getTimeline(undefined, undefined, 200),
   });
 
-  const { data: memories } = useQuery({
+  const { data: memoriesData } = useQuery({
     queryKey: ['memories', 'all'],
     queryFn: () => getMemories({ limit: 200 }),
   });
+  const memories = memoriesData?.items;
 
   // Phase 3-4: Lifecycle and pattern data
   const { data: lifecycleStats } = useLifecycleStats();
