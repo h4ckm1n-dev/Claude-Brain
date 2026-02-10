@@ -7,9 +7,10 @@
 [![Status](https://img.shields.io/badge/status-production%20ready-success?style=for-the-badge)](.)
 [![Brain Functions](https://img.shields.io/badge/brain%20functions-15%2F15-brightgreen?style=for-the-badge)](.)
 [![Self-Optimizing](https://img.shields.io/badge/self--optimizing-yes-blue?style=for-the-badge)](.)
-[![Version](https://img.shields.io/badge/version-4.0-orange?style=for-the-badge)](.)
+[![Version](https://img.shields.io/badge/version-5.0-orange?style=for-the-badge)](.)
+[![Containers](https://img.shields.io/badge/containers-12-informational?style=for-the-badge)](.)
 
-**[Quick Start](#-quick-start)** • **[Features](#-what-makes-it-revolutionary)** • **[API Docs](#-api-reference)** • **[Use Cases](#-real-world-impact)**
+**[One-Command Install](#-one-command-install)** • **[Features](#-what-makes-it-revolutionary)** • **[Architecture](#-architecture-deep-dive)** • **[API Docs](#-api-reference)**
 
 </div>
 
@@ -22,7 +23,7 @@
 **This System**:
 - 🎯 **Remembers forever** - Every error, decision, and solution stored with perfect recall
 - 🧠 **Gets smarter** - Learns patterns from your 1000+ memories and suggests solutions proactively
-- 🔄 **Self-optimizing** - 9 automated jobs continuously improve accuracy and organization
+- 🔄 **Self-optimizing** - 14 automated jobs continuously improve accuracy and organization
 - ⭐ **Human-guided** - Rate memories to improve quality, full version history with rollback
 - 📊 **Actionable insights** - "You're a React expert", "85% error resolution rate", "Docker issues usually fixed by permissions"
 
@@ -157,24 +158,29 @@ Traditional Vector DB:      This System:
 Most systems are static. This one **continuously improves itself**:
 
 ```python
-# 9 Automated Jobs Running 24/7
+# 14 Automated Jobs Running 24/7
 
 Every 6 hours:
-  ✓ Deduplication      # Merge similar memories (95%+ similarity)
-  ✓ Document Sync      # Re-index documentation
+  ✓ Deduplication           # Merge similar memories (95%+ similarity)
+  ✓ Document Sync           # Re-index documentation
+  ✓ Quality Scoring         # Recalculate memory quality scores
+  ✓ Strength Decay          # Natural decay of unused memories
 
 Every 12 hours:
   ✓ Relationship Inference  # Auto-link related memories
   ✓ Conflict Detection      # Find contradictions
+  ✓ Tag Enrichment          # Auto-enrich sparse tags
 
 Daily:
-  ✓ Consolidation      # Episodic → Semantic promotion
-  ✓ Archival           # Remove low-value memories
-  ✓ Memory Replay      # Reinforce important memories
-  ✓ Meta-Learning      # Optimize from usage patterns
+  ✓ Consolidation           # Episodic → Semantic promotion
+  ✓ Archival                # Remove low-value memories
+  ✓ Memory Replay           # Reinforce important memories
+  ✓ Meta-Learning           # Optimize from usage patterns
+  ✓ Session Cleanup         # Consolidate old sessions
 
 Weekly:
-  ✓ Semantic Clustering  # Group similar topics
+  ✓ Semantic Clustering     # Group similar topics
+  ✓ Full Reindex            # Rebuild search indices
 ```
 
 **Result**: System gets **smarter every day** without manual intervention.
@@ -554,103 +560,81 @@ GET /backups
 
 ---
 
-## 🎬 Quick Start (5 Minutes)
+## 🚀 One-Command Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/h4ckm1n-dev/Claude-Brain/main/memory/install.sh | bash
+```
+
+That's it. The installer:
+1. Checks prerequisites (git, curl, node 18+, Docker, Compose v2)
+2. Clones the repo into `~/.claude`
+3. Builds 12 Docker containers (first build downloads ~650MB of ML models)
+4. Starts all services with phased health checks
+5. Installs and registers the MCP server with Claude Code
+6. Verifies everything works (health, CRUD, scheduler, dashboard)
 
 ### **Prerequisites**
 
-```bash
-# Required
-✓ Docker 24.0+
-✓ Docker Compose 2.0+
+| Requirement | macOS | Linux |
+|-------------|-------|-------|
+| **git** | `xcode-select --install` | `apt install git` |
+| **curl** | Pre-installed | `apt install curl` |
+| **Node.js 18+** | `brew install node` | [nodejs.org](https://nodejs.org) |
+| **Docker + Compose v2** | `brew install --cask orbstack` | Auto-installed by script |
 
-# Optional (for local development)
-✓ Python 3.11+
-✓ Node.js 18+ (for frontend dashboard)
-```
-
-### **Step 1: Start Services**
+### **Already Installed? Update & Restart**
 
 ```bash
+# Pull latest and rebuild
 cd ~/.claude/memory
+git pull
+docker compose -f docker-compose.yml build
+docker compose -f docker-compose.yml up -d --remove-orphans
 
-# Start Qdrant + Neo4j + API server
-docker compose up -d
-
-# Verify all services running
-docker compose ps
+# Or just re-run the setup (idempotent)
+bash ~/.claude/memory/setup.sh
 ```
 
-Expected output:
-```
-NAME                   STATUS
-claude-mem-qdrant      Up (healthy)
-claude-mem-neo4j       Up (healthy)
-claude-mem-service     Up
-```
-
-### **Step 2: Verify Health**
+### **Verify**
 
 ```bash
+# Health check
 curl http://localhost:8100/health | jq
 
-# Should return:
+# Expected:
 {
   "status": "healthy",
   "qdrant": "connected",
-  "neo4j": "connected",
-  "memory_count": 0,
-  "hybrid_search_enabled": true,
-  "graph_enabled": true,
-  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2"
+  "neo4j": "connected"
 }
+
+# Dashboard
+open http://localhost:8100
+
+# Scheduler (14 automated jobs)
+curl http://localhost:8100/scheduler/status | jq '.jobs | length'
+# → 14
 ```
 
-### **Step 3: Store Your First Memory**
+### **Quick Test**
 
 ```bash
-# Store an error + solution
+# Store a memory
 curl -X POST http://localhost:8100/memories \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "error",
-    "content": "React useState not updating immediately after setState",
-    "error_message": "setState called but component shows old value",
-    "solution": "setState is async. Use useEffect hook or setState callback",
-    "tags": ["react", "hooks", "state"],
-    "project": "my-app"
+    "type": "learning",
+    "content": "Test memory to verify the system works end-to-end",
+    "tags": ["test", "verification", "setup"],
+    "project": "my-project",
+    "context": "Created during initial setup verification"
   }' | jq '.id'
 
-# Returns: "019c0fc5-a1b2-7c3d-8e4f-9a0b1c2d3e4f"
-```
-
-### **Step 4: Search For It**
-
-```bash
-# Search using natural language
+# Search for it
 curl -X POST http://localhost:8100/memories/search \
   -H "Content-Type: application/json" \
-  -d '{
-    "query": "react state not updating",
-    "limit": 5,
-    "search_mode": "hybrid"
-  }' | jq '.[] | {content, score}'
-
-# Returns your memory with high relevance score!
-```
-
-### **Step 5: Get Insights (Optional)**
-
-```bash
-# View intelligence summary
-curl http://localhost:8100/insights/summary | jq
-
-# Returns:
-{
-  "insights": [
-    "You've documented 1 React memory",
-    "Your error resolution rate is 100%"
-  ]
-}
+  -d '{"query": "test verification", "limit": 5}' | jq '.[].content'
 ```
 
 ---
@@ -777,97 +761,129 @@ GET /insights/error-trends?days=90
 
 ## 🏗️ Architecture Deep Dive
 
-### **System Components**
+### **12-Container Microservice Architecture**
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   CLIENT APPLICATIONS                        │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────┐  │
-│   │  Claude  │  │   cURL   │  │Dashboard │  │  Slack    │  │
-│   │   Code   │  │   CLI    │  │  React   │  │   Bot     │  │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └─────┬─────┘  │
-└────────┼────────────┼─────────────┼───────────────┼─────────┘
-         │            │             │               │
-         └────────────┴─────────────┴───────────────┘
-                            │
-                            ▼
-         ┌────────────────────────────────────────┐
-         │      FastAPI Backend (Python 3.11)     │
-         │  ┌──────────────────────────────────┐  │
-         │  │   Core Services                  │  │
-         │  │  • Memory CRUD                   │  │
-         │  │  • Hybrid Search Engine          │  │
-         │  │  • Insight Generation            │  │
-         │  │  • Version Management            │  │
-         │  │  • Query Intelligence            │  │
-         │  │  • Data Export                   │  │
-         │  └──────────────────────────────────┘  │
-         │  ┌──────────────────────────────────┐  │
-         │  │   Intelligence Layer             │  │
-         │  │  • Meta-Learning                 │  │
-         │  │  • Conflict Detection            │  │
-         │  │  • Relationship Inference        │  │
-         │  │  • Semantic Clustering           │  │
-         │  │  • Memory Replay                 │  │
-         │  └──────────────────────────────────┘  │
-         │  ┌──────────────────────────────────┐  │
-         │  │   Automation (9 Jobs)            │  │
-         │  │  • Deduplication (6h)            │  │
-         │  │  • Consolidation (daily)         │  │
-         │  │  • Archival (daily)              │  │
-         │  │  • Graph Inference (12h)         │  │
-         │  │  • Cluster Analysis (weekly)     │  │
-         │  └──────────────────────────────────┘  │
-         └────────┬─────────────────┬─────────────┘
-                  │                 │
-        ┌─────────▼─────────┐  ┌───▼──────────────┐
-        │   Qdrant (Vector) │  │  Neo4j (Graph)   │
-        │                   │  │                  │
-        │  • 384-dim dense  │  │  • Relationships │
-        │  • Sparse vectors │  │  • Traversal     │
-        │  • HNSW index     │  │  • Inference     │
-        │  • Hybrid search  │  │  • Cypher        │
-        └───────────────────┘  └──────────────────┘
-                  │
-        ┌─────────▼──────────────────────────────┐
-        │  sentence-transformers/all-MiniLM-L6-v2│
-        │  (Local embedding model, privacy-first)│
-        └────────────────────────────────────────┘
+                    ┌──────────────────────────────────────┐
+                    │         CLIENT APPLICATIONS          │
+                    │  ┌────────┐  ┌──────┐  ┌─────────┐  │
+                    │  │ Claude │  │ cURL │  │Browser  │  │
+                    │  │  Code  │  │      │  │Dashboard│  │
+                    │  │ (MCP)  │  │      │  │         │  │
+                    │  └───┬────┘  └──┬───┘  └────┬────┘  │
+                    └──────┼─────────┼───────────┼────────┘
+                           └─────────┼───────────┘
+                                     ▼
+          ┌──────────────────────────────────────────────────┐
+          │              Nginx (port 8100)                   │
+          │         Frontend SPA + API Gateway               │
+          └──┬───┬───┬───┬───┬───┬───┬───┬───┬──────────────┘
+             │   │   │   │   │   │   │   │   │
+     ┌───────┘   │   │   │   │   │   │   │   └──────────┐
+     ▼           ▼   ▼   ▼   ▼   ▼   ▼   ▼              ▼
+  ┌──────┐  ┌──────┬──────┬──────┬──────┬──────┬──────┐ ┌──────┐
+  │ Core │  │Search│Graph │Brain │Qual. │Analy.│Admin │ │Worker│
+  │:8100 │  │:8103 │:8104 │:8105 │:8106 │:8107 │:8108 │ │:8101 │
+  │      │  │      │      │      │      │      │      │ │      │
+  │CRUD  │  │Hybrid│Neo4j │Dream │Score │Trend │Export│ │14    │
+  │WS    │  │BM25  │Links │Replay│Life- │Gaps  │Sess. │ │Sched.│
+  │Rate  │  │Rerank│Infer │Infer.│cycle │Audit │Docs  │ │Jobs  │
+  └──┬───┘  └──┬───┴──┬───┴──┬───┴──┬───┴──┬───┴──┬───┘ └──┬───┘
+     │         │      │      │      │      │      │         │
+     └─────────┴──────┴──────┴──────┴──────┴──────┴─────────┘
+                              │           │
+                    ┌─────────┴───┐  ┌────┴──────────────┐
+                    │   Qdrant    │  │      Neo4j        │
+                    │  (Vector)   │  │     (Graph)       │
+                    │             │  │                   │
+                    │ 768-dim     │  │  Relationships    │
+                    │ nomic-embed │  │  Traversal        │
+                    │ BM42 sparse │  │  Cypher queries   │
+                    └──────┬──────┘  └───────────────────┘
+                           │
+                  ┌────────┴─────────┐
+                  │   Embeddings     │
+                  │    Service       │
+                  │   :8102          │
+                  │                  │
+                  │ nomic-embed-     │
+                  │   text-v1.5      │
+                  │ BM42 (sparse)    │
+                  │ cross-encoder    │
+                  └──────────────────┘
 ```
+
+### **Container Map**
+
+| Container | Port | Role |
+|-----------|------|------|
+| `claude-mem-frontend` | **8100** (host) | Nginx gateway — React SPA + API routing |
+| `claude-mem-core` | 8100 | Memory CRUD, WebSocket, ratings |
+| `claude-mem-embeddings` | 8102 | ML models (nomic-embed-text-v1.5, BM42, cross-encoder) |
+| `claude-mem-search` | 8103 | Hybrid search, BM25, reranking |
+| `claude-mem-graph` | 8104 | Neo4j operations, relationship inference |
+| `claude-mem-brain` | 8105 | Dream, replay, inference, conflict detection |
+| `claude-mem-quality` | 8106 | Quality scoring, lifecycle management |
+| `claude-mem-analytics` | 8107 | Trends, gaps, expertise profiling |
+| `claude-mem-admin` | 8108 | Export, sessions, documents, temporal queries |
+| `claude-mem-worker` | 8101 | APScheduler — 14 background jobs |
+| `claude-mem-qdrant` | 6333 | Qdrant vector database |
+| `claude-mem-neo4j` | 7474/7687 | Neo4j graph database |
+
+### **MCP Integration**
+
+Claude Code connects via a stdio MCP server (`~/.claude/mcp/memory-mcp/`):
+
+```
+Claude Code ──stdio──► MCP Server (Node.js) ──HTTP──► Nginx :8100 ──► Microservices
+```
+
+The setup script automatically registers the MCP server in `~/.claude.json`. Available tools in Claude Code:
+- `store_memory`, `search_memory`, `bulk_store` — core CRUD
+- `get_context`, `suggest_memories` — session context
+- `find_related`, `link_memories` — knowledge graph
+- `brain_dream`, `brain_replay`, `run_inference` — intelligence
+- `error_trends`, `knowledge_gaps` — analytics
+- `export_memories` — data portability
 
 ### **Key Design Decisions**
 
 | Decision | Rationale | Tradeoff |
 |----------|-----------|----------|
-| **Local embeddings** | Privacy, no API costs, offline capable | Slightly lower quality than GPT embeddings |
-| **Hybrid search** | Best recall (semantic + keyword) | Higher complexity |
+| **8 microservices** | Independent scaling, fault isolation | More containers to manage |
+| **nomic-embed-text-v1.5** | 768-dim, Matryoshka, SOTA quality | ~650MB model download |
+| **Standalone embedding service** | 60s+ startup, share across services | Extra container |
+| **Nginx gateway** | SPA + API routing, WebSocket upgrade | Config complexity |
+| **Local embeddings** | Privacy, no API costs, offline capable | Slightly lower quality than GPT |
+| **Hybrid search** | Best recall (semantic + keyword + rerank) | Higher complexity |
 | **Graph + Vector** | Relationships + similarity | Two databases to maintain |
-| **Python backend** | Rich ML ecosystem, FastAPI speed | Not as fast as Rust/Go |
-| **Docker deployment** | Easy setup, portable | Requires Docker |
-| **WebSocket notifications** | Real-time proactive suggestions | Stateful connections |
+| **Docker Compose** | One-command setup, portable | Requires Docker |
 
 ### **Performance Characteristics**
 
 ```python
 # Benchmarked on MacBook Pro M1, 16GB RAM
 
-Embedding generation:     ~500 texts/second
+Embedding generation:     ~500 texts/second (nomic-embed-text-v1.5)
 Vector search (1K docs):  <20ms
 Vector search (100K docs): <50ms
 Graph traversal (2 hops):  <20ms
 Hybrid search + rerank:    <100ms
 Deduplication check:       <10ms
 Full consolidation (1K):   ~30 seconds
-Memory lifecycle tier up:  ~5 seconds per memory
 
-# Resource usage
-RAM (idle):               ~200MB
-RAM (under load):         ~800MB
-RAM (100K memories):      ~2GB
-CPU (idle):               <1%
+# Resource usage (12 containers)
+RAM (idle):               ~1.5GB
+RAM (under load):         ~3GB
+CPU (idle):               <3%
 CPU (search queries):     5-15%
-Disk (1K memories):       ~50MB
+Disk (base images):       ~2GB
+Disk (1K memories):       ~100MB
 Disk (100K memories):     ~5GB
+
+# Startup time
+First build:              5-10 min (ML model download)
+Subsequent starts:        30-90s (embedding model loading)
 ```
 
 ---
@@ -1283,21 +1299,29 @@ GET /context/user:alice  # Personal memories
 
 **Check services are running**:
 ```bash
-docker compose ps
+cd ~/.claude/memory
+docker compose -f docker-compose.yml ps
 
-# All should show "Up"
+# All 12 should show "Up" / "healthy"
 # If not:
-docker compose up -d
-docker compose logs
+docker compose -f docker-compose.yml up -d --remove-orphans
+docker compose -f docker-compose.yml logs
 ```
 
 **Check port availability**:
 ```bash
-lsof -i :8100  # API port
+lsof -i :8100  # Nginx gateway
 lsof -i :6333  # Qdrant port
 lsof -i :7687  # Neo4j port
 
 # If ports in use, change in docker-compose.yml
+```
+
+**Orphan containers from old install**:
+```bash
+# Remove orphan containers from monolith era
+docker rm -f claude-mem-service 2>/dev/null
+docker compose -f docker-compose.yml up -d --remove-orphans
 ```
 
 </details>
@@ -1402,24 +1426,24 @@ environment:
 
 ### **Just Getting Started?**
 
-1. ✅ **[Quick Start](#-quick-start-5-minutes)** - Get running in 5 minutes
-2. 📖 **[API Reference](#-api-reference)** - Learn the endpoints
-3. 🎬 **[Use Cases](#-real-world-impact)** - See what's possible
-4. 💬 **Join Community** - Ask questions, share learnings
+1. ✅ **[One-Command Install](#-one-command-install)** - Get running in minutes
+2. 📊 **[Dashboard](http://localhost:8100)** - Explore your memories visually
+3. 📖 **[API Reference](#-api-reference)** - Learn the endpoints
+4. 🎬 **[Use Cases](#-real-world-impact)** - See what's possible
 
 ### **Ready to Optimize?**
 
 1. 📊 **Run Consolidation** - Merge similar memories
 2. ⭐ **Rate Memories** - Train the quality system
 3. 🔗 **Link Memories** - Build your knowledge graph
-4. 📈 **Track Progress** - Monitor insights dashboard
+4. 📈 **Track Progress** - Monitor insights on the dashboard
 
 ### **Advanced Usage**
 
-1. 🔌 **Integrate with Claude Code** - Automated memory storage
-2. 🌐 **Team Deployment** - Share knowledge across team
-3. 📱 **Mobile Access** - (Coming soon)
-4. 🤖 **Slack Bot** - (Roadmap)
+1. 🔌 **Claude Code MCP** - Auto-registered by setup script, 30+ tools
+2. 🌐 **Team Deployment** - Share knowledge across team via project tags
+3. 📦 **Export to Obsidian** - Wiki-linked markdown vault of your knowledge
+4. 🤖 **Scheduler Tuning** - 14 background jobs, all configurable
 
 ---
 
@@ -1429,29 +1453,36 @@ environment:
 
 While this is a personal system, the **patterns and architecture** are open for learning:
 
-- 📄 **Code Structure**: `src/` directory with 2700+ lines of production code
+- 📄 **Code Structure**: `src/` directory — 8 microservices, shared base factory, ML embedding service
 - 🏗️ **Architecture Decisions**: See design rationale in code comments
 - 🔬 **Research**: Hybrid search, graph inference, meta-learning implementations
 
 ### **Get Help**
 
 ```bash
-# API Documentation
-http://localhost:8100/docs         # Swagger UI
-http://localhost:8100/redoc        # ReDoc
+# Dashboard (React SPA)
+open http://localhost:8100
 
 # Health Check
-curl http://localhost:8100/health  # System status
+curl http://localhost:8100/health
 
-# Statistics
-curl http://localhost:8100/stats   # Usage metrics
+# Container Status
+cd ~/.claude/memory && docker compose -f docker-compose.yml ps
+
+# Service Logs
+docker compose -f docker-compose.yml logs claude-mem-core     # API logs
+docker compose -f docker-compose.yml logs claude-mem-worker   # Scheduler logs
+docker compose -f docker-compose.yml logs claude-mem-search   # Search logs
+
+# Scheduler Jobs
+curl http://localhost:8100/scheduler/status | jq
 ```
 
 ### **Report Issues**
 
 Found a bug? Have a feature request?
 
-1. Check existing issues
+1. Check [existing issues](https://github.com/h4ckm1n-dev/Claude-Brain/issues)
 2. Include: error logs, steps to reproduce, expected vs actual
 3. System info: `docker compose version`, `curl http://localhost:8100/health`
 
@@ -1469,7 +1500,8 @@ MIT License - Free for personal and commercial use.
 - [Qdrant](https://qdrant.tech/) - Lightning-fast vector database
 - [Neo4j](https://neo4j.com/) - Graph database for relationships
 - [FastAPI](https://fastapi.tiangolo.com/) - Modern Python API framework
-- [sentence-transformers](https://www.sbert.net/) - Local embedding models
+- [Nomic AI](https://www.nomic.ai/) - nomic-embed-text-v1.5 embedding model
+- [Model Context Protocol](https://modelcontextprotocol.io/) - Claude Code integration
 
 **Inspiration**:
 - **Human Memory Systems** - Episodic, semantic, procedural memory tiers
@@ -1498,7 +1530,11 @@ Traditional AI is static. This system **continuously learns**.
 
 ### **Transform scattered knowledge into intelligent recall**
 
-**[Get Started](#-quick-start-5-minutes)** • **[View Docs](http://localhost:8100/docs)** • **[See Architecture](#-architecture-deep-dive)**
+```bash
+curl -fsSL https://raw.githubusercontent.com/h4ckm1n-dev/Claude-Brain/main/memory/install.sh | bash
+```
+
+**[Get Started](#-one-command-install)** • **[Dashboard](http://localhost:8100)** • **[Architecture](#-architecture-deep-dive)**
 
 ---
 
