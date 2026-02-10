@@ -97,8 +97,8 @@ class InterferenceDetection:
                                 "content_b": candidate.payload.get("content", "")[:200],
                                 "created_a": payload.get("created_at"),
                                 "created_b": candidate.payload.get("created_at"),
-                                "importance_a": payload.get("importance", 0.5),
-                                "importance_b": candidate.payload.get("importance", 0.5),
+                                "importance_a": payload.get("importance_score", 0.5),
+                                "importance_b": candidate.payload.get("importance_score", 0.5),
                                 "contradiction_type": f"{pos_pattern} vs {neg_pattern}"
                             })
                             break

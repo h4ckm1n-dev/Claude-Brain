@@ -43,7 +43,7 @@ def replay_random_memories(
             scroll_filter=qmodels.Filter(
                 must=[
                     qmodels.FieldCondition(
-                        key="importance",
+                        key="importance_score",
                         range=qmodels.Range(gte=importance_threshold)
                     )
                 ]
@@ -235,7 +235,7 @@ def replay_underutilized_memories(
             scroll_filter=qmodels.Filter(
                 must=[
                     qmodels.FieldCondition(
-                        key="importance",
+                        key="importance_score",
                         range=qmodels.Range(gte=0.6)  # Important memories
                     )
                 ]

@@ -70,7 +70,7 @@ class MemoryExporter:
                     "content": memory["content"],
                     "tags": memory.get("tags", []),
                     "project": memory.get("project"),
-                    "importance": memory.get("importance", 0.5),
+                    "importance": memory.get("importance_score", 0.5),
                     "created_at": memory["created_at"],
                     "updated_at": memory.get("updated_at"),
                     "access_count": memory.get("access_count", 0),
@@ -136,7 +136,7 @@ class MemoryExporter:
                     memory["content"][:500],  # Truncate for CSV
                     "|".join(memory.get("tags", [])),
                     memory.get("project", ""),
-                    memory.get("importance", 0.5),
+                    memory.get("importance_score", 0.5),
                     memory["created_at"],
                     memory.get("access_count", 0),
                     "Yes" if memory.get("resolved") else "No"

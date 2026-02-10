@@ -279,7 +279,7 @@ async def brain_get_stats():
         points, _ = collections.get_client().scroll(
             collection_name=collections.COLLECTION_NAME,
             limit=1000,
-            with_payload=["access_count", "importance", "created_at", "last_accessed_at", "type"],
+            with_payload=["access_count", "importance_score", "created_at", "last_accessed_at", "type"],
             with_vectors=False,
         )
 
@@ -290,7 +290,7 @@ async def brain_get_stats():
             payload = point.payload
             utility = calculate_memory_utility(
                 access_count=payload.get("access_count", 0),
-                importance=payload.get("importance", 0.5),
+                importance=payload.get("importance_score", 0.5),
                 created_at=datetime.fromisoformat(payload["created_at"]),
                 last_accessed_at=(
                     datetime.fromisoformat(payload["last_accessed_at"])

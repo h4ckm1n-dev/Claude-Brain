@@ -110,7 +110,7 @@ class EmotionalWeighting:
             collection_name=collection_name,
             points=[memory_id],
             payload={
-                "importance": new_importance,
+                "importance_score": new_importance,
                 "emotional_weight": emotional_weight
             }
         )
@@ -156,7 +156,7 @@ def run_emotional_analysis(limit: int = 100) -> int:
 
             # Apply boost if significant
             if emotional_weight > 0.1:  # Threshold for significance
-                current_importance = payload.get("importance", 0.5)
+                current_importance = payload.get("importance_score", 0.5)
                 new_importance = EmotionalWeighting.apply_emotional_boost(
                     client,
                     COLLECTION_NAME,

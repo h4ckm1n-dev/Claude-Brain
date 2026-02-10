@@ -270,7 +270,7 @@ def get_topic_timeline(topic_name: str, limit: int = 50) -> List[Dict]:
                 "content": payload.get("content", "")[:200],
                 "created_at": payload.get("created_at"),
                 "type": payload.get("type"),
-                "importance": payload.get("importance", 0.5)
+                "importance": payload.get("importance_score", 0.5)
             })
 
         timeline.sort(key=lambda x: x["created_at"])

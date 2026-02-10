@@ -288,7 +288,7 @@ class InsightGenerator:
 
                 # Check importance vs access — only flag after 7 days
                 # (new high-quality memories naturally start with low access)
-                importance = payload.get("importance", 0.5)
+                importance = payload.get("importance_score", 0.5)
                 if importance > 0.8 and access_count < 2 and age_days >= 7:
                     reasons.append("high_importance_low_access")
 

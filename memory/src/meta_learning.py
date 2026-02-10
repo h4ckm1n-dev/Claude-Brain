@@ -63,7 +63,7 @@ class MetaLearning:
 
             # Importance distribution
             importance_scores = [
-                m.payload.get("importance", 0.5) for m in memories
+                m.payload.get("importance_score", 0.5) for m in memories
             ]
             avg_importance = sum(importance_scores) / len(importance_scores)
 

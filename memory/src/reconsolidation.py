@@ -75,7 +75,7 @@ def reconsolidate_memory(
             intervals = intervals[-10:]
 
         # Boost importance based on access pattern
-        current_importance = payload.get("importance", 0.5)
+        current_importance = payload.get("importance_score", 0.5)
 
         # Frequent recent access = more important
         if access_count > 5 and interval_hours and interval_hours < 24:
@@ -84,12 +84,19 @@ def reconsolidate_memory(
         else:
             new_importance = current_importance
 
+        # Reinforce memory strength on access (memories get stronger when recalled)
+        current_strength = payload.get("memory_strength", 1.0)
+        strength_boost = min(0.05, 0.01 * min(access_count, 5))  # Small boost, capped
+        new_strength = min(1.0, current_strength + strength_boost)
+
         # Update payload
         updated_payload = {
             "access_count": access_count,
             "last_accessed_at": last_accessed,
             "access_intervals": intervals,
-            "importance": new_importance,
+            "importance_score": new_importance,
+            "memory_strength": new_strength,
+            "last_decay_update": last_accessed,  # Reset decay timer on access
         }
 
         # Track co-accessed memories for future importance boosting
@@ -136,15 +143,16 @@ def reconsolidate_memory(
         logger.info(
             f"Reconsolidated memory {memory_id}: "
             f"access_count={access_count}, importance={new_importance:.2f}, "
-            f"new_links={new_links}"
+            f"strength={new_strength:.3f}, new_links={new_links}"
         )
 
         return {
             "success": True,
             "memory_id": memory_id,
             "access_count": access_count,
-            "importance": new_importance,
+            "importance_score": new_importance,
             "importance_change": new_importance - current_importance,
+            "memory_strength": new_strength,
             "new_relationships": new_links,
             "interval_hours": interval_hours
         }
@@ -213,7 +221,7 @@ def get_spaced_repetition_candidates(limit: int = 10) -> list[dict]:
                     "hours_since_access": hours_since,
                     "target_interval": target_interval,
                     "access_count": access_count,
-                    "importance": payload.get("importance", 0.5)
+                    "importance": payload.get("importance_score", 0.5)
                 })
 
         # Sort by importance * how overdue

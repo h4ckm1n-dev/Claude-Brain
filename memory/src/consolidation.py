@@ -928,7 +928,7 @@ def archive_low_utility_memories(
 
             utility = calculate_memory_utility(
                 access_count=payload.get("access_count", 0),
-                importance=payload.get("importance", 0.5),
+                importance=payload.get("importance_score", 0.5),
                 created_at=datetime.fromisoformat(payload["created_at"]),
                 last_accessed_at=(
                     datetime.fromisoformat(payload["last_accessed_at"])
