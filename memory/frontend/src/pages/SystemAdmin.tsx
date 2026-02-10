@@ -384,9 +384,9 @@ export function SystemAdmin() {
                       {job.status}
                     </Badge>
                     <div>
-                      <p className="text-sm font-mono text-white/80">{(job.id || '').slice(0, 12)}...</p>
+                      <p className="text-sm font-mono text-white/80">{job.script_name || (job.id || '').slice(0, 12)}</p>
                       <p className="text-xs text-white/40">
-                        {new Date(job.created_at).toLocaleString()}
+                        {job.created_at ? new Date(job.created_at).toLocaleString() : '—'}
                       </p>
                     </div>
                     {job.progress !== undefined && (

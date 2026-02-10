@@ -61,6 +61,7 @@ export interface SchedulerStatus {
 export interface JobInfo {
   id: string;
   status: string;
+  script_name?: string;
   progress?: number;
   result?: any;
   error?: string;
@@ -83,10 +84,32 @@ export const clearCache = () =>
 
 // Jobs
 export const getJobStatus = (jobId: string) =>
-  apiClient.get<JobInfo>(`/jobs/${jobId}`).then(r => r.data);
+  apiClient.get(`/jobs/${jobId}`).then(r => {
+    const j = r.data;
+    return {
+      id: j.job_id ?? j.id,
+      status: j.status,
+      script_name: j.script_name,
+      progress: j.progress,
+      result: j.result,
+      error: j.error,
+      created_at: j.started_at ?? j.created_at ?? '',
+    } as JobInfo;
+  });
 
 export const listJobs = (limit: number = 20) =>
-  apiClient.get<JobInfo[]>('/jobs', { params: { limit } }).then(r => r.data);
+  apiClient.get('/jobs', { params: { limit } }).then(r => {
+    const jobs = Array.isArray(r.data) ? r.data : r.data?.jobs ?? [];
+    return jobs.map((j: any) => ({
+      id: j.job_id ?? j.id,
+      status: j.status,
+      script_name: j.script_name,
+      progress: j.progress,
+      result: j.result,
+      error: j.error,
+      created_at: j.started_at ?? j.created_at ?? '',
+    })) as JobInfo[];
+  });
 
 export const cancelJob = (jobId: string) =>
   apiClient.post(`/jobs/${jobId}/cancel`).then(r => r.data);
