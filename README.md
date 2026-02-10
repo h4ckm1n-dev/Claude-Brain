@@ -10,8 +10,7 @@ Long-term memory system for [Claude Code](https://docs.anthropic.com/en/docs/cla
 
 Claude Brain gives Claude Code persistent memory backed by vector search (Qdrant), a knowledge graph (Neo4j), and neuroscience-inspired features like adaptive forgetting, memory reconsolidation, and spaced repetition. It runs as 12 Docker containers (8 microservices + worker + frontend + 2 databases) on your local machine and integrates with Claude Code via MCP.
 
-
-![Uploading Capture d’écran 2026-02-10 à 20.49.34.png…]()
+<img width="1800" height="1016" alt="Capture d’écran 2026-02-10 à 20 49 34" src="https://github.com/user-attachments/assets/fb008b2c-14cc-4f35-8ddc-ae2e5f11f1f0" />
 
 ## Quick Start
 
