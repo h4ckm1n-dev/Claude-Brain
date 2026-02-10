@@ -11,9 +11,7 @@ import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
 import { BrainIntelligence } from './pages/BrainIntelligence';
 import Documents from './pages/Documents';
-import { Consolidation } from './pages/Consolidation';
 import { Sessions } from './pages/Sessions';
-import { Temporal } from './pages/Temporal';
 import { SystemAdmin } from './pages/SystemAdmin';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useTheme } from './hooks/useTheme';
@@ -47,9 +45,7 @@ function AppContent() {
           <Route path="analytics" element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
           <Route path="brain" element={<ErrorBoundary><BrainIntelligence /></ErrorBoundary>} />
           <Route path="suggestions" element={<ErrorBoundary><Suggestions /></ErrorBoundary>} />
-          <Route path="consolidation" element={<ErrorBoundary><Consolidation /></ErrorBoundary>} />
           <Route path="sessions" element={<ErrorBoundary><Sessions /></ErrorBoundary>} />
-          <Route path="temporal" element={<ErrorBoundary><Temporal /></ErrorBoundary>} />
           <Route path="admin" element={<ErrorBoundary><SystemAdmin /></ErrorBoundary>} />
           <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
         </Route>

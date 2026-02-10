@@ -9,9 +9,7 @@ import {
   Brain,
   Lightbulb,
   Settings,
-  Combine,
   Clock,
-  History,
   Shield,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -33,14 +31,12 @@ const navigationGroups = [
       { name: 'Analytics', href: '/analytics', icon: BarChart3 },
       { name: 'Brain', href: '/brain', icon: Brain },
       { name: 'Suggestions', href: '/suggestions', icon: Lightbulb },
-      { name: 'Consolidation', href: '/consolidation', icon: Combine },
     ],
   },
   {
     label: 'System',
     items: [
       { name: 'Sessions', href: '/sessions', icon: Clock },
-      { name: 'Temporal', href: '/temporal', icon: History },
       { name: 'Settings', href: '/settings', icon: Settings },
       { name: 'Admin', href: '/admin', icon: Shield },
     ],

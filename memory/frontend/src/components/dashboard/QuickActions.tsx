@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Zap, Search, Plus, RefreshCw, Settings, FileText, Database } from 'lucide-react';
+import { Zap, Search, Plus, Settings, FileText, Database } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Link } from 'react-router-dom';
 
@@ -45,17 +45,6 @@ export function QuickActions() {
             >
               <FileText className="h-6 w-6 text-purple-600 group-hover:scale-110 transition-transform" />
               <span className="text-xs font-medium">Documents</span>
-            </Button>
-          </Link>
-
-          {/* Consolidate */}
-          <Link to="/consolidation" className="group">
-            <Button
-              variant="outline"
-              className="w-full h-24 flex flex-col items-center justify-center gap-2 hover:bg-amber-50 dark:hover:bg-amber-950 hover:border-amber-500 transition-all"
-            >
-              <RefreshCw className="h-6 w-6 text-amber-600 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-medium">Consolidate</span>
             </Button>
           </Link>
 
