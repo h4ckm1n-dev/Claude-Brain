@@ -154,6 +154,18 @@ The API runs **strict mode** — low-quality memories are rejected at store time
 - **Tags:** Generic tags (`bug`, `fix`, `code`, `update`) don't count — use specific ones
 - A complete memory scores 0.70+ at creation. Incomplete ones are rejected.
 
+## Canonical Project Names
+
+The backend auto-normalizes project names, but **always use these canonical slugs** when storing memories:
+
+| Project | Canonical Slug | Known Aliases (auto-mapped) |
+|---------|---------------|-----------------------------|
+| Claude Brain Memory System | `claude-brain` | "Claude Brain Memory System", ".claude", "claude_brain" |
+| Voice2type | `voice2type` | "Voice2type" |
+| Enduro Comptabilite | `enduro-compta` | "enduro" |
+
+When working in a new project, use `lowercase-hyphenated` slugs (e.g., `my-new-project`). The API normalizes spaces/underscores to hyphens automatically.
+
 ## Compaction Rules
 
 When context is compacted, preserve: current task description, key decisions made, files modified, unresolved errors, and active memory IDs being referenced. The PreCompact hook auto-saves context to memory.

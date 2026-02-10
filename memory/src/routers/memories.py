@@ -26,6 +26,7 @@ from ..quality import validate_memory_quality, QualityValidationError, get_quali
 from ..enhancements import (
     check_duplicate_before_store, suggest_tags_from_similar, get_template_hints,
     normalize_tags, auto_enrich_tags, auto_enrich_fields, clean_content,
+    normalize_project,
 )
 from ..server_deps import manager
 
@@ -173,13 +174,16 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
     # 1. Clean content
     data.content = clean_content(data.content)
 
-    # 2. Auto-enrich missing type-specific fields from content
+    # 2. Normalize project name to canonical slug
+    data.project = normalize_project(data.project)
+
+    # 3. Auto-enrich missing type-specific fields from content
     data = auto_enrich_fields(data)
 
-    # 3. Normalize + auto-enrich tags
+    # 4. Normalize + auto-enrich tags
     data = auto_enrich_tags(data)
 
-    # 4. Semantic dedup check
+    # 5. Semantic dedup check
     duplicate_info = check_duplicate_before_store(data)
     if duplicate_info:
         logger.warning(
@@ -187,7 +191,7 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
             f"(existing: {duplicate_info['existing_id']}, similarity: {duplicate_info['similarity_score']})"
         )
 
-    # 5. Quality validation
+    # 6. Quality validation
     try:
         is_valid, score, warnings = validate_memory_quality(data)
         if warnings:
@@ -214,7 +218,7 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
 
         raise HTTPException(status_code=422, detail=error_detail)
 
-    # 6. Legacy content filters
+    # 7. Legacy content filters
     content = data.content.strip()
 
     if "session-end" in (data.tags or []):
@@ -228,7 +232,7 @@ def enhance_and_validate(data: MemoryCreate) -> tuple[MemoryCreate, dict | None]
     if any(content == pattern.strip() for pattern in useless_patterns):
         raise HTTPException(status_code=400, detail="Memory content is too generic/empty")
 
-    # 7. Auto-captured boilerplate rejection
+    # 8. Auto-captured boilerplate rejection
     boilerplate_starts = [
         "session started for project",
         "session closed at",

@@ -376,6 +376,58 @@ def normalize_tags(tags: list[str] | None) -> list[str]:
 
 
 # ============================================================================
+# Project Name Normalization
+# ============================================================================
+
+# Canonical project names: maps known aliases/variants → canonical slug
+PROJECT_ALIASES: dict[str, str] = {
+    # Claude Brain Memory System
+    "claude brain memory system": "claude-brain",
+    "claude brain": "claude-brain",
+    "claude-brain-memory": "claude-brain",
+    "claude_brain": "claude-brain",
+    ".claude": "claude-brain",
+    # Voice2type
+    "voice2type": "voice2type",
+    "Voice2type": "voice2type",
+    # Enduro
+    "enduro": "enduro-compta",
+    "enduro-compta": "enduro-compta",
+}
+
+
+def normalize_project(project: str | None) -> str | None:
+    """Normalize project name to canonical slug.
+
+    Uses PROJECT_ALIASES for known projects, otherwise lowercases
+    and converts spaces/underscores to hyphens for consistency.
+
+    Returns None if project is None or empty.
+    """
+    if not project:
+        return project
+
+    stripped = project.strip()
+    if not stripped:
+        return None
+
+    # Check exact match first (case-insensitive)
+    lookup = stripped.lower()
+    if lookup in PROJECT_ALIASES:
+        return PROJECT_ALIASES[lookup]
+
+    # Normalize: lowercase, spaces/underscores → hyphens, strip trailing hyphens
+    import re
+    normalized = re.sub(r'[\s_]+', '-', stripped.lower()).strip('-')
+
+    # Check again after normalization
+    if normalized in PROJECT_ALIASES:
+        return PROJECT_ALIASES[normalized]
+
+    return normalized
+
+
+# ============================================================================
 # Content Cleaning
 # ============================================================================
 
