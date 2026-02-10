@@ -9,39 +9,35 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Audit"])
 
 
-@router.get("/audit/{memory_id}")
-async def get_memory_audit_trail(
-    memory_id: str,
-    limit: int = Query(default=100, ge=1, le=500, description="Maximum entries to return")
+# IMPORTANT: /audit/stats MUST be defined before /audit/{memory_id}
+# otherwise FastAPI matches "stats" as a memory_id parameter.
+
+@router.get("/audit/stats")
+async def get_audit_statistics(
+    memory_id: Optional[str] = Query(default=None, description="Filter by memory ID")
 ):
-    """Get audit trail for a specific memory.
+    """Get audit trail statistics.
 
     Args:
-        memory_id: Memory ID
-        limit: Maximum entries
+        memory_id: Optional memory ID filter
 
     Returns:
-        Audit trail entries
+        Audit statistics
     """
     from ..audit import AuditLogger
 
     try:
         client = collections.get_client()
 
-        entries = AuditLogger.get_audit_trail(
+        stats = AuditLogger.get_audit_statistics(
             client,
-            memory_id=memory_id,
-            limit=limit
+            memory_id=memory_id
         )
 
-        return {
-            "memory_id": memory_id,
-            "total_entries": len(entries),
-            "entries": [entry.to_dict() for entry in entries]
-        }
+        return stats
 
     except Exception as e:
-        logger.error(f"Failed to get audit trail: {e}")
+        logger.error(f"Failed to get audit statistics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -101,32 +97,39 @@ async def get_audit_trail(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/audit/stats")
-async def get_audit_statistics(
-    memory_id: Optional[str] = Query(default=None, description="Filter by memory ID")
+@router.get("/audit/{memory_id}")
+async def get_memory_audit_trail(
+    memory_id: str,
+    limit: int = Query(default=100, ge=1, le=500, description="Maximum entries to return")
 ):
-    """Get audit trail statistics.
+    """Get audit trail for a specific memory.
 
     Args:
-        memory_id: Optional memory ID filter
+        memory_id: Memory ID
+        limit: Maximum entries
 
     Returns:
-        Audit statistics
+        Audit trail entries
     """
     from ..audit import AuditLogger
 
     try:
         client = collections.get_client()
 
-        stats = AuditLogger.get_audit_statistics(
+        entries = AuditLogger.get_audit_trail(
             client,
-            memory_id=memory_id
+            memory_id=memory_id,
+            limit=limit
         )
 
-        return stats
+        return {
+            "memory_id": memory_id,
+            "total_entries": len(entries),
+            "entries": [entry.to_dict() for entry in entries]
+        }
 
     except Exception as e:
-        logger.error(f"Failed to get audit statistics: {e}")
+        logger.error(f"Failed to get audit trail: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

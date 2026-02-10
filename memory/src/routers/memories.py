@@ -29,6 +29,7 @@ from ..enhancements import (
     normalize_project,
 )
 from ..server_deps import manager
+from ..audit import log_create, log_update, log_delete, log_archive
 
 logger = logging.getLogger(__name__)
 
@@ -267,6 +268,13 @@ async def create_memory(data: MemoryCreate):
         # Store memory
         memory = collections.store_memory(data)
 
+        # Audit trail
+        try:
+            client = collections.get_client()
+            log_create(client, memory.id, {"type": data.type.value, "content": data.content[:200], "project": data.project}, actor="user")
+        except Exception:
+            pass  # audit is best-effort
+
         # Broadcast update to WebSocket clients
         await manager.broadcast({
             "type": "memory_created",
@@ -307,6 +315,12 @@ async def bulk_store_memories(memories: list[dict] = Body(...)):
         try:
             data, duplicate_info = enhance_and_validate(data)
             memory = await asyncio.to_thread(collections.store_memory, data)
+            # Audit trail (best-effort)
+            try:
+                client = collections.get_client()
+                log_create(client, memory.id, {"type": data.type.value, "content": data.content[:200], "project": data.project}, actor="user")
+            except Exception:
+                pass
             entry: dict = {"index": i, "id": memory.id, "status": "success"}
             if duplicate_info:
                 entry["duplicate_warning"] = duplicate_info["message"]
@@ -341,16 +355,24 @@ async def bulk_action(
         try:
             if operation == "archive":
                 collections.archive_memory(memory_id)
+                try: log_archive(client, memory_id, actor="user", reason="bulk-action")
+                except Exception: pass
                 results.append({"id": memory_id, "status": "archived"})
             elif operation == "delete":
                 collections.delete_memory(memory_id)
+                try: log_delete(client, memory_id, {}, actor="user", reason="bulk-action")
+                except Exception: pass
                 results.append({"id": memory_id, "status": "deleted"})
             elif operation == "pin":
                 collections.safe_set_payload(memory_id, {"pinned": True, "importance_score": 1.0})
+                try: log_update(client, memory_id, {"pinned": False}, {"pinned": True}, actor="user", reason="pin")
+                except Exception: pass
                 results.append({"id": memory_id, "status": "pinned"})
             elif operation == "reinforce":
                 from ..forgetting import reinforce_memory as _reinforce
                 _reinforce(client, collections.COLLECTION_NAME, memory_id, boost_amount=0.2)
+                try: log_update(client, memory_id, {}, {"reinforced": True, "boost": 0.2}, actor="user", reason="reinforce")
+                except Exception: pass
                 results.append({"id": memory_id, "status": "reinforced"})
             elif operation == "tag" and tag:
                 memory = collections.get_memory(memory_id)
@@ -360,6 +382,8 @@ async def bulk_action(
                         existing_tags.append(tag)
                         from ..models import MemoryUpdate as MU
                         collections.update_memory(memory_id, MU(tags=existing_tags))
+                        try: log_update(client, memory_id, {"tags": list(memory.tags or [])}, {"tags": existing_tags}, actor="user", reason=f"add tag: {tag}")
+                        except Exception: pass
                     results.append({"id": memory_id, "status": "tagged"})
                 else:
                     errors.append({"id": memory_id, "error": "not found"})
@@ -620,9 +644,24 @@ async def get_memory(memory_id: str):
 @router.patch("/memories/{memory_id}", response_model=Memory)
 async def update_memory(memory_id: str, update: MemoryUpdate):
     """Update an existing memory."""
+    # Snapshot old values for audit
+    old_memory = collections.get_memory(memory_id)
+    old_values = {}
+    if old_memory:
+        changed = update.model_dump(exclude_unset=True)
+        old_values = {k: getattr(old_memory, k, None) for k in changed}
+
     memory = collections.update_memory(memory_id, update)
     if not memory:
         raise HTTPException(status_code=404, detail="Memory not found")
+
+    # Audit trail
+    try:
+        client = collections.get_client()
+        new_values = update.model_dump(exclude_unset=True)
+        log_update(client, memory_id, old_values, new_values, actor="user")
+    except Exception:
+        pass  # audit is best-effort
 
     await manager.broadcast({
         "type": "memory_updated",
@@ -635,9 +674,20 @@ async def update_memory(memory_id: str, update: MemoryUpdate):
 @router.delete("/memories/{memory_id}")
 async def delete_memory(memory_id: str):
     """Delete a memory by ID."""
+    # Snapshot for audit before deletion
+    old_memory = collections.get_memory(memory_id)
+
     success = collections.delete_memory(memory_id)
     if not success:
         raise HTTPException(status_code=404, detail="Memory not found")
+
+    # Audit trail
+    try:
+        client = collections.get_client()
+        old_data = {"type": old_memory.type.value, "content": old_memory.content[:200]} if old_memory else {}
+        log_delete(client, memory_id, old_data, actor="user")
+    except Exception:
+        pass  # audit is best-effort
 
     await manager.broadcast({
         "type": "memory_deleted",
@@ -677,6 +727,13 @@ async def resolve_error(
         raise HTTPException(status_code=400, detail=str(e))
     if not memory:
         raise HTTPException(status_code=404, detail="Memory not found")
+
+    # Audit trail
+    try:
+        client = collections.get_client()
+        log_update(client, memory_id, {"resolved": False}, {"resolved": True, "solution": solution[:200]}, actor="user", reason="resolved")
+    except Exception:
+        pass
 
     # Auto-create FIXES relationship if related memory specified
     if related_memory_id:
@@ -754,6 +811,13 @@ async def rate_memory(memory_id: str, request: RatingRequest):
 
         collections.safe_set_payload(memory_id, update_payload)
 
+        # Audit trail
+        try:
+            client = collections.get_client()
+            log_update(client, memory_id, {"user_rating": old_rating}, {"user_rating": new_rating, "rating_given": request.rating}, actor="user", reason="rated")
+        except Exception:
+            pass
+
         await manager.broadcast({
             "type": "memory_rated",
             "data": {
@@ -787,6 +851,14 @@ async def archive_memory(memory_id: str):
             {"archived": True, "archived_at": datetime.now(timezone.utc).isoformat()},
             recalc_quality=False,  # No need to recalc quality for archived memories
         )
+
+        # Audit trail
+        try:
+            client = collections.get_client()
+            log_archive(client, memory_id, actor="user")
+        except Exception:
+            pass  # audit is best-effort
+
         return {"status": "archived", "id": memory_id}
     except Exception as e:
         logger.error(f"Archive failed: {e}")
@@ -798,6 +870,11 @@ async def pin_memory(memory_id: str):
     """Pin a memory so it never decays in importance."""
     try:
         collections.safe_set_payload(memory_id, {"pinned": True, "importance_score": 1.0})
+        try:
+            client = collections.get_client()
+            log_update(client, memory_id, {"pinned": False}, {"pinned": True}, actor="user", reason="pin")
+        except Exception:
+            pass
         return {"status": "pinned", "id": memory_id}
     except Exception as e:
         logger.error(f"Pin failed: {e}")
@@ -809,6 +886,11 @@ async def unpin_memory(memory_id: str):
     """Unpin a memory to allow normal decay."""
     try:
         collections.safe_set_payload(memory_id, {"pinned": False})
+        try:
+            client = collections.get_client()
+            log_update(client, memory_id, {"pinned": True}, {"pinned": False}, actor="user", reason="unpin")
+        except Exception:
+            pass
         return {"status": "unpinned", "id": memory_id}
     except Exception as e:
         logger.error(f"Unpin failed: {e}")
@@ -845,6 +927,12 @@ async def reinforce_memory(
 
         if new_strength is None:
             raise HTTPException(status_code=404, detail="Memory not found")
+
+        # Audit trail
+        try:
+            log_update(client, memory_id, {}, {"memory_strength": new_strength, "boost": boost_amount}, actor="user", reason="reinforce")
+        except Exception:
+            pass
 
         return {
             "status": "reinforced",
@@ -992,6 +1080,15 @@ async def restore_version(memory_id: str, version: int):
         QualityScoreCalculator.recalculate_single_memory_quality(
             client, collections.COLLECTION_NAME, memory_id
         )
+
+        # Audit trail
+        try:
+            log_update(client, memory_id,
+                       {"content": memory.content[:200] if memory.content else ""},
+                       {"restored_to_version": version, "content": target_version.content[:200] if target_version.content else ""},
+                       actor="user", reason=f"restored to version {version}")
+        except Exception:
+            pass
 
         return {
             "success": True,
