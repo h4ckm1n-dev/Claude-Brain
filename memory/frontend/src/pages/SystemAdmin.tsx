@@ -334,6 +334,11 @@ export function SystemAdmin() {
                       <p className="text-sm text-white/80">{job.name}</p>
                       <p className="text-xs text-white/40">
                         Next: {job.next_run ? new Date(job.next_run).toLocaleString() : 'N/A'}
+                        {job.last_run && (
+                          <span className="ml-2 text-green-400/60">
+                            Last: {new Date(job.last_run).toLocaleString()}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>

@@ -34,6 +34,13 @@ def _load_intelligence_settings() -> dict:
 
 
 _scheduler = None
+_job_last_run: dict[str, str] = {}  # job_id -> ISO timestamp of last successful run
+
+
+def _on_job_executed(event):
+    """APScheduler listener: record last run time on successful execution."""
+    from datetime import datetime, timezone
+    _job_last_run[event.job_id] = datetime.now(timezone.utc).isoformat()
 
 
 def get_scheduler():
@@ -44,8 +51,10 @@ def get_scheduler():
         try:
             from apscheduler.schedulers.background import BackgroundScheduler
             from apscheduler.triggers.interval import IntervalTrigger
+            from apscheduler.events import EVENT_JOB_EXECUTED
 
             _scheduler = BackgroundScheduler()
+            _scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
 
             # Load persisted intelligence settings
             intel_settings = _load_intelligence_settings()
@@ -259,7 +268,8 @@ def get_scheduler_status() -> dict:
         jobs.append({
             "id": job.id,
             "name": job.name if hasattr(job, 'name') else job.id,
-            "next_run": next_run
+            "next_run": next_run,
+            "last_run": _job_last_run.get(job.id),
         })
 
     return {
