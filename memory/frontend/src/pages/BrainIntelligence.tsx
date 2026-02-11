@@ -160,43 +160,42 @@ export function BrainIntelligence() {
   const utilityDist = brainStats?.utility_distribution;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Brain Intelligence" />
 
-      <div className="p-6 space-y-6 max-w-[1800px] mx-auto">
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-indigo-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5" />
-          <div className="relative flex items-center gap-4 mb-4">
-            <div className="p-3 bg-blue-500/10 rounded-xl ring-1 ring-blue-500/20">
-              <Brain className="h-8 w-8 text-blue-400" />
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-2.5 rounded-xl">
+              <Brain className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Brain Intelligence System</h1>
-              <p className="text-white/60 mt-1">
-                Autonomous learning, adaptive importance, and intelligent forgetting
-              </p>
+              <h1 className="text-2xl font-bold text-white">Brain Intelligence System</h1>
+              <p className="text-sm text-white/40">Autonomous learning, adaptive importance, and intelligent forgetting</p>
             </div>
           </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-[#0a0a0a] rounded-xl p-4 border border-white/5">
-              <p className="text-sm text-white/50">Total Memories</p>
-              <p className="text-3xl font-bold text-white">{totalMemories.toLocaleString()}</p>
-            </div>
-            <div className="bg-[#0a0a0a] rounded-xl p-4 border border-white/5">
-              <p className="text-sm text-white/50">Auto-Linked Relationships</p>
-              <p className="text-3xl font-bold text-white">{(brainStats?.relationships || 0).toLocaleString()}</p>
-            </div>
-            <div className="bg-[#0a0a0a] rounded-xl p-4 border border-white/5">
-              <p className="text-sm text-white/50">High-Utility Memories</p>
-              <p className="text-3xl font-bold text-white">{(utilityDist?.high || 0).toLocaleString()}</p>
-            </div>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-[#111] rounded-xl p-4 border border-white/[0.06]">
+            <p className="text-sm text-white/40">Total Memories</p>
+            <p className="text-3xl font-bold text-white">{totalMemories.toLocaleString()}</p>
+          </div>
+          <div className="bg-[#111] rounded-xl p-4 border border-white/[0.06]">
+            <p className="text-sm text-white/40">Auto-Linked Relationships</p>
+            <p className="text-3xl font-bold text-white">{(brainStats?.relationships || 0).toLocaleString()}</p>
+          </div>
+          <div className="bg-[#111] rounded-xl p-4 border border-white/[0.06]">
+            <p className="text-sm text-white/40">High-Utility Memories</p>
+            <p className="text-3xl font-bold text-white">{(utilityDist?.high || 0).toLocaleString()}</p>
           </div>
         </div>
 
         {/* Feature Status */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-emerald-500 shadow-xl hover:shadow-emerald-500/10 transition-all">
+          <Card className="bg-[#111] border-white/[0.06] border-l-4 border-l-emerald-500 shadow-xl hover:shadow-emerald-500/10 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg text-white">
                 <TrendingUp className="h-5 w-5 text-emerald-400" />
@@ -211,7 +210,7 @@ export function BrainIntelligence() {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-blue-500 shadow-xl hover:shadow-blue-500/10 transition-all">
+          <Card className="bg-[#111] border-white/[0.06] border-l-4 border-l-blue-500 shadow-xl hover:shadow-blue-500/10 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg text-white">
                 <LinkIcon className="h-5 w-5 text-blue-400" />
@@ -226,7 +225,7 @@ export function BrainIntelligence() {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-orange-500 shadow-xl hover:shadow-orange-500/10 transition-all">
+          <Card className="bg-[#111] border-white/[0.06] border-l-4 border-l-orange-500 shadow-xl hover:shadow-orange-500/10 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg text-white">
                 <Archive className="h-5 w-5 text-orange-400" />
@@ -244,13 +243,13 @@ export function BrainIntelligence() {
 
         {/* Utility Distribution */}
         {utilityDist && (
-          <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
+          <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-amber-500/10 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
                 <Zap className="h-5 w-5 text-amber-400" />
                 Memory Utility Distribution
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-white/40">
                 Based on access patterns, relationships, and importance scores
               </CardDescription>
             </CardHeader>
@@ -309,13 +308,13 @@ export function BrainIntelligence() {
         )}
 
         {/* Phase 3-4: Manual Triggers for Intelligence Systems */}
-        <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-purple-500/10 transition-all">
           <CardHeader className="border-b border-white/5">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-400" />
               <CardTitle className="text-white">Manual Intelligence Triggers</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Manually trigger Phase 3-4 intelligence systems
             </CardDescription>
           </CardHeader>
@@ -597,13 +596,13 @@ export function BrainIntelligence() {
         {/* Action Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Relationship Inference */}
-          <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-blue-500/10 transition-all">
+          <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-blue-500/10 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
                 <LinkIcon className="h-5 w-5 text-blue-400" />
                 Infer Relationships
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-white/40">
                 Automatically create links between related memories
               </CardDescription>
             </CardHeader>
@@ -670,13 +669,13 @@ export function BrainIntelligence() {
           </Card>
 
           {/* Adaptive Importance */}
-          <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-emerald-500/10 transition-all">
+          <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-emerald-500/10 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
                 <TrendingUp className="h-5 w-5 text-emerald-400" />
                 Update Importance Scores
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-white/40">
                 Recalculate importance based on access patterns
               </CardDescription>
             </CardHeader>
@@ -734,13 +733,13 @@ export function BrainIntelligence() {
           </Card>
 
           {/* Utility Archival */}
-          <Card className="lg:col-span-2 bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-orange-500/10 transition-all">
+          <Card className="lg:col-span-2 bg-[#111] border-white/[0.06] shadow-xl hover:shadow-orange-500/10 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
                 <Archive className="h-5 w-5 text-orange-400" />
                 Utility-Based Archival
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-white/40">
                 Archive low-utility memories intelligently
               </CardDescription>
             </CardHeader>
@@ -855,7 +854,7 @@ export function BrainIntelligence() {
         <CoAccessSection />
 
         {/* Info Card */}
-        <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-blue-500 shadow-xl hover:shadow-blue-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] border-l-4 border-l-blue-500 shadow-xl hover:shadow-blue-500/10 transition-all">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <Info className="h-5 w-5 text-blue-400" />
@@ -897,13 +896,13 @@ function SpacedRepetitionSection() {
   const reconsolidate = useReconsolidate();
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-green-400" />
           <CardTitle className="text-white">Spaced Repetition</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Memories due for review to strengthen retention
         </CardDescription>
       </CardHeader>
@@ -950,13 +949,13 @@ function TopicDiscoverySection() {
   const { data: timeline } = useTopicTimeline(selectedTopic, 30);
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Layers className="h-5 w-5 text-purple-400" />
           <CardTitle className="text-white">Topic Discovery</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Automatically discovered topic clusters from your memories
         </CardDescription>
       </CardHeader>
@@ -1016,13 +1015,13 @@ function MemoryReplaySection() {
   const isPending = replay.isPending || projectReplay.isPending || underutilizedReplay.isPending || dream.isPending;
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Repeat className="h-5 w-5 text-amber-400" />
           <CardTitle className="text-white">Memory Replay</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Replay memories to strengthen connections and discover new insights
         </CardDescription>
       </CardHeader>
@@ -1109,7 +1108,7 @@ function CoAccessSection() {
   const resetCoAccess = useResetCoAccess();
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1126,7 +1125,7 @@ function CoAccessSection() {
             Reset
           </Button>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Memories frequently accessed together may have implicit relationships
         </CardDescription>
       </CardHeader>

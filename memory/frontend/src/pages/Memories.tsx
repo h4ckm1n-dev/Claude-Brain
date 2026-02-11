@@ -141,37 +141,34 @@ export function Memories() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Memories" />
-      <div className="p-4 sm:p-6 lg:p-8 max-w-[1800px] mx-auto space-y-5">
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
 
-        {/* Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-emerald-500/10 p-5 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5" />
-          <div className="relative flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <div className="p-2.5 bg-blue-500/10 rounded-xl ring-1 ring-blue-500/20">
-                <Database className="h-6 w-6 text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white">Memory Management</h1>
-                <p className="text-white/50 text-sm mt-0.5">
-                  {total} memories{typeFilter && ` \u00b7 ${typeFilter}`}{filteredMemories.length !== items.length && ` \u00b7 ${filteredMemories.length} shown`}
-                </p>
-              </div>
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl">
+              <Database className="h-7 w-7 text-white" />
             </div>
-            <Button
-              onClick={handleCreate}
-              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 shadow-lg shadow-purple-500/20"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Memory
-            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Memory Management</h1>
+              <p className="text-sm text-white/40">
+                {total} memories{typeFilter && ` \u00b7 ${typeFilter}`}{filteredMemories.length !== items.length && ` \u00b7 ${filteredMemories.length} shown`}
+              </p>
+            </div>
           </div>
+          <Button
+            onClick={handleCreate}
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 shadow-lg shadow-purple-500/20"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Memory
+          </Button>
         </div>
 
         {/* Compact Stats Strip */}
-        <div className="flex items-center gap-4 sm:gap-6 px-4 py-3 bg-[#0f0f0f] rounded-xl border border-white/[0.06] overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-4 sm:gap-6 px-4 py-3 bg-[#111] border border-white/[0.06] rounded-xl overflow-x-auto scrollbar-none">
           <div className="flex items-center gap-2 shrink-0">
             <Eye className="h-3.5 w-3.5 text-blue-400" />
             <span className="text-xs text-white/40">Views</span>
@@ -210,13 +207,13 @@ export function Memories() {
               placeholder="Search memories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-[#0f0f0f] border-white/[0.08] text-white placeholder:text-white/30 focus:border-blue-500/50 h-9"
+              className="pl-10 bg-[#111] border-white/[0.08] text-white placeholder:text-white/30 focus:border-blue-500/50 h-9"
             />
           </div>
           <Select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-36 bg-[#0f0f0f] border-white/[0.08] text-white h-9"
+            className="w-36 bg-[#111] border-white/[0.08] text-white h-9"
           >
             <option value="">All Types</option>
             {Object.values(MemoryType).map((type) => (
@@ -226,7 +223,7 @@ export function Memories() {
           <Select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'created' | 'accessed' | 'count')}
-            className="w-44 bg-[#0f0f0f] border-white/[0.08] text-white h-9"
+            className="w-44 bg-[#111] border-white/[0.08] text-white h-9"
           >
             <option value="created">Sort by Created</option>
             <option value="accessed">Sort by Accessed</option>
@@ -235,7 +232,7 @@ export function Memories() {
           <Select
             value={accessFilter}
             onChange={(e) => setAccessFilter(e.target.value as 'all' | 'never' | 'recent')}
-            className="w-44 bg-[#0f0f0f] border-white/[0.08] text-white h-9"
+            className="w-44 bg-[#111] border-white/[0.08] text-white h-9"
           >
             <option value="all">All Memories</option>
             <option value="never">Never Accessed</option>
@@ -245,7 +242,7 @@ export function Memories() {
             <Button
               variant="outline"
               size="sm"
-              className="bg-[#0f0f0f] border-white/[0.08] text-white/70 hover:bg-white/5 hover:border-purple-500/30 h-9 px-3"
+              className="bg-[#111] border-white/[0.08] text-white/70 hover:bg-white/5 hover:border-purple-500/30 h-9 px-3"
               onClick={() => exportToCSV(filteredMemories)}
               disabled={!filteredMemories.length}
             >
@@ -254,7 +251,7 @@ export function Memories() {
             <Button
               variant="outline"
               size="sm"
-              className="bg-[#0f0f0f] border-white/[0.08] text-white/70 hover:bg-white/5 hover:border-purple-500/30 h-9 px-3"
+              className="bg-[#111] border-white/[0.08] text-white/70 hover:bg-white/5 hover:border-purple-500/30 h-9 px-3"
               onClick={() => exportToJSON(filteredMemories)}
               disabled={!filteredMemories.length}
             >
@@ -263,7 +260,7 @@ export function Memories() {
             <Button
               variant="outline"
               size="sm"
-              className="bg-[#0f0f0f] border-white/[0.08] text-white/70 hover:bg-white/5 hover:border-purple-500/30 h-9 px-3"
+              className="bg-[#111] border-white/[0.08] text-white/70 hover:bg-white/5 hover:border-purple-500/30 h-9 px-3"
               onClick={() => exportToMarkdown(filteredMemories)}
               disabled={!filteredMemories.length}
             >
@@ -475,7 +472,7 @@ export function Memories() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                className="bg-[#0f0f0f] border-white/10 text-white/90 hover:bg-white/5 hover:border-blue-500/50"
+                className="bg-[#111] border-white/[0.06] text-white/90 hover:bg-white/5 hover:border-blue-500/50"
                 onClick={() => setPage(Math.max(0, page - 1))}
                 disabled={page === 0}
               >
@@ -483,7 +480,7 @@ export function Memories() {
               </Button>
               <Button
                 variant="outline"
-                className="bg-[#0f0f0f] border-white/10 text-white/90 hover:bg-white/5 hover:border-blue-500/50"
+                className="bg-[#111] border-white/[0.06] text-white/90 hover:bg-white/5 hover:border-blue-500/50"
                 onClick={() => setPage(page + 1)}
                 disabled={(page + 1) >= totalPages}
               >
@@ -523,13 +520,13 @@ function ForgettingCurveSection() {
   const reinforce = useReinforceMemory();
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-amber-400" />
           <CardTitle className="text-white">Forgetting Curve</CardTitle>
         </div>
-        <CardDescription className="text-white/60">Weak memories needing reinforcement</CardDescription>
+        <CardDescription className="text-white/40">Weak memories needing reinforcement</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {stats && (
@@ -587,13 +584,13 @@ function QualityLeaderboardSection() {
   const { data: report } = useQualityReport();
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Award className="h-5 w-5 text-yellow-400" />
           <CardTitle className="text-white">Quality Leaderboard</CardTitle>
         </div>
-        <CardDescription className="text-white/60">Top-rated memories by quality</CardDescription>
+        <CardDescription className="text-white/40">Top-rated memories by quality</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {report && (

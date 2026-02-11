@@ -236,9 +236,9 @@ export function Settings() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+      <div className="min-h-screen bg-[#0a0a0a]">
         <Header title="Settings" />
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="flex items-center justify-center h-64">
             <div className="animate-pulse text-lg text-white/90">Loading settings...</div>
           </div>
@@ -248,21 +248,18 @@ export function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Settings" />
-      <div className="p-4 sm:p-8 space-y-6 max-w-[1800px] mx-auto">
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500/10 via-teal-500/10 to-green-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/10 rounded-xl ring-1 ring-emerald-500/20">
-              <SettingsIcon className="h-8 w-8 text-emerald-400" />
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-2.5 rounded-xl">
+              <SettingsIcon className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">System Configuration</h1>
-              <p className="text-white/60 mt-1">
-                Customize memory capture, automation, and system behavior
-              </p>
+              <h1 className="text-2xl font-bold text-white">System Configuration</h1>
+              <p className="text-sm text-white/40">Customize memory capture, automation, and system behavior</p>
             </div>
           </div>
         </div>
@@ -280,7 +277,7 @@ export function Settings() {
         )}
 
         {/* Theme Settings */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-emerald-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-emerald-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               {resolvedTheme === 'dark' ? (
@@ -290,14 +287,14 @@ export function Settings() {
               )}
               <CardTitle className="text-white">Appearance</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Customize the interface theme based on your preference
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div>
               <Label className="text-white/90">Theme Mode</Label>
-              <p className="text-sm text-white/50 mb-3">
+              <p className="text-sm text-white/40 mb-3">
                 Choose your preferred color scheme
               </p>
               <div className="grid grid-cols-3 gap-3">
@@ -365,13 +362,13 @@ export function Settings() {
         </div>
 
         {/* Automatic Capture Settings */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-blue-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-blue-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Database className="h-5 w-5 text-blue-400" />
               <CardTitle className="text-white">Automatic Capture</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Control what information is automatically captured to memory
             </CardDescription>
           </CardHeader>
@@ -379,7 +376,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">WebFetch Documentation</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Auto-save documentation fetched online
                 </p>
               </div>
@@ -394,7 +391,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">Successful Bash Commands</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Save deployment and installation commands
                 </p>
               </div>
@@ -409,7 +406,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">Bash Errors</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Auto-capture failed commands with error details
                 </p>
               </div>
@@ -424,7 +421,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">Task Agent Results</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Save output from specialized agents
                 </p>
               </div>
@@ -439,20 +436,20 @@ export function Settings() {
         </Card>
 
         {/* Suggestion Settings */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-purple-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5 text-purple-400" />
               <CardTitle className="text-white">Memory Suggestions</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Configure how and when memory suggestions are shown
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Suggestion Limit</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 Maximum number of suggestions to show at once
               </p>
               <Input
@@ -466,13 +463,13 @@ export function Settings() {
                     suggestionLimit: parseInt(e.target.value) || 5,
                   }))
                 }
-                className="bg-[#0f0f0f] border-white/10 text-white"
+                className="bg-[#111] border-white/[0.06] text-white"
               />
             </div>
 
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Minimum Relevance Score</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 Only show suggestions above this relevance threshold (0-1)
               </p>
               <Slider
@@ -491,7 +488,7 @@ export function Settings() {
 
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Suggestion Frequency</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 How often to show suggestions
               </p>
               <Select
@@ -502,7 +499,7 @@ export function Settings() {
                     suggestionFrequency: e.target.value as any,
                   }))
                 }
-                className="bg-[#0f0f0f] border-white/10 text-white"
+                className="bg-[#111] border-white/[0.06] text-white"
               >
                 <option value="always">Every Message (Default)</option>
                 <option value="hourly">Once Per Hour</option>
@@ -514,13 +511,13 @@ export function Settings() {
         </Card>
 
         {/* Notification Settings */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-amber-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-amber-400" />
               <CardTitle className="text-white">Notifications</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Manage notification preferences
             </CardDescription>
           </CardHeader>
@@ -528,7 +525,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">Enable Notifications</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Show notification panel with alerts
                 </p>
               </div>
@@ -543,7 +540,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">Notification Sound</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Play sound for new notifications (coming soon)
                 </p>
               </div>
@@ -559,13 +556,13 @@ export function Settings() {
         </Card>
 
         {/* Cache Settings */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-emerald-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-emerald-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-emerald-400" />
               <CardTitle className="text-white">Query Cache</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Configure semantic query caching for faster responses
             </CardDescription>
           </CardHeader>
@@ -573,7 +570,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">Enable Cache</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Cache similar queries for faster responses
                 </p>
               </div>
@@ -587,7 +584,7 @@ export function Settings() {
 
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Cache TTL (Hours)</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 How long to keep cached results (1-168 hours)
               </p>
               <Input
@@ -601,20 +598,20 @@ export function Settings() {
                     cacheTtlHours: parseInt(e.target.value) || 24,
                   }))
                 }
-                className="bg-[#0f0f0f] border-white/10 text-white"
+                className="bg-[#111] border-white/[0.06] text-white"
               />
             </div>
           </CardContent>
         </Card>
 
         {/* Memory Lifecycle Settings */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-cyan-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-cyan-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Recycle className="h-5 w-5 text-cyan-400" />
               <CardTitle className="text-white">Memory Lifecycle</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Control how memories are deduplicated, superseded, and archived
             </CardDescription>
           </CardHeader>
@@ -623,7 +620,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] border border-white/5 hover:border-white/10 transition-colors">
               <div>
                 <Label className="text-white/90">Auto-Supersede</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Automatically archive older memories when a newer version is stored
                 </p>
               </div>
@@ -638,7 +635,7 @@ export function Settings() {
             {/* Threshold Visualization */}
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Similarity Thresholds</Label>
-              <p className="text-sm text-white/50 mb-4">
+              <p className="text-sm text-white/40 mb-4">
                 How the system handles memories at different similarity levels
               </p>
 
@@ -762,13 +759,13 @@ export function Settings() {
         </div>
 
         {/* Background Processes */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-blue-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-blue-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-blue-400" />
               <CardTitle className="text-white">Background Processes</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Manage automated memory services
             </CardDescription>
           </CardHeader>
@@ -777,7 +774,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <div className="flex-1">
                 <Label className="text-white/90">File Watcher Service</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Auto-index documents as they change
                 </p>
                 {watcherData?.running && (
@@ -805,7 +802,7 @@ export function Settings() {
             <div className="flex items-center justify-between p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <div className="flex-1">
                 <Label className="text-white/90">Scheduled Consolidation</Label>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/40">
                   Auto-cleanup every 24 hours
                 </p>
                 {schedulerData?.jobs?.[0]?.next_run && (
@@ -825,13 +822,13 @@ export function Settings() {
         </Card>
 
         {/* Document Indexing */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-indigo-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-indigo-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-indigo-400" />
               <CardTitle className="text-white">Document Indexing</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Automatically index and search your documents
             </CardDescription>
           </CardHeader>
@@ -841,7 +838,7 @@ export function Settings() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="font-medium text-white/90">Indexing Service</p>
-                  <p className="text-sm text-white/50">
+                  <p className="text-sm text-white/40">
                     {watcherData?.running
                       ? 'Documents are being automatically indexed'
                       : 'Enable the File Watcher to auto-index documents'}
@@ -876,7 +873,7 @@ export function Settings() {
             {/* Watched Folders */}
             <div className="space-y-3 pt-2 border-t border-white/10">
               <Label className="text-white/90">Watched Folders (Auto-Indexing)</Label>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-white/40">
                 These folders are monitored by the File Watcher for automatic indexing. Use ~ for home directory (e.g., ~/Documents)
               </p>
 
@@ -1046,13 +1043,13 @@ export function Settings() {
         </div>
 
         {/* Maintenance Tools */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-orange-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-orange-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Wrench className="h-5 w-5 text-orange-400" />
               <CardTitle className="text-white">Maintenance Tools</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Run manual cleanup and optimization tasks
             </CardDescription>
           </CardHeader>
@@ -1060,7 +1057,7 @@ export function Settings() {
             {/* Prune */}
             <div className="space-y-3 p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Prune Old Memories</Label>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-white/40">
                 Remove low-value memories older than specified days
               </p>
               <div className="grid grid-cols-3 gap-3">
@@ -1069,14 +1066,14 @@ export function Settings() {
                   placeholder="Days"
                   value={pruneParams.days}
                   onChange={(e) => setPruneParams(p => ({...p, days: parseInt(e.target.value) || 30}))}
-                  className="bg-[#0f0f0f] border-white/10 text-white"
+                  className="bg-[#111] border-white/[0.06] text-white"
                 />
                 <Input
                   type="number"
                   placeholder="Max"
                   value={pruneParams.max}
                   onChange={(e) => setPruneParams(p => ({...p, max: parseInt(e.target.value) || 1000}))}
-                  className="bg-[#0f0f0f] border-white/10 text-white"
+                  className="bg-[#111] border-white/[0.06] text-white"
                 />
                 <Button
                   onClick={() => scriptMutation.mutate({
@@ -1101,7 +1098,7 @@ export function Settings() {
             {/* Tag */}
             <div className="space-y-3 p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Auto-Tag Memories</Label>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-white/40">
                 Extract tech stack entities and auto-tag
               </p>
               <div className="grid grid-cols-2 gap-3">
@@ -1110,7 +1107,7 @@ export function Settings() {
                   placeholder="Limit"
                   value={tagParams.limit}
                   onChange={(e) => setTagParams({limit: parseInt(e.target.value) || 1000})}
-                  className="bg-[#0f0f0f] border-white/10 text-white"
+                  className="bg-[#111] border-white/[0.06] text-white"
                 />
                 <Button
                   onClick={() => scriptMutation.mutate({
@@ -1128,14 +1125,14 @@ export function Settings() {
             {/* Manual Consolidation */}
             <div className="space-y-3 p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Manual Consolidation</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 Merge similar memories and archive old ones (last 7 days)
               </p>
               <Button
                 onClick={() => consolidateMutation.mutate({ older_than_days: 7, dry_run: false })}
                 disabled={consolidateMutation.isPending}
                 variant="outline"
-                className="w-full bg-[#0f0f0f] border-white/10 text-white/90 hover:bg-white/5"
+                className="w-full bg-[#111] border-white/[0.06] text-white/90 hover:bg-white/5"
               >
                 {consolidateMutation.isPending ? 'Running...' : 'Run Consolidation Now'}
               </Button>
@@ -1144,13 +1141,13 @@ export function Settings() {
         </Card>
 
         {/* System Logs */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-purple-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-purple-400" />
               <CardTitle className="text-white">System Logs</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               View process logs and activity history
             </CardDescription>
           </CardHeader>
@@ -1185,7 +1182,7 @@ export function Settings() {
             {logData && (
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <p className="text-sm text-white/50">
+                  <p className="text-sm text-white/40">
                     {logData.exists ? `${logData.lines?.length || 0} lines` : 'Log not found'}
                   </p>
                   {logData.exists && (
@@ -1225,13 +1222,13 @@ export function Settings() {
         </Card>
 
         {/* Intelligence & Analytics Settings */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-purple-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-purple-400" />
               <CardTitle className="text-white">Intelligence & Analytics</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Advanced memory intelligence settings
             </CardDescription>
           </CardHeader>
@@ -1239,7 +1236,7 @@ export function Settings() {
             {/* Audit Trail Retention */}
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Audit Trail Retention Period</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 How long to keep archived memories before purging (30-365 days)
               </p>
               <div className="flex items-center gap-3">
@@ -1254,16 +1251,16 @@ export function Settings() {
                       auditRetentionDays: parseInt(e.target.value) || 90,
                     }))
                   }
-                  className="w-32 bg-[#0f0f0f] border-white/10 text-white"
+                  className="w-32 bg-[#111] border-white/[0.06] text-white"
                 />
-                <span className="text-sm text-white/50">days</span>
+                <span className="text-sm text-white/40">days</span>
               </div>
             </div>
 
             {/* Pattern Detection Schedule */}
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Pattern Detection Schedule</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 How often to run relationship inference
               </p>
               <Select
@@ -1274,7 +1271,7 @@ export function Settings() {
                     patternDetectionIntervalHours: parseInt(e.target.value) || 24,
                   }))
                 }
-                className="bg-[#0f0f0f] border-white/10 text-white"
+                className="bg-[#111] border-white/[0.06] text-white"
               >
                 <option value="6">Every 6 hours</option>
                 <option value="12">Every 12 hours</option>
@@ -1285,7 +1282,7 @@ export function Settings() {
             {/* Quality Score Update Frequency */}
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
               <Label className="text-white/90">Quality Score Update Frequency</Label>
-              <p className="text-sm text-white/50 mb-2">
+              <p className="text-sm text-white/40 mb-2">
                 How often to recalculate quality scores and promote tiers
               </p>
               <Select
@@ -1296,7 +1293,7 @@ export function Settings() {
                     qualityUpdateIntervalHours: parseInt(e.target.value) || 24,
                   }))
                 }
-                className="bg-[#0f0f0f] border-white/10 text-white"
+                className="bg-[#111] border-white/[0.06] text-white"
               >
                 <option value="6">Every 6 hours</option>
                 <option value="12">Every 12 hours</option>
@@ -1314,13 +1311,13 @@ export function Settings() {
         </Card>
 
         {/* Advanced */}
-        <Card className="bg-[#0f0f0f] border border-red-500/30 shadow-xl hover:shadow-red-500/20 transition-all">
+        <Card className="bg-[#111] border border-red-500/30 shadow-xl hover:shadow-red-500/20 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-400" />
               <CardTitle className="text-white">Advanced</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Dangerous operations that cannot be undone
             </CardDescription>
           </CardHeader>

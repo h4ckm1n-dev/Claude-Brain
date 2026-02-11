@@ -158,21 +158,18 @@ export function Analytics() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Analytics" />
-      <div className="p-6 sm:p-8 max-w-[1800px] mx-auto space-y-6">
-        {/* Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500/10 via-blue-500/10 to-purple-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/10 rounded-xl ring-1 ring-emerald-500/20">
-              <BarChart3 className="h-8 w-8 text-emerald-400" />
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl">
+              <TrendingUp className="h-7 w-7 text-white" />
             </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-white">Analytics Dashboard</h1>
-              <p className="text-white/60 mt-1">
-                Deep insights into your memory patterns and usage
-              </p>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
+              <p className="text-sm text-white/40">Deep insights into your memory patterns and usage</p>
             </div>
           </div>
         </div>
@@ -181,7 +178,7 @@ export function Analytics() {
         <div className="grid gap-4 md:grid-cols-4">
           <div className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl opacity-20 group-hover:opacity-40 transition blur" />
-            <Card className="relative bg-[#0f0f0f] border-white/10 hover:border-blue-500/50 transition-all duration-300 overflow-hidden">
+            <Card className="relative bg-[#111] border-white/[0.06] hover:border-blue-500/50 transition-all duration-300 overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                 <CardTitle className="text-sm font-medium text-white/70">Total Insights</CardTitle>
@@ -195,7 +192,7 @@ export function Analytics() {
 
           <div className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl opacity-20 group-hover:opacity-40 transition blur" />
-            <Card className="relative bg-[#0f0f0f] border-white/10 hover:border-emerald-500/50 transition-all duration-300 overflow-hidden">
+            <Card className="relative bg-[#111] border-white/[0.06] hover:border-emerald-500/50 transition-all duration-300 overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                 <CardTitle className="text-sm font-medium text-white/70">Avg Importance</CardTitle>
@@ -211,7 +208,7 @@ export function Analytics() {
 
           <div className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 transition blur" />
-            <Card className="relative bg-[#0f0f0f] border-white/10 hover:border-purple-500/50 transition-all duration-300 overflow-hidden">
+            <Card className="relative bg-[#111] border-white/[0.06] hover:border-purple-500/50 transition-all duration-300 overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl" />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                 <CardTitle className="text-sm font-medium text-white/70">Relationships</CardTitle>
@@ -227,7 +224,7 @@ export function Analytics() {
 
           <div className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl opacity-20 group-hover:opacity-40 transition blur" />
-            <Card className="relative bg-[#0f0f0f] border-white/10 hover:border-amber-500/50 transition-all duration-300 overflow-hidden">
+            <Card className="relative bg-[#111] border-white/[0.06] hover:border-amber-500/50 transition-all duration-300 overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                 <CardTitle className="text-sm font-medium text-white/70">Resolution Rate</CardTitle>
@@ -247,11 +244,11 @@ export function Analytics() {
         </div>
 
         {/* Project Breakdown */}
-        <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+        <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none" />
           <CardHeader className="border-b border-white/5 relative">
             <CardTitle className="text-white">Project Breakdown</CardTitle>
-            <CardDescription className="text-white/50">Memory distribution across projects</CardDescription>
+            <CardDescription className="text-white/40">Memory distribution across projects</CardDescription>
           </CardHeader>
           <CardContent className="pt-6 relative">
             <ResponsiveContainer width="100%" height={300}>
@@ -289,11 +286,11 @@ export function Analytics() {
 
         {/* Memory Tier Distribution & Resolution Funnel */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+          <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
             <CardHeader className="border-b border-white/5 relative">
               <CardTitle className="text-white">Memory Tier Flow</CardTitle>
-              <CardDescription className="text-white/50">Distribution across memory tiers</CardDescription>
+              <CardDescription className="text-white/40">Distribution across memory tiers</CardDescription>
             </CardHeader>
             <CardContent className="pt-6 relative">
               <ResponsiveContainer width="100%" height={300}>
@@ -326,11 +323,11 @@ export function Analytics() {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+          <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-rose-500/5 pointer-events-none" />
             <CardHeader className="border-b border-white/5 relative">
               <CardTitle className="text-white">Resolution Funnel</CardTitle>
-              <CardDescription className="text-white/50">Error resolution and decision lifecycle</CardDescription>
+              <CardDescription className="text-white/40">Error resolution and decision lifecycle</CardDescription>
             </CardHeader>
             <CardContent className="pt-6 relative">
               <ResponsiveContainer width="100%" height={300}>
@@ -368,11 +365,11 @@ export function Analytics() {
         </div>
 
         {/* Tag Frequency */}
-        <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+        <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-purple-500/5 pointer-events-none" />
           <CardHeader className="border-b border-white/5 relative">
             <CardTitle className="text-white">Most Used Tags</CardTitle>
-            <CardDescription className="text-white/50">Top 15 tags by frequency</CardDescription>
+            <CardDescription className="text-white/40">Top 15 tags by frequency</CardDescription>
           </CardHeader>
           <CardContent className="pt-6 relative">
             <ResponsiveContainer width="100%" height={400}>
@@ -421,14 +418,14 @@ export function Analytics() {
           };
 
           return (
-          <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+          <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-blue-500/5 pointer-events-none" />
             <CardHeader className="border-b border-white/5 relative">
               <div className="flex items-center gap-2">
                 <Award className="h-5 w-5 text-emerald-400" />
                 <CardTitle className="text-white">Quality Distribution</CardTitle>
               </div>
-              <CardDescription className="text-white/50">
+              <CardDescription className="text-white/40">
                 Phase 3-4 memory quality tracking across 5 tiers
               </CardDescription>
             </CardHeader>
@@ -487,7 +484,7 @@ export function Analytics() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.06]">
                   <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <div className="text-xs text-white/70 mb-1">High Quality</div>
                     <div className="text-xl font-bold text-emerald-300">
@@ -509,14 +506,14 @@ export function Analytics() {
 
         {/* Phase 3-4: State Transition Flow */}
         {lifecycleStats && (
-          <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+          <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none" />
             <CardHeader className="border-b border-white/5 relative">
               <div className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-purple-400" />
                 <CardTitle className="text-white">State Transition Flow</CardTitle>
               </div>
-              <CardDescription className="text-white/50">
+              <CardDescription className="text-white/40">
                 Phase 3-4 lifecycle state machine transitions
               </CardDescription>
             </CardHeader>
@@ -578,14 +575,14 @@ export function Analytics() {
 
         {/* Phase 3-4: Pattern Clusters */}
         {patternClusters && patternClusters.length > 0 && (
-          <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+          <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5 pointer-events-none" />
             <CardHeader className="border-b border-white/5 relative">
               <div className="flex items-center gap-2">
                 <Brain className="h-5 w-5 text-amber-400" />
                 <CardTitle className="text-white">Detected Pattern Clusters</CardTitle>
               </div>
-              <CardDescription className="text-white/50">
+              <CardDescription className="text-white/40">
                 Phase 3-4 automatic pattern detection and clustering
               </CardDescription>
             </CardHeader>
@@ -616,7 +613,7 @@ export function Analytics() {
                       </div>
                     </div>
                     {cluster.tags?.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-3 border-t border-white/10">
+                      <div className="flex flex-wrap gap-2 pt-3 border-t border-white/[0.06]">
                         {cluster.tags?.map((tag, i) => (
                           <Badge
                             key={i}
@@ -635,14 +632,14 @@ export function Analytics() {
         )}
 
         {/* Phase 3-4: Recent Audit Activity */}
-        <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+        <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
           <CardHeader className="border-b border-white/5 relative">
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-blue-400" />
               <CardTitle className="text-white">Recent Audit Activity</CardTitle>
             </div>
-            <CardDescription className="text-white/50">
+            <CardDescription className="text-white/40">
               Phase 3-4 audit trail and system changes
             </CardDescription>
           </CardHeader>
@@ -675,11 +672,11 @@ export function Analytics() {
 
         {/* Type Correlation Heatmap */}
         {correlationData.length > 0 && (
-          <Card className="bg-[#0f0f0f] border-white/10 overflow-hidden">
+          <Card className="bg-[#111] border-white/[0.06] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-blue-500/5 pointer-events-none" />
             <CardHeader className="border-b border-white/5 relative">
               <CardTitle className="text-white">Type Correlation Matrix</CardTitle>
-              <CardDescription className="text-white/50">Which memory types are connected to each other</CardDescription>
+              <CardDescription className="text-white/40">Which memory types are connected to each other</CardDescription>
             </CardHeader>
             <CardContent className="pt-6 relative">
               <div className="grid grid-cols-6 gap-1 p-4">
@@ -742,13 +739,13 @@ function InsightsSummarySection() {
   if (isLoading || !summary) return null;
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-green-500 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] border-l-4 border-l-green-500 shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Lightbulb className="h-5 w-5 text-green-400" />
           <CardTitle className="text-white">Intelligence Summary</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Key findings and recommendations from the analysis engine
         </CardDescription>
       </CardHeader>
@@ -792,13 +789,13 @@ function ExpertiseProfileSection() {
   if (isLoading || !profile) return null;
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Radar className="h-5 w-5 text-purple-400" />
           <CardTitle className="text-white">Expertise Profile</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Technical skill areas based on stored knowledge
         </CardDescription>
       </CardHeader>
@@ -842,13 +839,13 @@ function AnomalySection() {
   if (isLoading || !anomalies || anomalies.length === 0) return null;
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-red-500 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] border-l-4 border-l-red-500 shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-red-400" />
           <CardTitle className="text-white">Anomaly Detection</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Flagged memories with unusual characteristics
         </CardDescription>
       </CardHeader>
@@ -881,13 +878,13 @@ function RecurringPatternsSection() {
   if (isLoading || !patterns || patterns.length === 0) return null;
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Search className="h-5 w-5 text-amber-400" />
           <CardTitle className="text-white">Recurring Patterns</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Error-to-solution patterns that appear repeatedly
         </CardDescription>
       </CardHeader>
@@ -921,13 +918,13 @@ function DocumentationGapsSection() {
   if (isLoading || !topics || topics.length === 0) return null;
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-blue-400" />
           <CardTitle className="text-white">Documentation Gaps</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Topics that need more documentation based on memory analysis
         </CardDescription>
       </CardHeader>

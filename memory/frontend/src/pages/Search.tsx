@@ -109,28 +109,24 @@ export function Search() {
   const documents = unifiedResults?.documents || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Search" />
-      <div className="p-6 sm:p-8 max-w-[1800px] mx-auto space-y-6">
-        {/* Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-emerald-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-purple-500/10 rounded-xl ring-1 ring-purple-500/20">
-              <SearchIcon className="h-8 w-8 text-purple-400" />
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-purple-500 to-violet-600 p-2.5 rounded-xl">
+              <SearchIcon className="h-7 w-7 text-white" />
             </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-white">Unified Search</h1>
-              <p className="text-white/60 mt-1 flex items-center gap-2">
-                <Zap className="h-4 w-4 text-emerald-400" />
-                Search memories and documents with semantic understanding
-              </p>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Unified Search</h1>
+              <p className="text-sm text-white/40">Search memories and documents with semantic understanding</p>
             </div>
           </div>
         </div>
 
         {/* Search Bar */}
-        <Card className="bg-[#0f0f0f] border-white/10">
+        <Card className="bg-[#111] border-white/[0.06]">
           <CardHeader className="border-b border-white/5">
             <CardTitle className="text-white">Intelligent Search</CardTitle>
           </CardHeader>
@@ -291,7 +287,7 @@ export function Search() {
 
         {/* Result Tabs */}
         {debouncedQuery.length > 0 && (
-          <div className="flex gap-2 border-b border-white/10 pb-4">
+          <div className="flex gap-2 border-b border-white/[0.06] pb-4">
             <Button
               variant={activeTab === 'all' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('all')}
@@ -331,7 +327,7 @@ export function Search() {
         {/* Search Results */}
         <div className="space-y-4">
           {debouncedQuery.length === 0 ? (
-            <Card className="bg-[#0f0f0f] border-white/10">
+            <Card className="bg-[#111] border-white/[0.06]">
               <CardContent className="p-12 text-center">
                 <Sparkles className="h-16 w-16 mx-auto mb-4 text-white/20" />
                 <p className="text-white/50 text-lg mb-2">Start typing to search</p>
@@ -341,7 +337,7 @@ export function Search() {
               </CardContent>
             </Card>
           ) : isLoading ? (
-            <Card className="bg-[#0f0f0f] border-white/10">
+            <Card className="bg-[#111] border-white/[0.06]">
               <CardContent className="p-12 text-center">
                 <div className="inline-flex items-center gap-3">
                   <div className="h-8 w-8 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
@@ -350,7 +346,7 @@ export function Search() {
               </CardContent>
             </Card>
           ) : (!results || results.length === 0) && (!documents || documents.length === 0) ? (
-            <Card className="bg-[#0f0f0f] border-white/10">
+            <Card className="bg-[#111] border-white/[0.06]">
               <CardContent className="p-12 text-center">
                 <SearchIcon className="h-16 w-16 mx-auto mb-4 text-white/20" />
                 <p className="text-white/50 text-lg mb-2">No results found</p>
@@ -379,7 +375,7 @@ export function Search() {
               {(activeTab === 'all' || activeTab === 'memories') && results && results.map((result: SearchResult) => (
                 <Card
                   key={result.memory.id}
-                  className="bg-[#0f0f0f] border-white/10 hover:border-purple-500/50 hover:bg-white/5 transition-all duration-300 group"
+                  className="bg-[#111] border-white/[0.06] hover:border-purple-500/50 hover:bg-white/5 transition-all duration-300 group"
                 >
                   <CardHeader className="border-b border-white/5">
                     <div className="flex items-start justify-between">
@@ -465,7 +461,7 @@ export function Search() {
 
                     {/* Expandable Audit Info */}
                     {expandedAudit.has(result.memory.id) && (
-                      <div className="mt-4 p-4 bg-[#0a0a0a] rounded-lg border border-white/10">
+                      <div className="mt-4 p-4 bg-[#0a0a0a] rounded-lg border border-white/[0.06]">
                         <AuditTimeline memoryId={result.memory.id} limit={3} />
                       </div>
                     )}
@@ -477,7 +473,7 @@ export function Search() {
               {(activeTab === 'all' || activeTab === 'documents') && documents && documents.map((doc: any, idx: number) => (
                 <Card
                   key={`doc-${idx}`}
-                  className="bg-[#0f0f0f] border-white/10 hover:border-amber-500/50 hover:bg-white/5 transition-all duration-300"
+                  className="bg-[#111] border-white/[0.06] hover:border-amber-500/50 hover:bg-white/5 transition-all duration-300"
                 >
                   <CardHeader className="border-b border-white/5">
                     <div className="flex items-center gap-2 flex-wrap">

@@ -63,27 +63,24 @@ export function SystemAdmin() {
   const triggerReindex = useTriggerReindex();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="System Admin" />
-      <div className="p-4 sm:p-8 space-y-6 max-w-[1800px] mx-auto">
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-500/10 via-rose-500/10 to-pink-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-rose-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-red-500/10 rounded-xl ring-1 ring-red-500/20">
-              <Shield className="h-8 w-8 text-red-400" />
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-red-500 to-rose-600 p-2.5 rounded-xl">
+              <Shield className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">System Administration</h1>
-              <p className="text-white/60 mt-1">
-                Advanced system management, monitoring, and maintenance
-              </p>
+              <h1 className="text-2xl font-bold text-white">System Administration</h1>
+              <p className="text-sm text-white/40">Advanced system management, monitoring, and maintenance</p>
             </div>
           </div>
         </div>
 
         {/* System Health */}
-        <Card className="bg-[#0f0f0f] border border-white/10">
+        <Card className="bg-[#111] border-white/[0.06]">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-green-400" />
@@ -94,7 +91,7 @@ export function SystemAdmin() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-white/60">Status</span>
+                  <span className="text-sm text-white/40">Status</span>
                   <Badge className={
                     health?.status === 'healthy'
                       ? 'bg-green-500/20 text-green-300 border border-green-500/30'
@@ -107,7 +104,7 @@ export function SystemAdmin() {
               </div>
               <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-white/60">Qdrant</span>
+                  <span className="text-sm text-white/40">Qdrant</span>
                   <Badge className={
                     health?.qdrant?.status === 'healthy'
                       ? 'bg-green-500/20 text-green-300 border border-green-500/30'
@@ -116,13 +113,13 @@ export function SystemAdmin() {
                     {health?.qdrant?.status ?? 'unknown'}
                   </Badge>
                 </div>
-                <p className="text-xs text-white/50">
+                <p className="text-xs text-white/40">
                   {health?.qdrant?.details?.points_count ?? '?'} points
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-white/60">Neo4j</span>
+                  <span className="text-sm text-white/40">Neo4j</span>
                   <Badge className={
                     health?.neo4j?.status === 'healthy'
                       ? 'bg-green-500/20 text-green-300 border border-green-500/30'
@@ -131,7 +128,7 @@ export function SystemAdmin() {
                     {health?.neo4j?.status ?? 'unknown'}
                   </Badge>
                 </div>
-                <p className="text-xs text-white/50">
+                <p className="text-xs text-white/40">
                   {health?.neo4j?.details?.memory_nodes ?? '?'} nodes, {health?.neo4j?.details?.relationships ?? '?'} relationships
                 </p>
               </div>
@@ -141,7 +138,7 @@ export function SystemAdmin() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Cache Management */}
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -162,17 +159,17 @@ export function SystemAdmin() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Entries</p>
+                  <p className="text-xs text-white/40">Entries</p>
                   <p className="text-lg font-bold text-white">{cacheStats?.total_entries ?? 0}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Hit Rate</p>
+                  <p className="text-xs text-white/40">Hit Rate</p>
                   <p className="text-lg font-bold text-white">
                     {((cacheStats?.hit_rate ?? 0) * 100).toFixed(0)}%
                   </p>
                 </div>
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Memory</p>
+                  <p className="text-xs text-white/40">Memory</p>
                   <p className="text-lg font-bold text-white">{cacheStats?.memory_usage ?? '0'}</p>
                 </div>
               </div>
@@ -180,7 +177,7 @@ export function SystemAdmin() {
           </Card>
 
           {/* Database Stats */}
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-blue-400" />
@@ -190,11 +187,11 @@ export function SystemAdmin() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Memories</p>
+                  <p className="text-xs text-white/40">Memories</p>
                   <p className="text-lg font-bold text-white">{dbStats?.total_memories ?? 0}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Relationships</p>
+                  <p className="text-xs text-white/40">Relationships</p>
                   <p className="text-lg font-bold text-white">{dbStats?.total_relationships ?? 0}</p>
                 </div>
               </div>
@@ -218,7 +215,7 @@ export function SystemAdmin() {
           </Card>
 
           {/* Notification Management */}
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -239,11 +236,11 @@ export function SystemAdmin() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Total</p>
+                  <p className="text-xs text-white/40">Total</p>
                   <p className="text-lg font-bold text-white">{notifStats?.total ?? 0}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Unread</p>
+                  <p className="text-xs text-white/40">Unread</p>
                   <p className="text-lg font-bold text-amber-400">{notifStats?.unread ?? 0}</p>
                 </div>
               </div>
@@ -260,7 +257,7 @@ export function SystemAdmin() {
           </Card>
 
           {/* Suggestion Intelligence */}
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Server className="h-5 w-5 text-teal-400" />
@@ -270,11 +267,11 @@ export function SystemAdmin() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Total Shown</p>
+                  <p className="text-xs text-white/40">Total Shown</p>
                   <p className="text-lg font-bold text-white">{suggestionStats?.total_shown ?? 0}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Usefulness Rate</p>
+                  <p className="text-xs text-white/40">Usefulness Rate</p>
                   <p className="text-lg font-bold text-teal-400">
                     {((suggestionStats?.usefulness_rate ?? 0) * 100).toFixed(0)}%
                   </p>
@@ -282,11 +279,11 @@ export function SystemAdmin() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Useful</p>
+                  <p className="text-xs text-white/40">Useful</p>
                   <p className="text-sm font-bold text-green-400">{suggestionStats?.total_useful ?? 0}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-[#0a0a0a] border border-white/5 text-center">
-                  <p className="text-xs text-white/50">Not Useful</p>
+                  <p className="text-xs text-white/40">Not Useful</p>
                   <p className="text-sm font-bold text-red-400">{suggestionStats?.total_not_useful ?? 0}</p>
                 </div>
               </div>
@@ -295,7 +292,7 @@ export function SystemAdmin() {
         </div>
 
         {/* Scheduler Control */}
-        <Card className="bg-[#0f0f0f] border border-white/10">
+        <Card className="bg-[#111] border-white/[0.06]">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -312,7 +309,7 @@ export function SystemAdmin() {
                 {triggerAllJobs.isPending ? 'Running...' : 'Trigger All'}
               </Button>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               View and trigger scheduled background jobs
             </CardDescription>
           </CardHeader>
@@ -363,7 +360,7 @@ export function SystemAdmin() {
         </Card>
 
         {/* Active Jobs */}
-        <Card className="bg-[#0f0f0f] border border-white/10">
+        <Card className="bg-[#111] border-white/[0.06]">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-green-400" />
@@ -427,7 +424,7 @@ export function SystemAdmin() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Export & Backup */}
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Download className="h-5 w-5 text-green-400" />
@@ -436,7 +433,7 @@ export function SystemAdmin() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm text-white/60 mb-2">Export Format</label>
+                <label className="block text-sm text-white/40 mb-2">Export Format</label>
                 <div className="flex gap-2">
                   {['json', 'csv', 'obsidian'].map((fmt) => (
                     <Button
@@ -464,7 +461,7 @@ export function SystemAdmin() {
               </div>
 
               <div className="border-t border-white/5 pt-4">
-                <label className="block text-sm text-white/60 mb-2">Create Backup</label>
+                <label className="block text-sm text-white/40 mb-2">Create Backup</label>
                 <div className="flex gap-2">
                   <Input
                     value={backupName}
@@ -488,7 +485,7 @@ export function SystemAdmin() {
 
               {backups && backups.length > 0 && (
                 <div className="border-t border-white/5 pt-4">
-                  <p className="text-sm text-white/60 mb-2">Recent Backups</p>
+                  <p className="text-sm text-white/40 mb-2">Recent Backups</p>
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
                     {backups.map((backup) => (
                       <div
@@ -510,7 +507,7 @@ export function SystemAdmin() {
           </Card>
 
           {/* Document Reindex */}
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <HardDrive className="h-5 w-5 text-orange-400" />
@@ -519,7 +516,7 @@ export function SystemAdmin() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm text-white/60 mb-2">Reindex Folders</label>
+                <label className="block text-sm text-white/40 mb-2">Reindex Folders</label>
                 <div className="flex gap-2">
                   <Input
                     value={reindexFolders}

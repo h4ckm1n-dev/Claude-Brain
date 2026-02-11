@@ -31,32 +31,29 @@ export function Suggestions() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Suggestions" />
-      <div className="p-4 sm:p-8 space-y-6 max-w-[1800px] mx-auto">
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-yellow-500/10 to-orange-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-amber-500/10 rounded-xl ring-1 ring-amber-500/20">
-              <Lightbulb className="h-8 w-8 text-amber-400" />
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-amber-500 to-yellow-600 p-2.5 rounded-xl">
+              <Lightbulb className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Smart Suggestions</h1>
-              <p className="text-white/60 mt-1">
-                Context-aware memory recommendations based on your current work
-              </p>
+              <h1 className="text-2xl font-bold text-white">Smart Suggestions</h1>
+              <p className="text-sm text-white/40">Context-aware memory recommendations based on your current work</p>
             </div>
           </div>
         </div>
 
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
+        <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-amber-500/10 transition-all">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-amber-400" />
               <CardTitle className="text-white">Context-Aware Memory Suggestions</CardTitle>
             </div>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-white/40">
               Get relevant memories based on your current context
             </CardDescription>
           </CardHeader>
@@ -67,7 +64,7 @@ export function Suggestions() {
                 value={request.project}
                 onChange={(e) => setRequest({ ...request, project: e.target.value })}
                 placeholder="e.g., my-app"
-                className="bg-[#0f0f0f] border-white/10 text-white"
+                className="bg-[#111] border-white/[0.06] text-white"
               />
             </div>
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-white/5">
@@ -76,7 +73,7 @@ export function Suggestions() {
                 value={keywordInput}
                 onChange={(e) => setKeywordInput(e.target.value)}
                 placeholder="e.g., authentication, error, typescript"
-                className="bg-[#0f0f0f] border-white/10 text-white"
+                className="bg-[#111] border-white/[0.06] text-white"
               />
             </div>
             <Button
@@ -104,7 +101,7 @@ export function Suggestions() {
               {suggestionsData.suggestions.map((suggestion) => (
                 <Card
                   key={suggestion.id}
-                  className="bg-[#0f0f0f] border border-white/10 shadow-xl hover:shadow-amber-500/20 hover:border-amber-500/30 transition-all"
+                  className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-amber-500/20 hover:border-amber-500/30 transition-all"
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -153,13 +150,13 @@ export function Suggestions() {
         {/* Phase 3-4: Pattern-based Recommendations */}
         {patternRecommendations && patternRecommendations.length > 0 && (
           <>
-            <Card className="bg-[#0f0f0f] border-white/10">
+            <Card className="bg-[#111] border-white/[0.06]">
               <CardHeader className="border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Brain className="h-5 w-5 text-purple-400" />
                   <CardTitle className="text-white">Pattern-based Recommendations</CardTitle>
                 </div>
-                <CardDescription className="text-white/60">
+                <CardDescription className="text-white/40">
                   High-quality memories detected through pattern analysis
                 </CardDescription>
               </CardHeader>
@@ -171,7 +168,7 @@ export function Suggestions() {
                 .map((rec) => (
                   <Card
                     key={rec.memory_id}
-                    className="bg-[#0f0f0f] border border-white/10 hover:border-purple-500/50 hover:bg-white/5 transition-all"
+                    className="bg-[#111] border-white/[0.06] hover:border-purple-500/50 hover:bg-white/5 transition-all"
                   >
                     <CardHeader>
                       <div className="flex items-start justify-between">
@@ -219,7 +216,7 @@ export function Suggestions() {
             <h3 className="text-xl font-semibold text-white/90 mb-2">
               Get Personalized Suggestions
             </h3>
-            <p className="text-white/60 max-w-md">
+            <p className="text-white/40 max-w-md">
               Enter a project name or keywords above to get relevant memory suggestions based on your context
             </p>
           </div>

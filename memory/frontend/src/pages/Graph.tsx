@@ -123,27 +123,24 @@ export function Graph() {
   }, [timelineData, typeFilters, relFilters, projectFilter]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] flex flex-col">
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
       <Header title="Knowledge Graph" />
-      <div className="flex-1 p-6 space-y-6 overflow-hidden max-w-[1800px] mx-auto">
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/10 via-violet-500/10 to-fuchsia-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-purple-500/10 rounded-xl ring-1 ring-purple-500/20">
-              <Network className="h-8 w-8 text-purple-400" />
+      <div className="flex-1 p-4 sm:p-6 space-y-5 overflow-hidden max-w-[1600px] mx-auto">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-purple-500 to-fuchsia-600 p-2.5 rounded-xl">
+              <Network className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Knowledge Graph</h1>
-              <p className="text-white/60 mt-1">
-                Interactive visualization of memory relationships and connections
-              </p>
+              <h1 className="text-2xl font-bold text-white">Knowledge Graph</h1>
+              <p className="text-sm text-white/40">Interactive visualization of memory relationships and connections</p>
             </div>
           </div>
         </div>
 
         {/* Filter Toolbar */}
-        <Card className="bg-[#0f0f0f] border-white/10">
+        <Card className="bg-[#111] border-white/[0.06]">
           <CardContent className="py-4 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Filter className="h-4 w-4 text-white/50" />
@@ -204,8 +201,8 @@ export function Graph() {
           </CardContent>
         </Card>
 
-        <Card className="h-[calc(100vh-420px)] bg-[#0f0f0f] border border-white/10 shadow-2xl">
-          <CardHeader className="border-b border-white/10">
+        <Card className="h-[calc(100vh-420px)] bg-[#111] border border-white/[0.06] shadow-2xl">
+          <CardHeader className="border-b border-white/[0.06]">
             <CardTitle className="text-white flex items-center gap-2">
               <Network className="h-5 w-5 text-purple-400" />
               Memory Network Visualization
@@ -252,13 +249,13 @@ export function Graph() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* State Distribution */}
           {lifecycleStats && (
-            <Card className="lg:col-span-2 bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-purple-500/10 transition-all">
+            <Card className="lg:col-span-2 bg-[#111] border-white/[0.06] shadow-xl hover:shadow-purple-500/10 transition-all">
               <CardHeader className="border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Target className="h-5 w-5 text-purple-400" />
                   <CardTitle className="text-white">Graph State Distribution</CardTitle>
                 </div>
-                <CardDescription className="text-white/60">
+                <CardDescription className="text-white/40">
                   Memory lifecycle states in the knowledge graph
                 </CardDescription>
               </CardHeader>
@@ -279,13 +276,13 @@ export function Graph() {
 
           {/* Pattern Clusters */}
           {patternClusters && patternClusters.length > 0 && (
-            <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
+            <Card className="bg-[#111] border-white/[0.06] shadow-xl hover:shadow-amber-500/10 transition-all">
               <CardHeader className="border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-amber-400" />
                   <CardTitle className="text-white">Pattern Clusters</CardTitle>
                 </div>
-                <CardDescription className="text-white/60">
+                <CardDescription className="text-white/40">
                   Detected memory groupings by similarity
                 </CardDescription>
               </CardHeader>
@@ -336,8 +333,8 @@ export function Graph() {
         </div>
 
         {/* Legend Card */}
-        <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
-          <CardHeader className="border-b border-white/10">
+        <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
+          <CardHeader className="border-b border-white/[0.06]">
             <CardTitle className="text-white">Legend</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
@@ -372,7 +369,7 @@ export function Graph() {
                 </div>
               </div>
 
-              <div className="border-t border-white/10 pt-4">
+              <div className="border-t border-white/[0.06] pt-4">
                 <h4 className="text-sm font-medium mb-3 text-white/90">Relationship Types</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
@@ -395,7 +392,7 @@ export function Graph() {
               </div>
 
               {/* Phase 3-4: Memory States */}
-              <div className="border-t border-white/10 pt-4">
+              <div className="border-t border-white/[0.06] pt-4">
                 <h4 className="text-sm font-medium mb-3 text-white/90">Memory States (Phase 3-4)</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
@@ -419,7 +416,7 @@ export function Graph() {
                 </div>
               </div>
 
-              <div className="border-t border-white/10 pt-4">
+              <div className="border-t border-white/[0.06] pt-4">
                 <h4 className="text-sm font-medium mb-3 text-white/90">Node Indicators</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-2 p-2 rounded bg-[#0a0a0a] border border-white/5">
@@ -470,13 +467,13 @@ function ContradictionsPanel() {
   if (isLoading || !contradictions || contradictions.length === 0) return null;
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 border-l-4 border-l-red-500 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] border-l-4 border-l-red-500 shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-red-400" />
           <CardTitle className="text-white">Contradictions</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Memory pairs that contain conflicting information
         </CardDescription>
       </CardHeader>
@@ -509,13 +506,13 @@ function GraphSolutionsFinder() {
   });
 
   return (
-    <Card className="bg-[#0f0f0f] border border-white/10 shadow-xl">
+    <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Lightbulb className="h-5 w-5 text-green-400" />
           <CardTitle className="text-white">Find Solutions</CardTitle>
         </div>
-        <CardDescription className="text-white/60">
+        <CardDescription className="text-white/40">
           Enter an error memory ID to find linked solutions
         </CardDescription>
       </CardHeader>

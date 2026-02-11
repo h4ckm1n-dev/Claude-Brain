@@ -110,7 +110,7 @@ function SessionMemoryTimeline({
             />
 
             {/* Memory card */}
-            <div className="p-3 rounded-lg border border-white/5 bg-[#0f0f0f] hover:border-white/15 hover:bg-[#131313] transition-all">
+            <div className="p-3 rounded-lg border border-white/[0.06] bg-[#111] hover:border-white/15 hover:bg-[#131313] transition-all">
               <div className="flex items-center gap-2 mb-1.5">
                 <MemoryTypeBadge type={memory.type} />
                 <span className="text-xs text-white/40">
@@ -224,35 +224,32 @@ export function Sessions() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Sessions" />
-      <div className="p-4 sm:p-8 space-y-6 max-w-[1800px] mx-auto">
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500/10 via-cyan-500/10 to-blue-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 via-transparent to-cyan-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-teal-500/10 rounded-xl ring-1 ring-teal-500/20">
-              <Clock className="h-8 w-8 text-teal-400" />
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-teal-500 to-cyan-600 p-2.5 rounded-xl">
+              <Clock className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Session Management</h1>
-              <p className="text-white/60 mt-1">
-                Track coding sessions and consolidate session memories
-              </p>
+              <h1 className="text-2xl font-bold text-white">Session Management</h1>
+              <p className="text-sm text-white/40">Track coding sessions and consolidate session memories</p>
             </div>
           </div>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-teal-500/20 rounded-lg">
                   <Layers className="h-5 w-5 text-teal-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-white/50">Total Sessions</p>
+                  <p className="text-xs text-white/40">Total Sessions</p>
                   <p className="text-2xl font-bold text-white">
                     {statsLoading ? '...' : stats?.total_sessions ?? 0}
                   </p>
@@ -260,14 +257,14 @@ export function Sessions() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-500/20 rounded-lg">
                   <Activity className="h-5 w-5 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-white/50">Active</p>
+                  <p className="text-xs text-white/40">Active</p>
                   <p className="text-2xl font-bold text-white">
                     {statsLoading ? '...' : stats?.active_sessions ?? 0}
                   </p>
@@ -275,14 +272,14 @@ export function Sessions() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-500/20 rounded-lg">
                   <Database className="h-5 w-5 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-white/50">Avg Memories/Session</p>
+                  <p className="text-xs text-white/40">Avg Memories/Session</p>
                   <p className="text-2xl font-bold text-white">
                     {statsLoading ? '...' : (stats?.avg_memories_per_session ?? 0).toFixed(1)}
                   </p>
@@ -290,14 +287,14 @@ export function Sessions() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-[#0f0f0f] border border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-500/20 rounded-lg">
                   <Combine className="h-5 w-5 text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-white/50">Consolidation Rate</p>
+                  <p className="text-xs text-white/40">Consolidation Rate</p>
                   <p className="text-2xl font-bold text-white">
                     {statsLoading ? '...' : ((stats?.consolidation_rate ?? 0) * 100).toFixed(0)}%
                   </p>
@@ -314,7 +311,7 @@ export function Sessions() {
               value={newProject}
               onChange={(e) => setNewProject(e.target.value)}
               placeholder="Project name (optional)"
-              className="bg-[#0f0f0f] border-white/10 text-white"
+              className="bg-[#111] border-white/[0.06] text-white"
             />
             <Button
               onClick={handleCreateSession}
@@ -345,7 +342,7 @@ export function Sessions() {
         )}
 
         {/* Filter Bar */}
-        <div className="flex flex-wrap items-center gap-3 p-4 bg-[#0f0f0f] border border-white/10 rounded-xl">
+        <div className="flex flex-wrap items-center gap-3 p-4 bg-[#111] border-white/[0.06] rounded-xl">
           {/* Status tabs */}
           <div className="flex gap-1 p-1 bg-white/5 rounded-lg">
             {statusTabs.map((tab) => (
@@ -428,7 +425,7 @@ export function Sessions() {
             return (
               <div
                 key={session.session_id}
-                className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0f0f0f] hover:border-white/[0.15] transition-all"
+                className="border border-white/[0.06] rounded-xl overflow-hidden bg-[#111] hover:border-white/[0.15] transition-all"
               >
                 {/* Type breakdown mini-bar */}
                 {session.type_breakdown && (

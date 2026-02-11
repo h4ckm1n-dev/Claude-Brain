@@ -107,18 +107,17 @@ export default function Documents() {
   }, [results]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
-      <div className="p-6 sm:p-8 max-w-[1800px] mx-auto space-y-6">
-        {/* Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-rose-500/10 p-6 border border-white/5">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-rose-500/5" />
-          <div className="relative flex items-center gap-4">
-            <div className="p-3 bg-amber-500/10 rounded-xl ring-1 ring-amber-500/20">
-              <BookOpen className="h-8 w-8 text-amber-400" />
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-2.5 rounded-xl">
+              <FileText className="h-7 w-7 text-white" />
             </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-white">Documents</h1>
-              <p className="text-white/60 mt-1">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Documents</h1>
+              <p className="text-sm text-white/40">
                 Search indexed files from your filesystem. Documents are separate from memories.
               </p>
             </div>
@@ -127,7 +126,7 @@ export default function Documents() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-[#0f0f0f] border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader className="border-b border-white/5">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-400" />
@@ -160,7 +159,7 @@ export default function Documents() {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#0f0f0f] border-white/10">
+          <Card className="bg-[#111] border-white/[0.06]">
             <CardHeader className="border-b border-white/5">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-purple-400" />
@@ -209,13 +208,13 @@ export default function Documents() {
         </div>
 
         {/* Document Quality Metrics */}
-        <Card className="bg-[#0f0f0f] border-white/10">
+        <Card className="bg-[#111] border-white/[0.06]">
           <CardHeader className="border-b border-white/5">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-amber-400" />
               <CardTitle className="text-white">Document Quality Metrics</CardTitle>
             </div>
-            <CardDescription className="text-white/50">
+            <CardDescription className="text-white/40">
               Health indicators based on document access patterns and coverage
             </CardDescription>
           </CardHeader>
@@ -374,13 +373,13 @@ export default function Documents() {
         </Card>
 
         {/* Search Card */}
-        <Card className="bg-[#0f0f0f] border-white/10">
+        <Card className="bg-[#111] border-white/[0.06]">
           <CardHeader className="border-b border-white/5">
             <div className="flex items-center gap-2">
               <Search className="h-5 w-5 text-emerald-400" />
               <CardTitle className="text-white">Search Documents</CardTitle>
             </div>
-            <CardDescription className="text-white/50">
+            <CardDescription className="text-white/40">
               Find content in your indexed files
             </CardDescription>
           </CardHeader>
@@ -449,7 +448,7 @@ export default function Documents() {
                 {results.map((doc) => (
                   <div
                     key={doc.id}
-                    className="p-4 rounded-lg border border-white/10 hover:bg-white/5 hover:border-emerald-500/50 transition-all duration-300 bg-[#0a0a0a]"
+                    className="p-4 rounded-lg border border-white/[0.06] hover:bg-white/5 hover:border-emerald-500/50 transition-all duration-300 bg-[#0a0a0a]"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -479,7 +478,7 @@ export default function Documents() {
                       </div>
                     </div>
 
-                    <div className="bg-[#0f0f0f] border border-white/5 rounded-lg p-3 text-sm font-mono whitespace-pre-wrap text-white/80">
+                    <div className="bg-[#111] border border-white/5 rounded-lg p-3 text-sm font-mono whitespace-pre-wrap text-white/80">
                       {doc.content.length > 300
                         ? doc.content.substring(0, 300) + '...'
                         : doc.content}
