@@ -97,6 +97,19 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[float, list[str]]:
             score -= 0.40
             warnings.append("Content is auto-captured boilerplate — not a genuine memory")
 
+    # ===== INFORMATION DENSITY =====
+
+    words = content.split()
+    if word_count >= 10:
+        unique_words = set(w.lower() for w in words)
+        density = len(unique_words) / word_count
+        if density < 0.30:
+            score -= 0.10
+            warnings.append(f"Low information density ({density:.0%} unique words) — too much repetition")
+        elif density < 0.40:
+            score -= 0.05
+            warnings.append(f"Moderate information density ({density:.0%} unique words) — consider adding more specific detail")
+
     # ===== TAG QUALITY =====
 
     if tag_count < MIN_TAGS:
@@ -175,7 +188,27 @@ def calculate_quality_score(memory: MemoryCreate) -> tuple[float, list[str]]:
             score -= 0.10
             warnings.append(f"Rationale too brief ({len(memory.rationale.strip())} chars) — explain WHY this was chosen")
 
-    return max(0.0, round(score, 2)), warnings
+    # ===== SPECIFICITY BONUS (reward concrete, actionable content) =====
+
+    import re
+    specificity_signals = 0
+    # Numbers / versions (e.g., "3.11", "768", "0.92")
+    if re.search(r'\b\d+\.?\d*\b', content):
+        specificity_signals += 1
+    # File paths
+    if re.search(r'[/\\][\w\-./\\]+\.\w+', content):
+        specificity_signals += 1
+    # Code-like content (function calls, imports, variable names)
+    if re.search(r'\b\w+\.\w+\(', content) or '```' in content or 'import ' in content:
+        specificity_signals += 1
+    # Error messages / stack traces
+    if re.search(r'(Error|Exception|Traceback|FATAL|Failed):', content):
+        specificity_signals += 1
+
+    if specificity_signals >= 3:
+        score += 0.05  # Small bonus for highly specific content
+
+    return max(0.0, min(1.0, round(score, 2))), warnings
 
 
 def validate_memory_quality(memory: MemoryCreate) -> tuple[bool, float, list[str]]:

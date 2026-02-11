@@ -33,16 +33,17 @@ export function Suggestions() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
       <Header title="Suggestions" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-8 space-y-6 max-w-[1800px] mx-auto">
         {/* Hero Section */}
-        <div className="bg-gradient-to-br from-amber-600 via-yellow-600 to-orange-600 rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
-              <Lightbulb className="h-10 w-10 text-white" />
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-yellow-500/10 to-orange-500/10 p-6 border border-white/5">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5" />
+          <div className="relative flex items-center gap-4">
+            <div className="p-3 bg-amber-500/10 rounded-xl ring-1 ring-amber-500/20">
+              <Lightbulb className="h-8 w-8 text-amber-400" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Smart Suggestions</h1>
-              <p className="text-amber-100 mt-1">
+              <p className="text-white/60 mt-1">
                 Context-aware memory recommendations based on your current work
               </p>
             </div>

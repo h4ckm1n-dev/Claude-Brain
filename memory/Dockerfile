@@ -40,8 +40,9 @@ RUN python -c "from sentence_transformers import SentenceTransformer; print('Dow
 RUN python -c "from fastembed import SparseTextEmbedding; print('Downloading BM42 sparse model...'); SparseTextEmbedding(model_name='Qdrant/bm42-all-minilm-l6-v2-attentions'); print('Sparse model downloaded successfully')" || \
     echo "Sparse model download failed (optional) - hybrid search will fall back to dense-only"
 
-# Cross-encoder reranker model (~50MB) - for improved search precision
-RUN python -c "from sentence_transformers import CrossEncoder; print('Downloading cross-encoder reranker...'); CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2'); print('Reranker downloaded successfully')" || \
+# Cross-encoder reranker model (~278MB bge-reranker-base) - for improved search precision
+ARG RERANK_MODEL=BAAI/bge-reranker-base
+RUN python -c "from sentence_transformers import CrossEncoder; print('Downloading cross-encoder reranker: ${RERANK_MODEL}...'); CrossEncoder('${RERANK_MODEL}'); print('Reranker downloaded successfully')" || \
     echo "Reranker download failed (optional) - search will work without reranking"
 
 # Copy application code

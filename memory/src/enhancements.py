@@ -4,9 +4,13 @@ Features:
 - Semantic deduplication (prevent duplicate knowledge)
 - Automatic tag suggestions from similar memories
 - Template-based validation hints
+- Keyphrase extraction (YAKE) for better tags and embeddings
+- Enriched embedding text builder
 """
 
 import logging
+import unicodedata
+import re as _re_module
 from typing import Optional
 from collections import defaultdict
 
@@ -15,6 +19,51 @@ from . import collections
 from .embeddings import embed_text
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# YAKE Keyphrase Extractor (lazy-loaded singleton)
+# ============================================================================
+
+_yake_extractor = None
+
+
+def _get_yake_extractor():
+    """Lazy-load YAKE extractor (avoids import cost at module load)."""
+    global _yake_extractor
+    if _yake_extractor is None:
+        try:
+            import yake
+            _yake_extractor = yake.KeywordExtractor(
+                lan="en",
+                n=3,           # max ngram size
+                dedupLim=0.7,  # dedup threshold
+                top=10,        # max keyphrases
+                features=None,
+            )
+        except ImportError:
+            logger.warning("YAKE not installed — keyphrase extraction disabled")
+            _yake_extractor = "disabled"
+    return _yake_extractor
+
+
+def extract_keyphrases(text: str, top_n: int = 8) -> list[str]:
+    """Extract key phrases from text using YAKE (unsupervised, fast).
+
+    Returns list of keyphrases sorted by relevance (lower YAKE score = more relevant).
+    Returns empty list if YAKE is unavailable.
+    """
+    extractor = _get_yake_extractor()
+    if extractor == "disabled" or not text or len(text) < 30:
+        return []
+
+    try:
+        keywords = extractor.extract_keywords(text)
+        # YAKE returns (keyphrase, score) — lower score = more relevant
+        return [kw for kw, _score in keywords[:top_n]]
+    except Exception as exc:
+        logger.debug(f"Keyphrase extraction failed: {exc}")
+        return []
 
 
 # ============================================================================
@@ -432,19 +481,30 @@ def normalize_project(project: str | None) -> str | None:
 # ============================================================================
 
 def clean_content(content: str) -> str:
-    """Clean memory content: strip, collapse excess whitespace/newlines.
+    """Clean memory content: normalize Unicode, strip control chars, collapse whitespace.
 
-    - Strip leading/trailing whitespace
-    - Collapse 3+ consecutive newlines to 2
-    - Collapse multiple consecutive spaces to single space (within lines)
+    Pipeline:
+    1. Unicode NFC normalization (canonical decomposition → canonical composition)
+    2. Remove control characters and zero-width spaces (keep newlines/tabs)
+    3. Strip leading/trailing whitespace
+    4. Collapse 3+ consecutive newlines to 2
+    5. Collapse multiple consecutive spaces to single space (within lines)
     """
-    import re
+    # 1. Unicode NFC normalization
+    content = unicodedata.normalize("NFC", content)
 
+    # 2. Remove control chars (C0/C1) except \n \r \t, and zero-width chars
+    content = _re_module.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200b\u200c\u200d\ufeff]', '', content)
+
+    # 3. Strip
     content = content.strip()
-    # Collapse 3+ newlines to 2
-    content = re.sub(r'\n{3,}', '\n\n', content)
-    # Collapse multiple spaces to single (within lines, not across newlines)
-    content = re.sub(r'[^\S\n]+', ' ', content)
+
+    # 4. Collapse 3+ newlines to 2
+    content = _re_module.sub(r'\n{3,}', '\n\n', content)
+
+    # 5. Collapse multiple spaces to single (within lines, not across newlines)
+    content = _re_module.sub(r'[^\S\n]+', ' ', content)
+
     return content
 
 
@@ -610,6 +670,18 @@ def auto_enrich_tags(memory: MemoryCreate) -> MemoryCreate:
             memory.tags.append(tech)
             existing_lower.add(tech.lower())
 
+    # 3b. Extract keyphrases via YAKE and use as tag candidates
+    if len(memory.tags) < 8:  # don't over-tag
+        keyphrases = extract_keyphrases(memory.content, top_n=5)
+        for kp in keyphrases:
+            # Only use short keyphrases (1-2 words) as tags
+            words = kp.split()
+            if len(words) <= 2:
+                tag_candidate = kp.lower().strip()
+                if len(tag_candidate) >= 3 and tag_candidate not in existing_lower:
+                    memory.tags.append(tag_candidate)
+                    existing_lower.add(tag_candidate)
+
     # 4. Fallback: use memory type and project as tags if still below minimum
     if len(memory.tags) < MIN_TAGS:
         existing_lower = {t.lower() for t in memory.tags}
@@ -627,3 +699,114 @@ def auto_enrich_tags(memory: MemoryCreate) -> MemoryCreate:
     memory.tags = normalize_tags(memory.tags)
 
     return memory
+
+
+# ============================================================================
+# Enriched Embedding Text Builder
+# ============================================================================
+
+def build_embedding_text(memory) -> str:
+    """Build an enriched text representation for embedding generation.
+
+    Combines ALL available memory fields into a structured text that
+    produces richer, more semantically precise embeddings. The same
+    enrichment is already done at rerank time (reranker.py:96-113) —
+    doing it here ensures embedding-time and rerank-time representations
+    are consistent.
+
+    Template per type:
+    - ERROR:    [ERROR] Project: X. <content> Error: <msg> Solution: <sol> Prevention: <prev>
+    - DECISION: [DECISION] Project: X. <content> Rationale: <rat> Alternatives: <alt>
+    - PATTERN:  [PATTERN] Project: X. <content> Context: <ctx>
+    - DOCS:     [DOCS] Project: X. <content> Source: <src>
+    - LEARNING: [LEARNING] Project: X. <content>
+    - CONTEXT:  [CONTEXT] Project: X. <content>
+
+    All types append: Tags: <tag1, tag2, ...>
+    """
+    parts: list[str] = []
+
+    # Type prefix for embedding disambiguation
+    mem_type = memory.type.value if hasattr(memory.type, 'value') else str(memory.type)
+    parts.append(f"[{mem_type.upper()}]")
+
+    # Project scope
+    if memory.project:
+        parts.append(f"Project: {memory.project}.")
+
+    # Main content (always present)
+    parts.append(memory.content)
+
+    # Context (universal enrichment)
+    if memory.context:
+        parts.append(f"Context: {memory.context}")
+
+    # Type-specific fields
+    if mem_type == "error":
+        if memory.error_message:
+            parts.append(f"Error: {memory.error_message}")
+        if memory.solution:
+            parts.append(f"Solution: {memory.solution}")
+        if memory.prevention:
+            parts.append(f"Prevention: {memory.prevention}")
+    elif mem_type == "decision":
+        if memory.rationale:
+            parts.append(f"Rationale: {memory.rationale}")
+        if memory.alternatives:
+            alts = ", ".join(memory.alternatives) if isinstance(memory.alternatives, list) else str(memory.alternatives)
+            parts.append(f"Alternatives: {alts}")
+    elif mem_type == "docs":
+        if getattr(memory, 'source', None):
+            parts.append(f"Source: {memory.source}")
+
+    # Tags as semantic hints (helps embed topical intent)
+    if memory.tags:
+        tag_list = memory.tags if isinstance(memory.tags, list) else [memory.tags]
+        parts.append(f"Topics: {', '.join(tag_list)}.")
+
+    return " ".join(parts)
+
+
+def build_composite_embedding(memory, embed_fn) -> list[float]:
+    """Generate weighted composite embedding from separate field groups.
+
+    Weights: content 0.70, keyphrases 0.25, metadata 0.05
+    Each group is embedded separately, then combined as weighted sum.
+    Falls back to single embedding if keyphrases are empty.
+
+    Args:
+        memory: Memory object with content, tags, type, project fields
+        embed_fn: Callable that takes (text) and returns {"dense": list[float], ...}
+    """
+    import numpy as np
+
+    # Group 1: Main content (type prefix + content + context + type-specific fields)
+    content_text = build_embedding_text(memory)
+    content_emb = np.array(embed_fn(content_text)["dense"])
+
+    # Group 2: Keyphrases (extracted or from tags)
+    keyphrases = extract_keyphrases(memory.content, top_n=8)
+    if not keyphrases and memory.tags:
+        keyphrases = memory.tags[:5]
+
+    if keyphrases:
+        kp_text = " ".join(keyphrases)
+        kp_emb = np.array(embed_fn(kp_text)["dense"])
+
+        # Group 3: Metadata (project + type + tags as short text)
+        meta_parts = [memory.type.value if hasattr(memory.type, 'value') else str(memory.type)]
+        if memory.project:
+            meta_parts.append(memory.project)
+        meta_text = " ".join(meta_parts)
+        meta_emb = np.array(embed_fn(meta_text)["dense"])
+
+        # Weighted sum
+        composite = 0.70 * content_emb + 0.25 * kp_emb + 0.05 * meta_emb
+        # L2 normalize
+        norm = np.linalg.norm(composite)
+        if norm > 0:
+            composite = composite / norm
+        return composite.tolist()
+
+    # Fallback: just use content embedding
+    return content_emb.tolist()

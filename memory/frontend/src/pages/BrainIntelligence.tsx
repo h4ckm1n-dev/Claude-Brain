@@ -30,7 +30,7 @@ import { Slider } from '../components/ui/slider';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
 import { apiClient } from '../lib/api';
-import { AuditTimeline } from '../components/AuditTimeline';
+
 import { useUpdateQualityScores } from '../hooks/useQuality';
 import { useUpdateLifecycleStates } from '../hooks/useLifecycle';
 import { useTriggerPatternDetection } from '../hooks/useAnalytics';
@@ -163,31 +163,32 @@ export function BrainIntelligence() {
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
       <Header title="Brain Intelligence" />
 
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 max-w-[1800px] mx-auto">
         {/* Hero Section */}
-        <div className="bg-gradient-to-br from-blue-600 via-cyan-600 to-indigo-600 rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
-              <Brain className="h-10 w-10 text-white" />
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-indigo-500/10 p-6 border border-white/5">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5" />
+          <div className="relative flex items-center gap-4 mb-4">
+            <div className="p-3 bg-blue-500/10 rounded-xl ring-1 ring-blue-500/20">
+              <Brain className="h-8 w-8 text-blue-400" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Brain Intelligence System</h1>
-              <p className="text-blue-100 mt-1">
+              <p className="text-white/60 mt-1">
                 Autonomous learning, adaptive importance, and intelligent forgetting
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
-              <p className="text-sm text-blue-100">Total Memories</p>
+          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <div className="bg-[#0a0a0a] rounded-xl p-4 border border-white/5">
+              <p className="text-sm text-white/50">Total Memories</p>
               <p className="text-3xl font-bold text-white">{totalMemories.toLocaleString()}</p>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
-              <p className="text-sm text-blue-100">Auto-Linked Relationships</p>
+            <div className="bg-[#0a0a0a] rounded-xl p-4 border border-white/5">
+              <p className="text-sm text-white/50">Auto-Linked Relationships</p>
               <p className="text-3xl font-bold text-white">{(brainStats?.relationships || 0).toLocaleString()}</p>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
-              <p className="text-sm text-blue-100">High-Utility Memories</p>
+            <div className="bg-[#0a0a0a] rounded-xl p-4 border border-white/5">
+              <p className="text-sm text-white/50">High-Utility Memories</p>
               <p className="text-3xl font-bold text-white">{(utilityDist?.high || 0).toLocaleString()}</p>
             </div>
           </div>
@@ -590,22 +591,6 @@ export function BrainIntelligence() {
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Phase 3-4: Recent Audit Activity */}
-        <Card className="bg-[#0f0f0f] border-white/10 shadow-xl hover:shadow-amber-500/10 transition-all">
-          <CardHeader className="border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-amber-400" />
-              <CardTitle className="text-white">Recent Audit Activity</CardTitle>
-            </div>
-            <CardDescription className="text-white/60">
-              Latest system changes and intelligence operations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <AuditTimeline limit={20} />
           </CardContent>
         </Card>
 

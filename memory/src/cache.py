@@ -199,7 +199,8 @@ def clear_cache(client: QdrantClient) -> int:
 
         # Delete and recreate collection
         client.delete_collection(CACHE_COLLECTION)
-        init_cache_collection(client, 768)  # Assume 768 dims
+        from .embedding_client import get_embedding_dim
+        init_cache_collection(client, get_embedding_dim())
 
         logger.info(f"Cleared {count} cache entries")
         return count

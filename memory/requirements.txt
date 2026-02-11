@@ -33,5 +33,8 @@ prometheus-client>=0.20.0     # Metrics
 # Phase 7: Intelligent archive
 anthropic>=0.30.0             # Claude API for Haiku archive command
 
+# Keyphrase extraction (zero heavy deps — pure Python + networkx)
+yake>=0.4.8
+
 # Numpy for embeddings
 numpy>=1.26.0

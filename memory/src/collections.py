@@ -1,7 +1,7 @@
 """Qdrant collection management with hybrid search support.
 
 Supports:
-- Dense vectors (nomic-embed-text-v1.5, 768 dims)
+- Dense vectors (modernbert-embed-large, 1024 dims)
 - Sparse vectors (BM42/SPLADE for keyword matching)
 - RRF (Reciprocal Rank Fusion) for hybrid search
 """
@@ -34,7 +34,7 @@ from .graph import (
     delete_memory_node
 )
 from .graph_search import expand_search_with_graph
-from .query_understanding import route_query
+from .query_understanding import route_query, apply_query_intelligence
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ def _create_collection_with_hybrid_vectors(client: QdrantClient) -> None:
                 m=16,  # Number of edges per node
                 ef_construct=100  # Build quality
             ),
-            # Binary quantization: 768 bytes -> 24 bytes per vector
+            # Scalar quantization: 1024 floats -> 1024 bytes per vector (INT8)
             quantization_config=models.ScalarQuantization(
                 scalar=models.ScalarQuantizationConfig(
                     type=models.ScalarType.INT8,
@@ -326,21 +326,36 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
         changed_by="system"
     )
 
-    # Generate combined text for embedding
-    embed_text_combined = f"{memory.content}"
-    if memory.context:
-        embed_text_combined += f" {memory.context}"
-    if memory.error_message:
-        embed_text_combined += f" {memory.error_message}"
+    # Generate embeddings (composite or single depending on config)
+    from .enhancements import build_embedding_text, build_composite_embedding
+    use_composite = os.getenv("USE_COMPOSITE_EMBEDDINGS", "true").lower() == "true"
+    embeddings = {}
 
-    # Generate hybrid embeddings
-    embeddings = embed_text(embed_text_combined, include_sparse=is_sparse_enabled())
+    if use_composite:
+        embeddings["dense"] = build_composite_embedding(memory, embed_text)
+    else:
+        embed_text_combined = build_embedding_text(memory)
+        embeddings["dense"] = embed_text(embed_text_combined)["dense"]
+
+    # Sparse embedding always uses full enriched text
+    if is_sparse_enabled():
+        embed_text_combined = build_embedding_text(memory)
+        sparse_result = embed_text(embed_text_combined, include_sparse=True)
+        if "sparse" in sparse_result:
+            embeddings["sparse"] = sparse_result["sparse"]
+
     memory.embedding = embeddings["dense"]
 
     # Prepare payload
     payload = memory.model_dump(exclude={"embedding"})
     payload["created_at"] = memory.created_at.isoformat()
     payload["updated_at"] = memory.updated_at.isoformat()
+
+    # Extract and store keyphrases for search/display
+    from .enhancements import extract_keyphrases
+    keyphrases = extract_keyphrases(memory.content, top_n=8)
+    if keyphrases:
+        payload["keyphrases"] = keyphrases
 
     # Phase 2.2: Set default temporal fields if not provided
     from .temporal import TemporalQuery
@@ -557,6 +572,104 @@ def _auto_supersede(
     return superseded
 
 
+def _jaccard(a: set, b: set) -> float:
+    """Jaccard similarity between two word sets."""
+    if not a and not b:
+        return 0.0
+    intersection = len(a & b)
+    union = len(a | b)
+    return intersection / union if union else 0.0
+
+
+def _apply_mmr_diversity(
+    results: list[SearchResult],
+    lambda_param: float = 0.7,
+    max_results: int | None = None
+) -> list[SearchResult]:
+    """Maximal Marginal Relevance — balance relevance vs diversity.
+
+    lambda=1.0 -> pure relevance, lambda=0.5 -> balanced, lambda=0.7 -> default
+    Uses Jaccard word overlap for similarity (fast, no extra embeddings).
+    """
+    if len(results) <= 1:
+        return results
+
+    # Precompute word sets from content
+    word_sets = [set(r.memory.content.lower().split()) for r in results]
+
+    selected = [0]  # Always keep the top result
+    remaining = list(range(1, len(results)))
+    target = max_results or len(results)
+
+    while remaining and len(selected) < target:
+        best_idx = None
+        best_mmr = -float('inf')
+
+        for idx in remaining:
+            relevance = results[idx].composite_score or results[idx].score
+            # Max similarity to any already-selected result
+            max_sim = max(
+                _jaccard(word_sets[idx], word_sets[s])
+                for s in selected
+            )
+            mmr = lambda_param * relevance - (1 - lambda_param) * max_sim
+            if mmr > best_mmr:
+                best_mmr = mmr
+                best_idx = idx
+
+        selected.append(best_idx)
+        remaining.remove(best_idx)
+
+    return [results[i] for i in selected]
+
+
+def _adaptive_score_threshold(scores: list[float], base_threshold: float = 0.10) -> float:
+    """Compute adaptive score threshold from result distribution.
+
+    Strategy:
+    - If top score is high (>0.7), use base_threshold (results are confident)
+    - If top score is low (<0.4), lower threshold to base * 0.5 (preserve scarce results)
+    - Drop results that are < 30% of the top score (relative gap filter)
+    """
+    if not scores:
+        return base_threshold
+
+    top = max(scores)
+    if top < 0.4:
+        return base_threshold * 0.5  # Lenient for weak results
+
+    # Relative gap: drop anything below 30% of top score
+    relative_threshold = top * 0.30
+    return max(base_threshold, relative_threshold)
+
+
+def _decomposed_search(
+    client: QdrantClient,
+    sub_queries: list[str],
+    search_mode: str,
+    query_filter,
+    limit: int,
+    min_score: float
+) -> list:
+    """Search each sub-query independently, merge by max score per memory ID."""
+    all_results = {}
+    use_sparse = search_mode in ("keyword", "hybrid") and is_sparse_enabled()
+
+    for sq in sub_queries:
+        sq_intelligence = apply_query_intelligence(sq)
+        sq_embeddings = embed_query(sq_intelligence["enhanced_query"], include_sparse=use_sparse)
+        if search_mode == "hybrid" and is_sparse_enabled():
+            vresults = _hybrid_search(client, sq_embeddings, query_filter, limit, min_score, sq)
+        else:
+            vresults = _dense_search(client, sq_embeddings, query_filter, limit, min_score)
+        for r in vresults:
+            rid = str(r.id)
+            if rid not in all_results or r.score > all_results[rid].score:
+                all_results[rid] = r
+
+    return sorted(all_results.values(), key=lambda r: r.score, reverse=True)[:limit]
+
+
 def search_memories(
     query: SearchQuery,
     search_mode: SearchMode = "hybrid",
@@ -579,11 +692,16 @@ def search_memories(
     """
     client = get_client()
 
-    # Apply query understanding if enabled
+    # Apply query understanding with expansion and typo correction
     use_query_understanding = os.getenv("USE_QUERY_UNDERSTANDING", "true").lower() == "true"
+    original_query = query.query
+    enhanced_query = query.query
     if use_query_understanding:
-        routing = route_query(query.query)
-        logger.debug(f"Query understanding routing: {routing}")
+        intelligence = apply_query_intelligence(query.query)
+        enhanced_query = intelligence["enhanced_query"]
+        routing = intelligence["routing"]
+        logger.debug(f"Query intelligence: {len(intelligence['corrections'])} corrections, "
+                     f"{len(intelligence['expansions'])} expansions, routing: {routing}")
 
         # Map strategy to search_mode
         strategy_map = {
@@ -609,9 +727,9 @@ def search_memories(
         if routing["strategy"] == "graph_expansion":
             use_graph_expansion = True
 
-    # Generate query embeddings
+    # Generate query embeddings using enhanced query for better recall
     use_sparse = search_mode in ("keyword", "hybrid") and is_sparse_enabled()
-    query_embeddings = embed_query(query.query, include_sparse=use_sparse)
+    query_embeddings = embed_query(enhanced_query, include_sparse=use_sparse)
 
     # Check cache first (if enabled and no filters that would change results)
     if use_cache and not query.type and not query.tags and not query.project:
@@ -642,20 +760,40 @@ def search_memories(
     # Retrieve more candidates for reranking (50 instead of limit)
     candidate_limit = 50 if use_reranking and is_reranker_enabled() else query.limit
 
-    # Execute search based on mode
-    if search_mode == "hybrid" and is_sparse_enabled():
-        results = _hybrid_search(
-            client, query_embeddings, query_filter, candidate_limit, query.min_score, query.query
+    # Query decomposition: split complex multi-part queries
+    results = None
+    if len(original_query.split()) >= 8:
+        from .query_understanding import decompose_query
+        sub_queries = decompose_query(original_query)
+        if len(sub_queries) > 1:
+            logger.debug(f"Decomposed query into {len(sub_queries)} sub-queries: {sub_queries}")
+            results = _decomposed_search(
+                client, sub_queries, search_mode, query_filter,
+                candidate_limit, query.min_score
+            )
+
+    # Multi-query for short queries (≤3 words produce weak embeddings)
+    if results is None and len(original_query.split()) <= 3 and search_mode != "keyword":
+        results = _multi_variant_search(
+            client, original_query, enhanced_query, search_mode,
+            query_filter, candidate_limit, query.min_score
         )
-    elif search_mode == "keyword" and is_sparse_enabled():
-        results = _sparse_search(
-            client, query_embeddings, query_filter, candidate_limit, query.min_score
-        )
-    else:
-        # Default to dense semantic search
-        results = _dense_search(
-            client, query_embeddings, query_filter, candidate_limit, query.min_score
-        )
+
+    if results is None:
+        # Execute search based on mode
+        if search_mode == "hybrid" and is_sparse_enabled():
+            results = _hybrid_search(
+                client, query_embeddings, query_filter, candidate_limit, query.min_score, enhanced_query
+            )
+        elif search_mode == "keyword" and is_sparse_enabled():
+            results = _sparse_search(
+                client, query_embeddings, query_filter, candidate_limit, query.min_score
+            )
+        else:
+            # Default to dense semantic search
+            results = _dense_search(
+                client, query_embeddings, query_filter, candidate_limit, query.min_score
+            )
 
     # Convert to SearchResult objects
     search_results = []
@@ -671,9 +809,21 @@ def search_memories(
     top_score = max(r.score for r in search_results) if search_results else 0
     if use_reranking and is_reranker_enabled() and len(search_results) > 0 and top_score < 0.95:
         logger.debug(f"Reranking {len(search_results)} candidates")
-        search_results = rerank_search_results(query.query, search_results, top_k=query.limit)
+        search_results = rerank_search_results(original_query, search_results, top_k=query.limit)
     else:
         search_results = search_results[:query.limit]
+
+    # MMR diversity: prevent near-duplicate results
+    if len(search_results) > 3:
+        search_results = _apply_mmr_diversity(search_results, lambda_param=0.7)
+
+    # Adaptive score threshold (replaces fixed 0.15)
+    all_scores = [r.composite_score or r.score for r in search_results]
+    score_threshold = _adaptive_score_threshold(all_scores)
+    search_results = [
+        r for r in search_results
+        if (r.composite_score or r.score) >= score_threshold
+    ]
 
     # Phase 2.1: Apply graph-based search expansion if enabled
     if use_graph_expansion and is_graph_enabled() and len(search_results) > 0:
@@ -685,6 +835,13 @@ def search_memories(
             expansion_factor=0.6,  # Dampen expanded results to 60% of original score
             top_k=query.limit  # Return same number of results
         )
+        # Filter graph-expanded results by adaptive threshold
+        all_scores = [r.composite_score or r.score for r in search_results]
+        score_threshold = _adaptive_score_threshold(all_scores)
+        search_results = [
+            r for r in search_results
+            if (r.composite_score or r.score) >= score_threshold
+        ]
 
     # Store in cache (only if no filters)
     if use_cache and search_results and not query.type and not query.tags and not query.project:
@@ -894,6 +1051,59 @@ def _sparse_search(
     ).points
 
     return results
+
+
+def _multi_variant_search(
+    client: QdrantClient,
+    original_query: str,
+    enhanced_query: str,
+    search_mode: str,
+    query_filter,
+    candidate_limit: int,
+    min_score: float
+) -> list | None:
+    """Search with multiple query variants for short queries, merge by max score.
+
+    Short queries (≤3 words) produce weak embeddings. Generating variants
+    like "how to {query}" and synonym-expanded forms improves recall.
+
+    Returns merged results or None if not enough variants to justify multi-query.
+    """
+    from .query_understanding import expand_query_with_synonyms
+
+    variants = [enhanced_query]
+    how_to = f"how to {original_query}"
+    if how_to != enhanced_query:
+        variants.append(how_to)
+    expanded = expand_query_with_synonyms(original_query, max_synonyms=3)
+    if expanded not in variants:
+        variants.append(expanded)
+    variants = variants[:3]
+
+    if len(variants) <= 1:
+        return None  # Not enough variants, use normal search
+
+    all_results = {}
+    use_sparse = search_mode == "hybrid" and is_sparse_enabled()
+
+    for variant in variants:
+        variant_embeddings = embed_query(variant, include_sparse=use_sparse)
+        if search_mode == "hybrid" and is_sparse_enabled():
+            vresults = _hybrid_search(
+                client, variant_embeddings, query_filter, candidate_limit, min_score, variant
+            )
+        else:
+            vresults = _dense_search(
+                client, variant_embeddings, query_filter, candidate_limit, min_score
+            )
+        for r in vresults:
+            rid = str(r.id)
+            if rid not in all_results or r.score > all_results[rid].score:
+                all_results[rid] = r
+
+    merged = sorted(all_results.values(), key=lambda r: r.score, reverse=True)
+    logger.debug(f"Multi-query: {len(variants)} variants, {len(merged)} unique results")
+    return merged[:candidate_limit]
 
 
 def _build_filter(query: SearchQuery) -> Optional[models.Filter]:

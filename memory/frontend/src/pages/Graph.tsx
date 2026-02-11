@@ -125,16 +125,17 @@ export function Graph() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] flex flex-col">
       <Header title="Knowledge Graph" />
-      <div className="flex-1 p-6 space-y-6 overflow-hidden">
+      <div className="flex-1 p-6 space-y-6 overflow-hidden max-w-[1800px] mx-auto">
         {/* Hero Section */}
-        <div className="bg-gradient-to-br from-purple-600 via-violet-600 to-fuchsia-600 rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
-              <Network className="h-10 w-10 text-white" />
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/10 via-violet-500/10 to-fuchsia-500/10 p-6 border border-white/5">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-500/5" />
+          <div className="relative flex items-center gap-4">
+            <div className="p-3 bg-purple-500/10 rounded-xl ring-1 ring-purple-500/20">
+              <Network className="h-8 w-8 text-purple-400" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Knowledge Graph</h1>
-              <p className="text-purple-100 mt-1">
+              <p className="text-white/60 mt-1">
                 Interactive visualization of memory relationships and connections
               </p>
             </div>

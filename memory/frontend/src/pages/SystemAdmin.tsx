@@ -65,16 +65,17 @@ export function SystemAdmin() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
       <Header title="System Admin" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-8 space-y-6 max-w-[1800px] mx-auto">
         {/* Hero */}
-        <div className="bg-gradient-to-br from-red-600 via-rose-600 to-pink-600 rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
-              <Shield className="h-10 w-10 text-white" />
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-500/10 via-rose-500/10 to-pink-500/10 p-6 border border-white/5">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-rose-500/5" />
+          <div className="relative flex items-center gap-4">
+            <div className="p-3 bg-red-500/10 rounded-xl ring-1 ring-red-500/20">
+              <Shield className="h-8 w-8 text-red-400" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">System Administration</h1>
-              <p className="text-red-100 mt-1">
+              <p className="text-white/60 mt-1">
                 Advanced system management, monitoring, and maintenance
               </p>
             </div>

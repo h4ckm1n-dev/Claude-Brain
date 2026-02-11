@@ -47,7 +47,7 @@ Use Agent SDK for CI/CD, pipelines, and programmatic automation. Use CLI for int
 
 ## Stack
 
-Python 3.11 + FastAPI, Qdrant (vector), Neo4j (graph), React 18 + TS (frontend), nomic-embed-text-v1.5
+Python 3.11 + FastAPI, Qdrant (vector), Neo4j (graph), React 18 + TS (frontend), modernbert-embed-large
 
 ## Service Commands
 

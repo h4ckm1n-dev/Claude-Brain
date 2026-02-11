@@ -1,6 +1,6 @@
 """Advanced embedding service with hybrid (dense + sparse) support.
 
-Uses nomic-embed-text-v1.5 for dense embeddings (768 dims)
+Uses modernbert-embed-large for dense embeddings (1024 dims)
 and SPLADE via fastembed for sparse embeddings.
 
 All model operations are delegated to embedding_client, which routes

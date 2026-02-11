@@ -173,7 +173,7 @@ async def health_check():
         document_chunks=doc_stats.get("total_chunks", 0),
         hybrid_search_enabled=stats.get("hybrid_search_enabled", False),
         graph_enabled=is_graph_enabled(),
-        embedding_model="nomic-ai/nomic-embed-text-v1.5",
+        embedding_model="lightonai/modernbert-embed-large",
         embedding_dim=stats.get("embedding_dim", get_embedding_dim())
     )
 

@@ -1,10 +1,11 @@
 """Standalone Embedding Service.
 
 Loads ML models once at startup and serves embeddings + reranking over HTTP.
-Models: nomic-embed-text-v1.5 (dense), BM42 (sparse), ms-marco-MiniLM (reranker).
+Models: modernbert-embed-large (dense), BM42 (sparse), bge-reranker-base (reranker).
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -15,10 +16,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Model singletons (loaded once at startup)
 # ---------------------------------------------------------------------------
-DENSE_MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
+DENSE_MODEL_NAME = "lightonai/modernbert-embed-large"
 SPARSE_MODEL_NAME = "Qdrant/bm42-all-minilm-l6-v2-attentions"
-RERANK_MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-EMBEDDING_DIM = 768
+RERANK_MODEL_NAME = os.getenv("RERANK_MODEL_NAME", "BAAI/bge-reranker-base")
+EMBEDDING_DIM = 1024
 
 _dense_model = None
 _sparse_model = None  # None = not loaded, "disabled" = failed
@@ -31,7 +32,7 @@ def _load_models():
     # Dense model (required)
     logger.info("Loading dense model: %s", DENSE_MODEL_NAME)
     from sentence_transformers import SentenceTransformer
-    _dense_model = SentenceTransformer(DENSE_MODEL_NAME, trust_remote_code=True)
+    _dense_model = SentenceTransformer(DENSE_MODEL_NAME)
     logger.info("Dense model loaded (%d dims)", EMBEDDING_DIM)
 
     # Sparse model (optional)

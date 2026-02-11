@@ -226,16 +226,17 @@ export function Sessions() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
       <Header title="Sessions" />
-      <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+      <div className="p-4 sm:p-8 space-y-6 max-w-[1800px] mx-auto">
         {/* Hero */}
-        <div className="bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-600 rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
-              <Clock className="h-10 w-10 text-white" />
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500/10 via-cyan-500/10 to-blue-500/10 p-6 border border-white/5">
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 via-transparent to-cyan-500/5" />
+          <div className="relative flex items-center gap-4">
+            <div className="p-3 bg-teal-500/10 rounded-xl ring-1 ring-teal-500/20">
+              <Clock className="h-8 w-8 text-teal-400" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Session Management</h1>
-              <p className="text-teal-100 mt-1">
+              <p className="text-white/60 mt-1">
                 Track coding sessions and consolidate session memories
               </p>
             </div>

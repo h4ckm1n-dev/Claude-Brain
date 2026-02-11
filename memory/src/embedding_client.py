@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 EMBEDDING_SERVICE_URL: str | None = os.environ.get("EMBEDDING_SERVICE_URL")
 
-DENSE_MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
+DENSE_MODEL_NAME = "lightonai/modernbert-embed-large"
 SPARSE_MODEL_NAME = "Qdrant/bm42-all-minilm-l6-v2-attentions"
-RERANK_MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-EMBEDDING_DIM = 768
+RERANK_MODEL_NAME = os.getenv("RERANK_MODEL_NAME", "BAAI/bge-reranker-base")
+EMBEDDING_DIM = 1024
 
 # ---------------------------------------------------------------------------
 # Module-level HTTP client (connection-pooled, lazy-initialised)
@@ -72,9 +72,7 @@ def _local_dense_model():
     if _dense_model is None:
         logger.info("Loading dense model locally: %s", DENSE_MODEL_NAME)
         from sentence_transformers import SentenceTransformer
-        _dense_model = SentenceTransformer(
-            DENSE_MODEL_NAME, trust_remote_code=True
-        )
+        _dense_model = SentenceTransformer(DENSE_MODEL_NAME)
         logger.info("Dense model loaded (%d dims)", EMBEDDING_DIM)
     return _dense_model
 

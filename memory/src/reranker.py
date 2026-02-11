@@ -1,6 +1,6 @@
 """Cross-encoder reranking for improved search precision.
 
-Uses ms-marco-MiniLM-L-6-v2 for fast, accurate reranking.
+Uses cross-encoder reranking (model configurable via RERANK_MODEL_NAME env var).
 Improves search precision by ~40% compared to bi-encoder only.
 
 All model operations are delegated to embedding_client, which routes
@@ -91,16 +91,26 @@ def rerank_search_results(
         return search_results[:top_k]
 
     try:
-        # Extract content from search results
+        # Extract enriched content from search results for reranking
         texts = []
         for result in search_results:
             memory = result.memory
-            content = memory.content or ""
+            parts = [memory.content or ""]
             if memory.context:
-                content += f" {memory.context}"
+                parts.append(memory.context)
             if memory.error_message:
-                content += f" {memory.error_message}"
-            texts.append(content)
+                parts.append(memory.error_message)
+            if memory.solution:
+                parts.append(memory.solution)
+            if memory.prevention:
+                parts.append(memory.prevention)
+            if memory.rationale:
+                parts.append(memory.rationale)
+            if memory.tags:
+                parts.append(" ".join(memory.tags))
+            if memory.project:
+                parts.append(memory.project)
+            texts.append(" ".join(parts))
 
         # Get reranking scores via embedding client
         scores = rerank_texts(query, texts, top_k=top_k)

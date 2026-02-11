@@ -491,6 +491,32 @@ def estimate_typo_corrections(query: str, known_terms: Optional[List[str]] = Non
     return corrections
 
 
+def decompose_query(query: str) -> list[str]:
+    """Split complex queries into sub-queries using conjunction-based heuristics.
+
+    Only decomposes if:
+    - Query has 8+ words
+    - Contains a conjunction ("and", "also", "as well as", "plus")
+    - Each sub-query has 3+ words (avoid splitting into fragments)
+
+    Returns list of 1-3 sub-queries (returns [query] unchanged if no split).
+    """
+    words = query.split()
+    if len(words) < 8:
+        return [query]
+
+    # Split on conjunctions between clauses
+    parts = re.split(
+        r'\b(?:and also|and then|and|also|as well as|plus)\b',
+        query, flags=re.IGNORECASE
+    )
+    parts = [p.strip() for p in parts if len(p.strip().split()) >= 3]
+
+    if len(parts) <= 1:
+        return [query]
+    return parts[:3]  # Cap at 3 sub-queries
+
+
 def apply_query_intelligence(query: str, expand_synonyms: bool = True, correct_typos: bool = True) -> Dict:
     """
     Apply all query intelligence enhancements.

@@ -31,6 +31,7 @@ class MemoryType(str, Enum):
 
 class MemoryTier(str, Enum):
     """Memory storage tiers for lifecycle management."""
+    STAGING = "staging"       # Newly ingested, pending classification
     EPISODIC = "episodic"    # Recent, raw interactions (short-term)
     SEMANTIC = "semantic"     # Consolidated knowledge (long-term)
     PROCEDURAL = "procedural" # Workflows and routines (permanent)
@@ -409,6 +410,7 @@ class Memory(MemoryBase):
         tier_factors = {
             MemoryTier.PROCEDURAL: 0.3,  # Slowest decay
             MemoryTier.SEMANTIC: 0.6,
+            MemoryTier.STAGING: 0.8,     # Pending classification
             MemoryTier.EPISODIC: 1.0     # Fastest decay
         }
         tier_factor = tier_factors.get(self.memory_tier, 1.0)

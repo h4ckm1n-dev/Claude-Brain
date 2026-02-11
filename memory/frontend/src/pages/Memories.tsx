@@ -143,7 +143,7 @@ export function Memories() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]">
       <Header title="Memories" />
-      <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-5">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-[1800px] mx-auto space-y-5">
 
         {/* Hero Header */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-emerald-500/10 p-5 border border-white/5">

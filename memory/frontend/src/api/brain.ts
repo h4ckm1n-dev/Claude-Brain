@@ -9,6 +9,11 @@ export interface BrainMetrics {
   access_rate: number;
   total_memories: number;
   last_updated: string;
+  utility_high: number;
+  utility_medium: number;
+  utility_low: number;
+  total_relationships: number;
+  type_distribution: Record<string, number>;
 }
 
 export interface PerformanceMetrics {
@@ -46,34 +51,41 @@ export interface MetaLearningResult {
   timestamp: string;
 }
 
-// Get combined brain metrics (custom endpoint aggregating all metrics)
+// Get combined brain metrics (aggregates performance + brain stats)
 export const getBrainMetrics = async (): Promise<BrainMetrics> => {
+  const defaults: BrainMetrics = {
+    emotional_coverage: 0, conflicts_detected: 0, conflicts_resolved: 0,
+    avg_importance: 0.5, access_rate: 0, total_memories: 0,
+    last_updated: new Date().toISOString(),
+    utility_high: 0, utility_medium: 0, utility_low: 0,
+    total_relationships: 0, type_distribution: {},
+  };
   try {
-    // Fetch performance metrics
-    const metricsResponse = await apiClient.get<MetricsHistory>('/brain/performance-metrics?days=1');
-    const current = metricsResponse.data.current;
+    const [perfResp, statsResp] = await Promise.allSettled([
+      apiClient.get<MetricsHistory>('/brain/performance-metrics?days=1'),
+      apiClient.get<any>('/brain/stats'),
+    ]);
 
-    // Return combined metrics
+    const current = perfResp.status === 'fulfilled' ? perfResp.value.data.current : null;
+    const brainStats = statsResp.status === 'fulfilled' ? statsResp.value.data : null;
+
     return {
-      emotional_coverage: current.emotional_coverage || 0,
-      conflicts_detected: 0, // Will be populated after first run
-      conflicts_resolved: 0,
-      avg_importance: current.avg_importance || 0.5,
-      access_rate: current.access_rate || 0,
-      total_memories: current.total_memories || 0,
-      last_updated: current.timestamp || new Date().toISOString()
+      emotional_coverage: current?.emotional_coverage || 0,
+      avg_importance: current?.avg_importance || 0.5,
+      access_rate: current?.access_rate || 0,
+      total_memories: current?.total_memories || brainStats?.total_memories || 0,
+      type_distribution: current?.type_distribution || {},
+      last_updated: current?.timestamp || new Date().toISOString(),
+      conflicts_detected: brainStats?.conflicts_detected || 0,
+      conflicts_resolved: brainStats?.conflicts_resolved || 0,
+      total_relationships: brainStats?.relationships || 0,
+      utility_high: brainStats?.utility_distribution?.high || 0,
+      utility_medium: brainStats?.utility_distribution?.medium || 0,
+      utility_low: brainStats?.utility_distribution?.low || 0,
     };
   } catch (error) {
     console.error('Failed to fetch brain metrics:', error);
-    return {
-      emotional_coverage: 0,
-      conflicts_detected: 0,
-      conflicts_resolved: 0,
-      avg_importance: 0.5,
-      access_rate: 0,
-      total_memories: 0,
-      last_updated: new Date().toISOString()
-    };
+    return defaults;
   }
 };
 
