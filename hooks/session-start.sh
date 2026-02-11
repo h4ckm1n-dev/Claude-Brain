@@ -30,4 +30,8 @@ if [ -n "$CLAUDE_ENV_FILE" ]; then
     echo "MEMORY_PROJECT_PATH=$FULL_PATH" >> "$CLAUDE_ENV_FILE"
 fi
 
+# Write session ID to a known file for the MCP server to read
+# (MCP server is spawned before hooks run, so it can't get env vars)
+echo "$SESSION_ID" > /tmp/.claude-memory-session-id
+
 exit 0

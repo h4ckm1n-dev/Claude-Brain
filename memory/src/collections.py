@@ -141,6 +141,8 @@ def init_collections() -> None:
                         f"expected {get_embedding_dim()}. Migration needed."
                     )
         logger.info(f"Collection '{COLLECTION_NAME}' already exists")
+        # Ensure payload indexes are up to date (idempotent)
+        _create_payload_indexes(client)
     except (UnexpectedResponse, Exception):
         logger.info(f"Creating collection '{COLLECTION_NAME}' with hybrid vectors")
         _create_collection_with_hybrid_vectors(client)
@@ -220,6 +222,7 @@ def _create_payload_indexes(client: QdrantClient) -> None:
         ("created_at", models.PayloadSchemaType.DATETIME),
         ("memory_tier", models.PayloadSchemaType.KEYWORD),
         ("archived", models.PayloadSchemaType.BOOL),
+        ("session_id", models.PayloadSchemaType.KEYWORD),
     ]
 
     for field_name, field_type in indexes:

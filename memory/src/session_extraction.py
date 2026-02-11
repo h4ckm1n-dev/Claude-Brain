@@ -408,7 +408,7 @@ class SessionManager:
 
             # Calculate stats
             total_sessions = len(sessions)
-            total_memories_in_sessions = len(results)
+            total_memories_in_sessions = sum(len(mems) for mems in sessions.values())
             sessions_with_summary = 0
             avg_memories_per_session = 0
 

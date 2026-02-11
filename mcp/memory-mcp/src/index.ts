@@ -14,9 +14,28 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { readFileSync } from "node:fs";
 
 // Configuration
 const MEMORY_SERVICE_URL = process.env.MEMORY_SERVICE_URL || "http://localhost:8100";
+
+/**
+ * Read session ID set by the SessionStart hook.
+ * The MCP server process is spawned before hooks run, so process.env won't have it.
+ * The hook writes the session ID to /tmp/.claude-memory-session-id.
+ */
+function getSessionId(): string | undefined {
+  // Fast path: check process.env first
+  if (process.env.MEMORY_SESSION_ID) return process.env.MEMORY_SESSION_ID;
+  // Read from file written by session-start.sh hook
+  try {
+    const sid = readFileSync("/tmp/.claude-memory-session-id", "utf-8").trim();
+    if (sid) return sid;
+  } catch {
+    // File doesn't exist yet — hook hasn't run
+  }
+  return undefined;
+}
 
 // Types
 interface Memory {
@@ -792,9 +811,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       // === Core Memory Tools ===
       case "store_memory": {
+        // Inject session_id from environment (set by SessionStart hook)
+        const storeArgs = { ...args as Record<string, unknown> };
+        const sessionId = getSessionId();
+        if (sessionId && !storeArgs.session_id) {
+          storeArgs.session_id = sessionId;
+        }
         const memory = await apiCall<Memory>("/memories", {
           method: "POST",
-          body: JSON.stringify(args),
+          body: JSON.stringify(storeArgs),
         });
         return {
           content: [
@@ -1135,8 +1160,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             decision?: string;
             rationale?: string;
             alternatives?: string[];
+            session_id?: string;
           }>;
         };
+
+        // Inject session_id from environment into each memory (set by SessionStart hook)
+        const bulkSessionId = getSessionId();
+        const enrichedMemories = bulkSessionId
+          ? memories.map((m) => m.session_id ? m : { ...m, session_id: bulkSessionId })
+          : memories;
 
         const bulkResult = await apiCall<{
           stored: number;
@@ -1145,7 +1177,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errors: Array<{ index: number; error: string | object }>;
         }>("/memories/bulk", {
           method: "POST",
-          body: JSON.stringify(memories),
+          body: JSON.stringify(enrichedMemories),
         });
 
         const lines: string[] = [];
