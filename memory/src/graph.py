@@ -20,13 +20,20 @@ NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "memory_graph_2024")
 
 _driver = None
+_last_retry: float = 0.0
+_RETRY_INTERVAL = 30  # seconds between reconnection attempts
 
 
 def get_driver():
-    """Get or create Neo4j driver."""
-    global _driver
+    """Get or create Neo4j driver. Retries on connection failure every 30s."""
+    global _driver, _last_retry
+    import time
 
-    if _driver is None:
+    if _driver is None or _driver == "failed":
+        now = time.time()
+        if _driver == "failed" and (now - _last_retry) < _RETRY_INTERVAL:
+            return None  # Too soon to retry
+        _last_retry = now
         try:
             from neo4j import GraphDatabase
             _driver = GraphDatabase.driver(
@@ -41,8 +48,10 @@ def get_driver():
             _driver = "disabled"
         except Exception as e:
             logger.error(f"Failed to connect to Neo4j: {e}")
-            _driver = "disabled"
+            _driver = "failed"  # "failed" = retryable, "disabled" = permanent
 
+    if _driver == "failed":
+        return None
     return _driver
 
 
@@ -56,7 +65,7 @@ def is_graph_enabled() -> bool:
 def get_session():
     """Get a Neo4j session context manager."""
     driver = get_driver()
-    if driver == "disabled":
+    if driver is None or driver == "disabled":
         yield None
         return
 
@@ -144,6 +153,11 @@ def create_memory_node(
 
         try:
             timestamp = created_at or datetime.now(timezone.utc)
+            # Handle both datetime objects and ISO strings
+            if isinstance(timestamp, str):
+                ts_str = timestamp
+            else:
+                ts_str = timestamp.isoformat()
 
             # Create memory node
             session.run("""
@@ -155,7 +169,7 @@ def create_memory_node(
                 "id": memory_id,
                 "type": memory_type,
                 "preview": content_preview[:200] if content_preview else "",
-                "created_at": timestamp.isoformat()
+                "created_at": ts_str
             })
 
             # Link to project if specified

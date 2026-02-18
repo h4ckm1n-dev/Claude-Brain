@@ -474,8 +474,8 @@ class RelationshipInference:
                 if rel_type:
                     # Check for specific patterns
                     if rel_type == "FIXES":
-                        # For FIXES: candidate (learning/decision) should be after error
-                        if memory_type in ["learning", "decision"] and candidate_type == "error":
+                        # For FIXES: candidate (learning/decision/docs) should be after error
+                        if memory_type in ["learning", "decision", "docs"] and candidate_type == "error":
                             candidate_time = datetime.fromisoformat(candidate.payload["created_at"])
                             if candidate_time.tzinfo is None:
                                 candidate_time = candidate_time.replace(tzinfo=timezone.utc)
@@ -550,10 +550,10 @@ class RelationshipInference:
         Infer relationship type based on memory type combinations and similarity.
 
         Type-based patterns:
-        - ERROR + LEARNING → FIXES (if learning comes after error)
-        - ERROR + DECISION → FIXES (if decision comes after error)
-        - PATTERN + DECISION → SUPPORTS
-        - PATTERN + LEARNING → SUPPORTS
+        - ERROR + LEARNING/DECISION/DOCS → FIXES (if solution comes after error)
+        - DOCS + PATTERN/DECISION/LEARNING → SUPPORTS (bidirectional)
+        - PATTERN + DECISION/LEARNING → SUPPORTS
+        - DECISION + LEARNING → SUPPORTS
         - ERROR + ERROR → SIMILAR_TO (if high similarity)
         - DECISION + DECISION → SUPERSEDES (if very high similarity, handled separately)
         - * + * → RELATED (if moderate similarity)
@@ -570,9 +570,15 @@ class RelationshipInference:
         if type1 == "error" and type2 == "error" and similarity > 0.88:
             return "SIMILAR_TO"
 
-        # Learning/Decision after error → FIXES (temporal check done in caller)
-        if type1 in ["learning", "decision"] and type2 == "error" and similarity > 0.88:
+        # Learning/Decision/Docs after error → FIXES (temporal check done in caller)
+        if type1 in ["learning", "decision", "docs"] and type2 == "error" and similarity > 0.85:
             return "FIXES"
+
+        # Docs support patterns, decisions, and learnings
+        if type1 == "docs" and type2 in ["pattern", "decision", "learning"] and similarity > 0.75:
+            return "SUPPORTS"
+        if type2 == "docs" and type1 in ["pattern", "decision", "learning"] and similarity > 0.75:
+            return "SUPPORTS"
 
         # Pattern supports decision/learning
         if type1 == "pattern" and type2 in ["decision", "learning"] and similarity > 0.75:
