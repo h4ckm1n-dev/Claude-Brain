@@ -109,9 +109,9 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
                 return MEMORY_TYPE_COLORS[type as keyof typeof MEMORY_TYPE_COLORS] || '#0088FE';
               },
               'label': 'data(label)',
-              'color': '#1f2937',
-              'text-outline-color': '#fff',
-              'text-outline-width': 3,
+              'color': '#e5e5e5',
+              'text-outline-color': '#0a0a0a',
+              'text-outline-width': 2,
               'font-size': (ele: any) => {
                 const importance = ele.data('importance') || 0.5;
                 return Math.max(12, 10 + importance * 10);
@@ -137,7 +137,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
                 return ele.data('pinned') ? 5 : 2;
               },
               'border-color': (ele: any) => {
-                return ele.data('pinned') ? '#f59e0b' : 'rgba(0, 0, 0, 0.2)';
+                return ele.data('pinned') ? '#f59e0b' : 'rgba(255, 255, 255, 0.1)';
               },
               'border-opacity': 0.8,
               'transition-property': 'background-color, border-width, border-color, width, height',
@@ -193,16 +193,16 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
               'target-arrow-fill': 'filled',
               'arrow-scale': 1.2,
               'curve-style': 'bezier',
-              'label': 'data(type)',
+              'label': 'data(relation)',
               'font-size': '10px',
               'font-weight': '600',
               'text-rotation': 'autorotate',
               'text-margin-y': -12,
-              'text-background-color': '#fff',
-              'text-background-opacity': 0.8,
+              'text-background-color': '#111111',
+              'text-background-opacity': 0.9,
               'text-background-padding': '3px',
               'text-background-shape': 'roundrectangle',
-              'color': '#4b5563',
+              'color': 'rgba(255,255,255,0.5)',
               'opacity': 0.75,
               'transition-property': 'line-color, target-arrow-color, width, opacity',
               'transition-duration': '0.3s',
@@ -324,7 +324,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
           'width': baseSize,
           'height': baseSize,
           'border-width': 2,
-          'border-color': 'rgba(0, 0, 0, 0.2)',
+          'border-color': 'rgba(255, 255, 255, 0.1)',
           'border-opacity': 0.8,
           'z-index': 1,
         });
@@ -511,7 +511,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
 
     const imageData = cyRef.current[format]({
       output: 'blob',
-      bg: '#ffffff',
+      bg: '#0a0a0a',
       full: true,
       scale: 2,
     });
@@ -538,7 +538,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
 
       <div
         ref={containerRef}
-        className="w-full h-full border rounded-lg bg-gray-50 dark:bg-gray-900"
+        className="w-full h-full rounded-lg bg-[#0a0a0a]"
       />
 
       {selectedNode && (
@@ -549,19 +549,19 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
       )}
 
       {showMinimap && elements && elements.length > 0 && (
-        <div className="absolute bottom-4 right-4 w-56 h-40 bg-white dark:bg-gray-800 border-2 border-blue-500 dark:border-blue-400 rounded-lg shadow-2xl overflow-hidden">
-          <div className="w-full h-6 bg-blue-500 dark:bg-blue-600 flex items-center justify-between px-2">
-            <span className="text-xs font-semibold text-white">Overview</span>
+        <div className="absolute bottom-4 right-4 w-56 h-40 bg-[#111] border border-white/[0.06] rounded-lg shadow-2xl overflow-hidden">
+          <div className="w-full h-6 bg-white/[0.04] flex items-center justify-between px-2 border-b border-white/[0.06]">
+            <span className="text-xs font-semibold text-white/60">Overview</span>
             <button
               onClick={() => setShowMinimap(false)}
-              className="text-white hover:text-gray-200 text-xs font-bold"
+              className="text-white/40 hover:text-white/70 text-xs font-bold"
             >
               ×
             </button>
           </div>
           <div
             ref={minimapRef}
-            className="w-full h-[calc(100%-1.5rem)] bg-gray-50 dark:bg-gray-900"
+            className="w-full h-[calc(100%-1.5rem)] bg-[#0a0a0a]"
           />
         </div>
       )}

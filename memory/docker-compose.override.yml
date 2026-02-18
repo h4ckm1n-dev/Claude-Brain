@@ -1,18 +1,15 @@
-# Dev mode override: Vite HMR instead of Nginx
-# Active by default with `docker compose up -d`
-# Production: `docker compose -f docker-compose.yml up -d`
+# Dev mode override: Vite HMR + Nginx API proxy
+# Nginx handles API routing on :8100 (for MCP tools + dashboard)
+# Vite provides frontend HMR on :5173 (for UI development)
 
 services:
-  # Disable the Nginx frontend in dev mode
-  claude-mem-frontend:
-    profiles: ["production"]
+  # Keep Nginx frontend for API routing (serves built SPA + proxies API)
+  # No profile override — it runs in both dev and production
 
-  # Expose core directly on host port 8100 (MCP calls this)
-  claude-mem-core:
-    ports:
-      - "8100:8100"
+  # Core no longer exposed directly — Nginx proxies to it
+  # (remove the port mapping that was bypassing Nginx)
 
-  # Vite dev server with HMR
+  # Vite dev server with HMR (for frontend development)
   claude-mem-vite:
     image: node:20-slim
     container_name: claude-mem-vite

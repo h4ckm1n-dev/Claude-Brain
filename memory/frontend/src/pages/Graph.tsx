@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useQuery } from '@tanstack/react-query';
 import { getTimeline, getMemories } from '../api/memories';
-import { AlertCircle, Network, Sparkles, Target, Filter, AlertTriangle, Lightbulb } from 'lucide-react';
+import { AlertCircle, Network, Sparkles, Target, Filter, AlertTriangle, Lightbulb, ChevronDown } from 'lucide-react';
 import { EnhancedCytoscapeGraph } from '../components/graph/EnhancedCytoscapeGraph';
 import { useLifecycleStats } from '../hooks/useLifecycle';
 import { usePatternClusters } from '../hooks/useAnalytics';
@@ -26,6 +26,7 @@ export function Graph() {
   const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set(MEMORY_TYPES));
   const [relFilters, setRelFilters] = useState<Set<string>>(new Set(RELATIONSHIP_TYPES));
   const [projectFilter, setProjectFilter] = useState<string>('');
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const { data: timelineData, isLoading, error } = useQuery({
     queryKey: ['graph', 'timeline'],
@@ -106,12 +107,14 @@ export function Graph() {
           }
 
           // Add edge with weight
+          // Use 'relation' field (lowercase) to match RELATION_STYLES selectors
           edges.push({
             data: {
               id: `${item.id}-${rel.target_id}`,
               source: item.id,
               target: rel.target_id,
               type: relType,
+              relation: relType.toLowerCase(),
               weight: EDGE_WEIGHTS[relType] || 1,
             }
           });
@@ -206,6 +209,16 @@ export function Graph() {
             <CardTitle className="text-white flex items-center gap-2">
               <Network className="h-5 w-5 text-purple-400" />
               Memory Network Visualization
+              {graphElements.length > 0 && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <Badge className="bg-purple-500/15 text-purple-300 border border-purple-500/20 text-xs font-mono">
+                    {graphElements.filter(e => !e.data.source).length} nodes
+                  </Badge>
+                  <Badge className="bg-white/10 text-white/60 border border-white/10 text-xs font-mono">
+                    {graphElements.filter(e => e.data.source).length} edges
+                  </Badge>
+                </div>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[calc(100%-80px)] p-0">
@@ -334,9 +347,14 @@ export function Graph() {
 
         {/* Legend Card */}
         <Card className="bg-[#111] border border-white/[0.06] shadow-xl">
-          <CardHeader className="border-b border-white/[0.06]">
-            <CardTitle className="text-white">Legend</CardTitle>
-          </CardHeader>
+          <button
+            onClick={() => setLegendOpen(!legendOpen)}
+            className="w-full flex items-center justify-between px-6 py-4 border-b border-white/[0.06]"
+          >
+            <span className="text-white font-semibold">Legend</span>
+            <ChevronDown className={`h-4 w-4 text-white/40 transition-transform ${legendOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {legendOpen && (
           <CardContent className="pt-4">
             <div className="space-y-4">
               <div>
@@ -445,6 +463,7 @@ export function Graph() {
               </div>
             </div>
           </CardContent>
+          )}
         </Card>
 
         {/* Contradictions Panel */}

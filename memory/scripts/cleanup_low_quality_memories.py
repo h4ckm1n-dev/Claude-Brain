@@ -17,7 +17,8 @@ def get_all_memories():
     try:
         req = urllib.request.Request(f"{MEMORY_API}/memories?limit=10000")
         with urllib.request.urlopen(req) as response:
-            return json.loads(response.read().decode())
+            data = json.loads(response.read().decode())
+            return data.get("items", data) if isinstance(data, dict) else data
     except Exception as e:
         print(f"Error fetching memories: {e}")
         sys.exit(1)

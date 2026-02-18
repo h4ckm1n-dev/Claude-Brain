@@ -31,10 +31,10 @@ export function GraphControls({
   };
 
   return (
-    <div className="absolute top-4 left-4 right-4 z-10 flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+    <div className="absolute top-4 left-4 right-4 z-10 flex items-center gap-2 bg-[#111]/95 backdrop-blur-lg p-3 rounded-lg shadow-lg border border-white/[0.06]">
       {/* Layout Selector */}
       <div className="flex items-center gap-2">
-        <Layout className="h-4 w-4 text-gray-500" />
+        <Layout className="h-4 w-4 text-white/40" />
         <Select
           value={currentLayout}
           onChange={(e) => onLayoutChange(e.target.value)}
@@ -50,7 +50,7 @@ export function GraphControls({
 
       {/* Search */}
       <div className="flex-1 max-w-md relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
         <Input
           type="text"
           placeholder="Search nodes..."
@@ -61,7 +61,7 @@ export function GraphControls({
       </div>
 
       {/* Zoom Controls */}
-      <div className="flex items-center gap-1 border-l pl-2">
+      <div className="flex items-center gap-1 border-l border-white/[0.06] pl-2">
         <Button
           variant="ghost"
           size="sm"
@@ -90,7 +90,7 @@ export function GraphControls({
 
       {/* Minimap Toggle */}
       {onToggleMinimap && (
-        <div className="flex items-center gap-1 border-l pl-2">
+        <div className="flex items-center gap-1 border-l border-white/[0.06] pl-2">
           <Button
             variant={showMinimap ? "default" : "ghost"}
             size="sm"
@@ -103,9 +103,9 @@ export function GraphControls({
       )}
 
       {/* Export */}
-      <div className="flex items-center gap-1 border-l pl-2">
+      <div className="flex items-center gap-1 border-l border-white/[0.06] pl-2">
         <div className="relative inline-flex items-center">
-          <Download className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none z-10" />
+          <Download className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none z-10" />
           <Select
             onChange={(e) => {
               if (e.target.value) {
