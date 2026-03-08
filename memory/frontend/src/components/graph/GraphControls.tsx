@@ -1,126 +1,100 @@
-import { useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, Search, Download, Layout, Map } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Select } from '../ui/select';
+import { ZoomIn, ZoomOut, Maximize2, Crosshair, XCircle, Play, Pause } from 'lucide-react';
 
 interface GraphControlsProps {
-  onLayoutChange: (layout: string) => void;
   onZoom: (direction: 'in' | 'out' | 'fit') => void;
-  onSearch: (query: string) => void;
-  onExport: (format: 'png' | 'jpg') => void;
-  onToggleMinimap?: () => void;
-  currentLayout: string;
-  showMinimap?: boolean;
+  onFocusSelected: () => void;
+  onClearSelection: () => void;
+  onToggleLayout: () => void;
+  isLayoutRunning: boolean;
+  hasSelection: boolean;
+  depthFilter: number;
+  onDepthChange: (depth: number) => void;
 }
 
 export function GraphControls({
-  onLayoutChange,
   onZoom,
-  onSearch,
-  onExport,
-  onToggleMinimap,
-  currentLayout,
-  showMinimap = true,
+  onFocusSelected,
+  onClearSelection,
+  onToggleLayout,
+  isLayoutRunning,
+  hasSelection,
+  depthFilter,
+  onDepthChange,
 }: GraphControlsProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    onSearch(value);
-  };
+  const btn = `w-9 h-9 flex items-center justify-center rounded-lg
+    text-white/40 hover:text-white hover:bg-white/[0.08] transition-all duration-200`;
+  const disabled = 'opacity-30 cursor-not-allowed hover:bg-transparent hover:text-white/40';
 
   return (
-    <div className="absolute top-4 left-4 right-4 z-10 flex items-center gap-2 bg-[#111]/95 backdrop-blur-lg p-3 rounded-lg shadow-lg border border-white/[0.06]">
-      {/* Layout Selector */}
-      <div className="flex items-center gap-2">
-        <Layout className="h-4 w-4 text-white/40" />
-        <Select
-          value={currentLayout}
-          onChange={(e) => onLayoutChange(e.target.value)}
-          className="w-32"
-        >
-          <option value="cose">Force</option>
-          <option value="circle">Circle</option>
-          <option value="grid">Grid</option>
-          <option value="breadthfirst">Hierarchy</option>
-          <option value="concentric">Concentric</option>
-        </Select>
-      </div>
+    <div className="absolute bottom-4 right-4 z-20 flex flex-col items-center gap-1
+      bg-[#0c0c14]/90 backdrop-blur-xl rounded-xl border border-white/[0.06] p-1.5
+      shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
 
-      {/* Search */}
-      <div className="flex-1 max-w-md relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
-        <Input
-          type="text"
-          placeholder="Search nodes..."
-          value={searchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Zoom */}
+      <button onClick={() => onZoom('in')} className={btn} title="Zoom In">
+        <ZoomIn className="h-4 w-4" />
+      </button>
+      <button onClick={() => onZoom('out')} className={btn} title="Zoom Out">
+        <ZoomOut className="h-4 w-4" />
+      </button>
+      <button onClick={() => onZoom('fit')} className={btn} title="Fit to Screen">
+        <Maximize2 className="h-4 w-4" />
+      </button>
 
-      {/* Zoom Controls */}
-      <div className="flex items-center gap-1 border-l border-white/[0.06] pl-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onZoom('in')}
-          title="Zoom In"
-        >
-          <ZoomIn className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onZoom('out')}
-          title="Zoom Out"
-        >
-          <ZoomOut className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onZoom('fit')}
-          title="Fit to Screen"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </Button>
-      </div>
+      <div className="w-6 h-px bg-white/[0.08] my-0.5" />
 
-      {/* Minimap Toggle */}
-      {onToggleMinimap && (
-        <div className="flex items-center gap-1 border-l border-white/[0.06] pl-2">
-          <Button
-            variant={showMinimap ? "default" : "ghost"}
-            size="sm"
-            onClick={onToggleMinimap}
-            title={showMinimap ? "Hide Minimap" : "Show Minimap"}
-          >
-            <Map className="h-4 w-4" />
-          </Button>
-        </div>
+      {/* Selection */}
+      <button
+        onClick={onFocusSelected}
+        disabled={!hasSelection}
+        className={`${btn} ${!hasSelection ? disabled : ''}`}
+        title="Focus Selected"
+      >
+        <Crosshair className="h-4 w-4" />
+      </button>
+      <button
+        onClick={onClearSelection}
+        disabled={!hasSelection}
+        className={`${btn} ${!hasSelection ? disabled : ''}`}
+        title="Clear Selection"
+      >
+        <XCircle className="h-4 w-4" />
+      </button>
+
+      <div className="w-6 h-px bg-white/[0.08] my-0.5" />
+
+      {/* Layout toggle */}
+      <button
+        onClick={onToggleLayout}
+        className={`${btn} ${isLayoutRunning ? 'text-violet-400 bg-violet-500/10' : ''}`}
+        title={isLayoutRunning ? 'Stop Layout' : 'Run Layout'}
+      >
+        {isLayoutRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      </button>
+
+      {/* Depth filter — visible when node is selected */}
+      {hasSelection && (
+        <>
+          <div className="w-6 h-px bg-white/[0.08] my-0.5" />
+          <div className="flex flex-col items-center gap-0.5 py-1">
+            <span className="text-[9px] text-white/25 font-medium mb-0.5">HOPS</span>
+            {[0, 1, 2, 3, 4, 5].map(d => (
+              <button
+                key={d}
+                onClick={() => onDepthChange(d)}
+                className={`w-7 h-5 flex items-center justify-center rounded text-[10px] font-mono transition-all ${
+                  depthFilter === d
+                    ? 'bg-cyan-500/20 text-cyan-400'
+                    : 'text-white/30 hover:text-white/60 hover:bg-white/[0.05]'
+                }`}
+                title={d === 0 ? 'Show all' : `${d} hop${d > 1 ? 's' : ''}`}
+              >
+                {d === 0 ? '\u221E' : d}
+              </button>
+            ))}
+          </div>
+        </>
       )}
-
-      {/* Export */}
-      <div className="flex items-center gap-1 border-l border-white/[0.06] pl-2">
-        <div className="relative inline-flex items-center">
-          <Download className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none z-10" />
-          <Select
-            onChange={(e) => {
-              if (e.target.value) {
-                onExport(e.target.value as 'png' | 'jpg');
-                e.target.value = ''; // Reset after export
-              }
-            }}
-            className="w-32 pl-10"
-          >
-            <option value="">Export</option>
-            <option value="png">PNG Image</option>
-            <option value="jpg">JPG Image</option>
-          </Select>
-        </div>
-      </div>
     </div>
   );
 }

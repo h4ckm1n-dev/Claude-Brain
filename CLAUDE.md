@@ -69,19 +69,25 @@ curl http://localhost:8100/health              # Health check
 
 ### STEP 1: SESSION START (BEFORE ANY OTHER ACTION)
 
-Your VERY FIRST tool calls in ANY conversation MUST be these three memory lookups, called in parallel:
+Your VERY FIRST tool call in ANY conversation MUST be a targeted memory search:
 
 ```
-mcp__memory__get_context(project="<current_project>")
 mcp__memory__search_memory(query="<keywords from user request>")
-mcp__memory__suggest_memories(keywords=[<task keywords>], project="<current_project>")
+```
+
+Extract keywords from the user's request to build the search query. This finds relevant past solutions, decisions, and errors.
+
+**Use `get_context` only on-demand** — when you need broad project context (e.g., schema details, infrastructure layout, unresolved errors). Do NOT call it at every session start.
+
+```
+mcp__memory__get_context(project="<current_project>")  # Only when needed
 ```
 
 **Rules:**
-- Do NOT read files, write code, run commands, or respond substantively until these complete
-- Extract keywords from the user's request to build the search query
+- Do NOT read files, write code, run commands, or respond substantively until the search completes
 - Review ALL returned memories before proceeding — they may contain solutions, warnings, or context
 - If memories contain relevant past errors or decisions, explicitly reference them in your approach
+- Use `suggest_memories` only when you need **additional** context mid-session (not at startup)
 
 ### STEP 2: DURING WORK (BEFORE SOLVING ANY PROBLEM)
 
@@ -136,7 +142,7 @@ mcp__memory__link_memories(source_id="<new>", target_id="<existing>", relation="
 
 ## MCP Memory Tools
 
-Mandatory: `get_context`, `suggest_memories` (session start) | `bulk_store`, `link_memories` (session end).
+Mandatory: `get_context`, `search_memory` (session start) | `bulk_store`, `link_memories` (session end).
 Search: `search_memory` (semantic+keyword), `search_documents` (code/files), `find_related` (graph).
 Manage: `store_memory`, `mark_resolved`, `reinforce_memory`, `pin_memory`, `archive_memory`, `forget_memory`.
 Analytics: `memory_stats`, `graph_stats`, `error_trends`, `knowledge_gaps`, `run_inference`, `query_enhance`.
@@ -172,10 +178,10 @@ When context is compacted, preserve: current task description, key decisions mad
 
 ## LSP Tools (cclsp)
 
-16 language servers auto-synced from Mason. **Use LSP tools proactively:**
+16 language servers auto-synced from Mason. **Checkpoint-based diagnostics** — hooks batch reminders before tests/builds/commits instead of per-edit noise.
 
-- **Before editing**: `get_diagnostics` to understand current state
-- **After editing**: `get_diagnostics` to verify no regressions introduced
+- **Automatic**: Editing code files silently journals them. Before `pytest`/`npm test`/`git commit`/etc., a hook reminds you to run `get_diagnostics` on all unchecked files at once.
+- **After diagnostics**: Files are auto-marked as checked; subsequent checkpoints skip them until re-edited.
 - **Navigating code**: `find_definition` instead of grep for symbols — faster and precise
 - **Before refactoring/renaming**: `find_references` to find all usages across files
 - **Understanding types**: `get_hover` for type info and docstrings

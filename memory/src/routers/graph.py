@@ -126,3 +126,39 @@ async def get_recommendations(
     except Exception as e:
         logger.error(f"Failed to get recommendations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/flows")
+async def list_flows(
+    project: Optional[str] = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """List detected knowledge flows."""
+    from ..flow_detection import get_flows
+    flows = get_flows(project=project, limit=limit)
+    return {"flows": flows, "count": len(flows)}
+
+
+@router.get("/flows/trace/{memory_id}")
+async def trace_flow(
+    memory_id: str,
+    direction: str = Query(default="both", pattern="^(forward|backward|both)$"),
+    max_depth: int = Query(default=10, ge=1, le=20),
+):
+    """Trace a knowledge flow from a given memory."""
+    from ..flow_detection import trace_from_memory
+    result = trace_from_memory(
+        memory_id=memory_id, direction=direction, max_depth=max_depth
+    )
+    return result
+
+
+@router.post("/flows/detect")
+async def trigger_flow_detection(
+    project: Optional[str] = Query(default=None),
+    max_flows: int = Query(default=100, ge=1, le=500),
+):
+    """Manually trigger flow detection."""
+    from ..flow_detection import detect_all_flows
+    result = detect_all_flows(project=project, max_flows=max_flows)
+    return result

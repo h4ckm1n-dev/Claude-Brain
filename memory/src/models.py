@@ -260,6 +260,10 @@ class Memory(MemoryBase):
     decay_rate: float = 0.005      # Differential decay rate (lower = slower decay)
     last_decay_update: datetime = Field(default_factory=utc_now)
 
+    # Staleness detection (content-based, not just time-based)
+    staleness_score: float = Field(default=0.0, ge=0.0, le=1.0)  # 0.0=fresh, 1.0=stale
+    staleness_reasons: list[str] = Field(default_factory=list)     # Why it's stale
+
     # Session-based memory extraction (Phase 1.3)
     session_id: Optional[str] = None           # Conversation session identifier
     conversation_context: Optional[str] = None  # Previous messages for context
@@ -490,6 +494,10 @@ class MemoryUpdate(BaseModel):
     importance_score: Optional[float] = None
     memory_tier: Optional[MemoryTier] = None
     archived: Optional[bool] = None
+
+    # Staleness
+    staleness_score: Optional[float] = None
+    staleness_reasons: Optional[list[str]] = None
 
 
 # Search modes for hybrid search

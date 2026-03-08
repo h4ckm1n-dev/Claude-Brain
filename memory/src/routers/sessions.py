@@ -216,20 +216,23 @@ async def consolidate_ready_sessions(
 
 @router.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
-    """Delete all memories belonging to a session.
+    """Delete a session by detaching its memories.
+
+    Memories are preserved but their session_id and session_sequence
+    fields are cleared. The memories remain searchable and accessible.
 
     Args:
         session_id: Session identifier
 
     Returns:
-        Count of deleted memories
+        Count of detached memories
     """
     from qdrant_client import models as qmodels
 
     try:
         client = collections.get_client()
 
-        # Count memories in this session first
+        # Find all memories in this session
         results, _ = client.scroll(
             collection_name=collections.COLLECTION_NAME,
             scroll_filter=qmodels.Filter(
@@ -249,30 +252,20 @@ async def delete_session(session_id: str):
 
         point_ids = [r.id for r in results]
 
-        # Batch clean up Neo4j graph nodes before deleting from Qdrant
-        from ..graph import is_graph_enabled, get_driver
-        if is_graph_enabled():
-            try:
-                driver = get_driver()
-                if driver:
-                    with driver.session() as neo4j_session:
-                        neo4j_session.run(
-                            "MATCH (m:Memory) WHERE m.id IN $ids DETACH DELETE m",
-                            ids=[str(pid) for pid in point_ids]
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to batch delete graph nodes: {e}")
-
-        # Delete all points with this session_id
-        client.delete(
+        # Clear session_id and session_sequence on all memories (keeps the memories intact)
+        client.set_payload(
             collection_name=collections.COLLECTION_NAME,
-            points_selector=qmodels.PointIdsList(points=point_ids)
+            payload={
+                "session_id": None,
+                "session_sequence": None,
+            },
+            points=point_ids,
         )
 
         return {
             "status": "deleted",
             "session_id": session_id,
-            "memories_deleted": len(point_ids),
+            "memories_detached": len(point_ids),
         }
 
     except HTTPException:

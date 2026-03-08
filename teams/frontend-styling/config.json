@@ -1,0 +1,19 @@
+{
+  "name": "frontend-styling",
+  "description": "Unify frontend styling — apply Dashboard style to all 10 other pages",
+  "createdAt": 1770785679287,
+  "leadAgentId": "team-lead@frontend-styling",
+  "leadSessionId": "43d1e2e3-9071-4b5b-81db-2178f2afee28",
+  "members": [
+    {
+      "agentId": "team-lead@frontend-styling",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1770785679287,
+      "tmuxPaneId": "",
+      "cwd": "/Users/h4ckm1n/.claude",
+      "subscriptions": []
+    }
+  ]
+}

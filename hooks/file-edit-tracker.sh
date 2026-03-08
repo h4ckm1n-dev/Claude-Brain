@@ -81,6 +81,21 @@ jq -cn \
     '{file_path: $file_path, operation: $operation, snippet: $snippet, timestamp: $timestamp}' \
     >> "$EDIT_JOURNAL"
 
+# Invalidate LSP checked status for this file (will be re-flagged at next checkpoint)
+LSP_CHECKED="/tmp/.claude-lsp-checked.jsonl"
+if [ -f "$LSP_CHECKED" ] && grep -qF "$FILE_PATH" "$LSP_CHECKED" 2>/dev/null; then
+    (
+        LSP_LOCK="/tmp/.claude-lsp-checked.lock"
+        if ( set -o noclobber; echo $$ > "$LSP_LOCK" ) 2>/dev/null; then
+            trap "rm -f '$LSP_LOCK'" EXIT
+            TMP_LSP=$(mktemp)
+            jq -c --arg fp "$FILE_PATH" 'select(.file_path != $fp)' "$LSP_CHECKED" > "$TMP_LSP" 2>/dev/null
+            mv "$TMP_LSP" "$LSP_CHECKED"
+            rm -f "$LSP_LOCK"
+        fi
+    )
+fi
+
 # Prune edit journal entries older than 2h
 # Use lockfile to prevent race with concurrent append/prune
 LOCKFILE="/tmp/.claude-edit-journal.lock"

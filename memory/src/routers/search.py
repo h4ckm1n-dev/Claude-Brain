@@ -251,3 +251,6 @@ async def suggest_memories(request: SuggestRequest):
     except Exception as e:
         logger.error(f"Suggest failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+

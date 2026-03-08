@@ -1,0 +1,19 @@
+{
+  "name": "search-store-v2",
+  "description": "Implement 5 algorithmic improvements to search and store pipelines: query decomposition, MMR diversity, adaptive threshold, composite embeddings, re-embed migration",
+  "createdAt": 1770744819616,
+  "leadAgentId": "team-lead@search-store-v2",
+  "leadSessionId": "43d1e2e3-9071-4b5b-81db-2178f2afee28",
+  "members": [
+    {
+      "agentId": "team-lead@search-store-v2",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1770744819616,
+      "tmuxPaneId": "",
+      "cwd": "/Users/h4ckm1n/.claude/memory",
+      "subscriptions": []
+    }
+  ]
+}

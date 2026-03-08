@@ -439,6 +439,16 @@ PROJECT_ALIASES: dict[str, str] = {
     # Voice2type
     "voice2type": "voice2type",
     "Voice2type": "voice2type",
+    # ZeroClaw
+    "zeroclaw": "zeroclaw",
+    "zeroclaw-osx": "zeroclaw-osx",
+    # Purefy
+    "purefy": "purefy",
+    "purefy-core": "purefy-core",
+    # NeuralMac
+    "neuralmac": "neuralmac",
+    # macOS
+    "macos": "macos",
     # Enduro
     "enduro": "enduro-compta",
     "enduro-compta": "enduro-compta",

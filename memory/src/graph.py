@@ -115,6 +115,17 @@ def init_graph_schema():
                 FOR (m:Memory) ON (m.created_at)
             """)
 
+            # Flow detection schema
+            session.run("""
+                CREATE CONSTRAINT flow_id IF NOT EXISTS
+                FOR (f:Flow) REQUIRE f.id IS UNIQUE
+            """)
+
+            session.run("""
+                CREATE INDEX flow_project IF NOT EXISTS
+                FOR (f:Flow) ON (f.project)
+            """)
+
             logger.info("Neo4j schema initialized")
             return True
 

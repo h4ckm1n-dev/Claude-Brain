@@ -80,7 +80,7 @@ export const closeSession = (sessionId: string) =>
 export interface DeleteSessionResult {
   status: string;
   session_id: string;
-  memories_deleted: number;
+  memories_detached: number;
 }
 
 export const deleteSession = (sessionId: string) =>

@@ -11,7 +11,30 @@ fi
 
 # Project context from working directory
 FULL_PATH=$(pwd)
-PROJECT=$(basename "$FULL_PATH")
+
+# Map PWD to canonical project slug
+case "$FULL_PATH" in
+  */ClaudeBrain*|*/.claude/memory*)
+    PROJECT="claude-brain" ;;
+  */Enduro/compta*|*/enduro/compta*)
+    PROJECT="enduro-compta" ;;
+  */Enduro*|*/enduro*)
+    PROJECT="enduro-compta" ;;
+  */Voice2type*|*/voice2type*)
+    PROJECT="voice2type" ;;
+  */ZeroClaw-OSX*|*/zeroclaw-osx*)
+    PROJECT="zeroclaw-osx" ;;
+  */ZeroClaw*|*/zeroclaw*)
+    PROJECT="zeroclaw" ;;
+  */Purefy*|*/purefy*)
+    PROJECT="purefy" ;;
+  */NeuralMac*|*/neuralmac*)
+    PROJECT="neuralmac" ;;
+  *)
+    # Default: lowercase basename, spaces/underscores → hyphens
+    PROJECT=$(basename "$FULL_PATH" | tr '[:upper:]' '[:lower:]' | tr ' _' '--')
+    ;;
+esac
 
 # Create a new session on the memory server
 SESSION_RESPONSE=$(curl -sf -X POST "$MEMORY_API/sessions/new?project=$PROJECT" 2>/dev/null)
@@ -30,8 +53,9 @@ if [ -n "$CLAUDE_ENV_FILE" ]; then
     echo "MEMORY_PROJECT_PATH=$FULL_PATH" >> "$CLAUDE_ENV_FILE"
 fi
 
-# Write session ID to a known file for the MCP server to read
+# Write session ID + project to known files for the MCP server to read
 # (MCP server is spawned before hooks run, so it can't get env vars)
 echo "$SESSION_ID" > /tmp/.claude-memory-session-id
+echo "$PROJECT" > /tmp/.claude-memory-project
 
 exit 0

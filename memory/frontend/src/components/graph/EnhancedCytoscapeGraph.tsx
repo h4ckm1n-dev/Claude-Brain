@@ -3,13 +3,15 @@ import cytoscape from 'cytoscape';
 import { Memory, RelationType } from '../../types/memory';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
 import { GraphControls } from './GraphControls';
+import { getRelatedMemories } from '../../api/memories';
+import { X } from 'lucide-react';
 
 interface EnhancedCytoscapeGraphProps {
   elements: any[];
   memories?: Memory[];
 }
 
-const MEMORY_TYPE_COLORS = {
+const MEMORY_TYPE_COLORS: Record<string, string> = {
   error: '#ef4444',
   decision: '#22c55e',
   pattern: '#3b82f6',
@@ -18,71 +20,202 @@ const MEMORY_TYPE_COLORS = {
   context: '#6b7280',
 };
 
-const RELATION_STYLES: Record<string, any> = {
-  [RelationType.FIXES]: {
-    'line-color': '#22c55e',
-    'target-arrow-color': '#22c55e',
-    'line-style': 'solid',
-    'width': 4,
-  },
-  [RelationType.CAUSES]: {
-    'line-color': '#ef4444',
-    'target-arrow-color': '#ef4444',
-    'line-style': 'dashed',
-    'width': 3,
-  },
-  [RelationType.SUPPORTS]: {
-    'line-color': '#60a5fa',
-    'target-arrow-color': '#60a5fa',
-    'line-style': 'solid',
-    'width': 3,
-  },
-  [RelationType.SUPERSEDES]: {
-    'line-color': '#3b82f6',
-    'target-arrow-color': '#3b82f6',
-    'line-style': 'solid',
-    'width': 3,
-  },
-  [RelationType.CONTRADICTS]: {
-    'line-color': '#f43f5e',
-    'target-arrow-color': '#f43f5e',
-    'line-style': 'dashed',
-    'width': 2,
-  },
-  [RelationType.FOLLOWS]: {
-    'line-color': '#06b6d4',
-    'target-arrow-color': '#06b6d4',
-    'line-style': 'solid',
-    'width': 2,
-  },
-  [RelationType.RELATED]: {
-    'line-color': '#6b7280',
-    'target-arrow-color': '#6b7280',
-    'line-style': 'dotted',
-    'width': 1.5,
-  },
-  [RelationType.SIMILAR_TO]: {
-    'line-color': '#f59e0b',
-    'target-arrow-color': '#f59e0b',
-    'line-style': 'dotted',
-    'width': 1,
-  },
+const TYPE_BADGE_CLASS: Record<string, string> = {
+  error: 'bg-red-500/20 text-red-400',
+  decision: 'bg-emerald-500/20 text-emerald-400',
+  pattern: 'bg-blue-500/20 text-blue-400',
+  docs: 'bg-violet-500/20 text-violet-400',
+  learning: 'bg-amber-500/20 text-amber-400',
+  context: 'bg-slate-500/20 text-slate-400',
 };
+
+const RELATION_STYLES: Record<string, any> = {
+  [RelationType.FIXES]: { 'line-color': '#22c55e', 'target-arrow-color': '#22c55e', 'line-style': 'solid', 'width': 3 },
+  [RelationType.CAUSES]: { 'line-color': '#ef4444', 'target-arrow-color': '#ef4444', 'line-style': 'dashed', 'width': 2.5 },
+  [RelationType.SUPPORTS]: { 'line-color': '#60a5fa', 'target-arrow-color': '#60a5fa', 'line-style': 'solid', 'width': 2.5 },
+  [RelationType.SUPERSEDES]: { 'line-color': '#3b82f6', 'target-arrow-color': '#3b82f6', 'line-style': 'solid', 'width': 2.5 },
+  [RelationType.CONTRADICTS]: { 'line-color': '#f43f5e', 'target-arrow-color': '#f43f5e', 'line-style': 'dashed', 'width': 2 },
+  [RelationType.FOLLOWS]: { 'line-color': '#06b6d4', 'target-arrow-color': '#06b6d4', 'line-style': 'solid', 'width': 2 },
+  [RelationType.RELATED]: { 'line-color': '#6b7280', 'target-arrow-color': '#6b7280', 'line-style': 'dotted', 'width': 1.5 },
+  [RelationType.SIMILAR_TO]: { 'line-color': '#f59e0b', 'target-arrow-color': '#f59e0b', 'line-style': 'dotted', 'width': 1 },
+};
+
+function getNodesWithinHops(cy: cytoscape.Core, startId: string, maxHops: number): Set<string> {
+  const visited = new Set<string>();
+  const queue: Array<[string, number]> = [[startId, 0]];
+  visited.add(startId);
+
+  while (queue.length > 0) {
+    const [currentId, depth] = queue.shift()!;
+    if (depth >= maxHops) continue;
+
+    const node = cy.getElementById(currentId);
+    if (!node || node.length === 0) continue;
+
+    node.neighborhood('node').forEach((neighbor: any) => {
+      const id = neighbor.id();
+      if (!visited.has(id)) {
+        visited.add(id);
+        queue.push([id, depth + 1]);
+      }
+    });
+  }
+
+  return visited;
+}
 
 export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscapeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const minimapRef = useRef<HTMLDivElement>(null);
-  const cyRef = useRef<any>(null);
-  const minimapCyRef = useRef<any>(null);
+  const cyRef = useRef<cytoscape.Core | null>(null);
   const layoutRef = useRef<any>(null);
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [layout, setLayout] = useState<string>('cose');
-  const [showMinimap, setShowMinimap] = useState(true);
+  const pulseTimerRef = useRef<number | null>(null);
+  const selectedNodeRef = useRef<any>(null);
 
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [selectedNodeData, setSelectedNodeData] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [isLayoutRunning, setIsLayoutRunning] = useState(false);
+  const [depthFilter, setDepthFilter] = useState(0);
+  const [isExpanding, setIsExpanding] = useState(false);
+
+  // Keep ref in sync with state for use in cytoscape event handlers
+  useEffect(() => {
+    selectedNodeRef.current = selectedNode;
+  }, [selectedNode]);
+
+  const applyDepthFilter = useCallback((nodeId: string | null, depth: number) => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    if (!nodeId || depth === 0) {
+      cy.elements().removeClass('depth-hidden');
+      return;
+    }
+
+    const visibleIds = getNodesWithinHops(cy, nodeId, depth);
+
+    cy.batch(() => {
+      cy.nodes().forEach((node: any) => {
+        if (visibleIds.has(node.id())) node.removeClass('depth-hidden');
+        else node.addClass('depth-hidden');
+      });
+      cy.edges().forEach((edge: any) => {
+        if (visibleIds.has(edge.source().id()) && visibleIds.has(edge.target().id()))
+          edge.removeClass('depth-hidden');
+        else edge.addClass('depth-hidden');
+      });
+    });
+  }, []);
+
+  const applySelectionDimming = useCallback((nodeId: string | null) => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    cy.batch(() => {
+      // Remove all direct style overrides so classes take precedence
+      cy.elements().removeStyle();
+
+      if (!nodeId) {
+        cy.elements().removeClass('dimmed highlighted');
+        return;
+      }
+
+      const selected = cy.getElementById(nodeId);
+      if (!selected || selected.length === 0) return;
+
+      const neighborhood = selected.closedNeighborhood();
+      cy.elements().addClass('dimmed').removeClass('highlighted');
+      neighborhood.removeClass('dimmed').addClass('highlighted');
+    });
+  }, []);
+
+  const expandNeighborhood = useCallback(async (nodeId: string) => {
+    const cy = cyRef.current;
+    if (!cy || isExpanding) return;
+
+    setIsExpanding(true);
+    try {
+      const related = await getRelatedMemories(nodeId, 2, 20);
+      const newElements: any[] = [];
+      const sourceNode = cy.getElementById(nodeId);
+      const sourcePos = sourceNode.length ? sourceNode.position() : { x: 0, y: 0 };
+
+      related.forEach((mem: Memory) => {
+        if (!cy.getElementById(mem.id).length) {
+          newElements.push({
+            group: 'nodes' as const,
+            data: {
+              id: mem.id,
+              label: (mem.content?.substring(0, 50) + '...') || mem.type,
+              type: mem.type,
+              project: mem.project,
+            },
+            position: {
+              x: sourcePos.x + (Math.random() - 0.5) * 200,
+              y: sourcePos.y + (Math.random() - 0.5) * 200,
+            },
+          });
+        }
+
+        const edgeId = `${nodeId}-${mem.id}`;
+        const reverseEdgeId = `${mem.id}-${nodeId}`;
+        if (!cy.getElementById(edgeId).length && !cy.getElementById(reverseEdgeId).length) {
+          newElements.push({
+            group: 'edges' as const,
+            data: {
+              id: edgeId,
+              source: nodeId,
+              target: mem.id,
+              relation: 'related',
+              type: 'RELATED',
+              weight: 1.5,
+            },
+          });
+        }
+      });
+
+      if (newElements.length > 0) {
+        cy.add(newElements);
+
+        // Update orphan status
+        cy.nodes().forEach((n: any) => {
+          if (n.degree() === 0) n.addClass('orphan');
+          else n.removeClass('orphan');
+        });
+
+        // Local layout around the expanded node
+        const expandedNeighborhood = cy.getElementById(nodeId).closedNeighborhood();
+        expandedNeighborhood.layout({
+          name: 'concentric',
+          animate: true,
+          animationDuration: 600,
+          fit: false,
+          concentric: (node: any) => node.id() === nodeId ? 2 : 1,
+          levelWidth: () => 1,
+          boundingBox: {
+            x1: sourcePos.x - 250,
+            y1: sourcePos.y - 250,
+            x2: sourcePos.x + 250,
+            y2: sourcePos.y + 250,
+          },
+        } as any).run();
+      }
+    } catch (err) {
+      console.error('Failed to expand neighborhood:', err);
+    } finally {
+      setIsExpanding(false);
+    }
+  }, [isExpanding]);
+
+  // Initialize Cytoscape
   useEffect(() => {
     if (!containerRef.current || !elements || elements.length === 0) return;
 
-    // Robust cleanup: stop layout, then destroy instance
+    // Cleanup previous instance
+    if (pulseTimerRef.current) {
+      clearInterval(pulseTimerRef.current);
+      pulseTimerRef.current = null;
+    }
     if (layoutRef.current) {
       try { layoutRef.current.stop(); } catch (_) {}
       layoutRef.current = null;
@@ -90,7 +223,7 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
     if (cyRef.current) {
       try {
         cyRef.current.stop();
-        cyRef.current.unmount();  // Detach from DOM before destroy
+        cyRef.current.unmount();
         cyRef.current.destroy();
       } catch (_) {}
       cyRef.current = null;
@@ -104,109 +237,69 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
           {
             selector: 'node',
             style: {
-              'background-color': (ele: any) => {
-                const type = ele.data('type');
-                return MEMORY_TYPE_COLORS[type as keyof typeof MEMORY_TYPE_COLORS] || '#0088FE';
-              },
+              'background-color': (ele: any) => MEMORY_TYPE_COLORS[ele.data('type')] || '#4b5563',
               'label': 'data(label)',
-              'color': '#e5e5e5',
-              'text-outline-color': '#0a0a0a',
+              'color': '#d4d4d8',
+              'text-outline-color': '#050508',
               'text-outline-width': 2,
-              'font-size': (ele: any) => {
-                const importance = ele.data('importance') || 0.5;
-                return Math.max(12, 10 + importance * 10);
-              },
-              'font-weight': '600',
-              'text-valign': 'center',
+              'font-size': '11px',
+              'font-weight': '500',
+              'text-valign': 'bottom',
               'text-halign': 'center',
-              'text-wrap': 'wrap',
-              'text-max-width': '120px',
-              'width': (ele: any) => {
-                const importance = ele.data('importance') || 0.5;
-                return Math.max(35, 25 + importance * 50);
-              },
-              'height': (ele: any) => {
-                const importance = ele.data('importance') || 0.5;
-                return Math.max(35, 25 + importance * 50);
-              },
-              'opacity': (ele: any) => {
-                const recency = ele.data('recency') || 0.5;
-                return Math.max(0.5, 0.4 + recency * 0.6);
-              },
-              'border-width': (ele: any) => {
-                return ele.data('pinned') ? 5 : 2;
-              },
-              'border-color': (ele: any) => {
-                return ele.data('pinned') ? '#f59e0b' : 'rgba(255, 255, 255, 0.1)';
-              },
-              'border-opacity': 0.8,
-              'transition-property': 'background-color, border-width, border-color, width, height',
-              'transition-duration': '0.3s',
-              'transition-timing-function': 'ease-in-out',
-            }
-          },
-          {
-            selector: 'node[type="error"]',
-            style: {
-              'shape': 'octagon',
-            }
-          },
-          {
-            selector: 'node[?resolved]',
-            style: {
+              'text-margin-y': 8,
+              'text-wrap': 'ellipsis',
+              'text-max-width': '100px',
+              'width': 32,
+              'height': 32,
               'border-width': 2,
-              'border-color': '#22c55e',
+              'border-color': 'rgba(255, 255, 255, 0.08)',
+              'border-opacity': 1,
+              'opacity': 1,
+              'transition-property': 'opacity, border-color, border-width, width, height',
+              'transition-duration': '0.25s' as any,
             }
           },
-          {
-            selector: 'node[!resolved]',
-            style: {
-              'border-width': 3,
-              'border-style': 'double',
-              'border-color': '#ef4444',
-            }
-          },
+          { selector: 'node[type="error"]', style: { 'shape': 'octagon' } },
           {
             selector: 'node:selected',
             style: {
-              'border-width': 6,
-              'border-color': '#3b82f6',
+              'border-width': 4,
+              'border-color': '#06b6d4',
               'border-opacity': 1,
               'z-index': 9999,
               'overlay-opacity': 0,
+              'width': 42,
+              'height': 42,
             }
           },
+          { selector: '.dimmed', style: { 'opacity': 0.12 } },
+          { selector: '.highlighted', style: { 'opacity': 1 } },
+          { selector: '.depth-hidden', style: { 'opacity': 0.04, 'events': 'no' as any } },
           {
-            selector: 'node:active',
+            selector: '.orphan',
             style: {
-              'overlay-opacity': 0.2,
-              'overlay-color': '#3b82f6',
+              'border-width': 3,
+              'border-color': '#f59e0b',
+              'border-style': 'dashed' as any,
+              'border-opacity': 1,
             }
           },
+          { selector: '.orphan-dim', style: { 'border-opacity': 0.3 } },
           {
             selector: 'edge',
             style: {
-              'width': (ele: any) => ele.data('weight') || 2.5,
-              'line-color': '#9ca3af',
-              'target-arrow-color': '#9ca3af',
+              'width': (ele: any) => ele.data('weight') || 2,
+              'line-color': '#4b5563',
+              'target-arrow-color': '#4b5563',
               'target-arrow-shape': 'triangle',
               'target-arrow-fill': 'filled',
-              'arrow-scale': 1.2,
-              'curve-style': 'bezier',
-              'label': 'data(relation)',
-              'font-size': '10px',
-              'font-weight': '600',
-              'text-rotation': 'autorotate',
-              'text-margin-y': -12,
-              'text-background-color': '#111111',
-              'text-background-opacity': 0.9,
-              'text-background-padding': '3px',
-              'text-background-shape': 'roundrectangle',
-              'color': 'rgba(255,255,255,0.5)',
-              'opacity': 0.75,
-              'transition-property': 'line-color, target-arrow-color, width, opacity',
-              'transition-duration': '0.3s',
-              'transition-timing-function': 'ease-in-out',
+              'arrow-scale': 1,
+              'curve-style': 'unbundled-bezier',
+              'control-point-distances': [20],
+              'control-point-weights': [0.5],
+              'opacity': 0.6,
+              'transition-property': 'opacity, line-color, width',
+              'transition-duration': '0.25s' as any,
             }
           },
           ...Object.entries(RELATION_STYLES).map(([relType, style]) => ({
@@ -216,32 +309,25 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
           {
             selector: 'edge:selected',
             style: {
-              'width': 5,
-              'line-color': '#3b82f6',
-              'target-arrow-color': '#3b82f6',
+              'width': 4,
+              'line-color': '#06b6d4',
+              'target-arrow-color': '#06b6d4',
               'opacity': 1,
               'z-index': 9999,
-              'overlay-opacity': 0,
             }
           },
-          {
-            selector: 'edge:active',
-            style: {
-              'overlay-opacity': 0.2,
-              'overlay-color': '#3b82f6',
-            }
-          },
+          { selector: 'edge.highlighted', style: { 'opacity': 1, 'z-index': 998 } },
         ],
         layout: {
-          name: layout,
-          animate: false,  // No animation on initial render to prevent destroy race condition
+          name: 'cose',
+          animate: false,
           idealEdgeLength: 150,
           nodeOverlap: 30,
           refresh: 20,
           fit: true,
-          padding: 60,
+          padding: 80,
           randomize: false,
-          componentSpacing: 100,
+          componentSpacing: 120,
           nodeRepulsion: 8000,
           edgeElasticity: 200,
           nestingFactor: 5,
@@ -251,113 +337,88 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
           coolingFactor: 0.95,
           minTemp: 1.0,
         } as any,
-        minZoom: 0.1,
-        maxZoom: 4,
+        minZoom: 0.05,
+        maxZoom: 5,
         wheelSensitivity: 0.2,
       });
 
       cyRef.current = cy;
 
-      // Node click handler
+      // Detect orphan nodes
+      cy.nodes().forEach((node: any) => {
+        if (node.degree() === 0) node.addClass('orphan');
+      });
+
+      // Orphan pulse animation
+      let pulseState = true;
+      pulseTimerRef.current = window.setInterval(() => {
+        const orphans = cy.nodes('.orphan');
+        if (orphans.length === 0) return;
+        pulseState = !pulseState;
+        if (pulseState) orphans.removeClass('orphan-dim');
+        else orphans.addClass('orphan-dim');
+      }, 1200);
+
+      // Click: select node
       cy.on('tap', 'node', (evt: any) => {
         const node = evt.target;
         const nodeData = node.data();
-
-        // Find full memory data
         const memory = memories?.find(m => m.id === nodeData.id);
-        setSelectedNode(memory || nodeData);
+
+        setSelectedNode(nodeData);
+        setSelectedNodeData(memory || nodeData);
+        setShowDetails(true);
+        applySelectionDimming(nodeData.id);
       });
 
-      // Background click handler
+      // Double-click: expand neighborhood
+      cy.on('dbltap', 'node', (evt: any) => {
+        expandNeighborhood(evt.target.id());
+      });
+
+      // Background click: clear selection
       cy.on('tap', (evt: any) => {
         if (evt.target === cy) {
           setSelectedNode(null);
+          setSelectedNodeData(null);
+          setShowDetails(false);
+          setDepthFilter(0);
+          applySelectionDimming(null);
+          applyDepthFilter(null, 0);
         }
       });
 
-      // Hover effects
+      // Hover: dim non-neighbors (only when nothing is selected)
       cy.on('mouseover', 'node', (evt: any) => {
+        if (selectedNodeRef.current) return;
         const node = evt.target;
-        const importance = node.data('importance') || 0.5;
-        const baseSize = Math.max(35, 25 + importance * 50);
-
-        // Store original size if not already stored
-        if (!node.data('_originalWidth')) {
-          node.data('_originalWidth', baseSize);
-          node.data('_originalHeight', baseSize);
-        }
 
         node.style({
-          'width': baseSize * 1.3,
-          'height': baseSize * 1.3,
-          'border-width': 4,
+          'width': 40,
+          'height': 40,
+          'border-width': 3,
           'border-color': node.style('background-color'),
-          'border-opacity': 0.8,
           'z-index': 999,
         });
-
-        // Highlight connected edges
-        node.connectedEdges().style({
-          'width': 5,
-          'opacity': 1,
-          'z-index': 998,
-        });
-
-        // Dim other nodes
-        cy.nodes().not(node).not(node.neighborhood()).style({
-          'opacity': 0.3,
-        });
-
-        // Dim other edges
-        cy.edges().not(node.connectedEdges()).style({
-          'opacity': 0.2,
-        });
+        node.connectedEdges().style({ 'opacity': 1, 'z-index': 998 });
+        cy.nodes().not(node).not(node.neighborhood()).style({ 'opacity': 0.15 });
+        cy.edges().not(node.connectedEdges()).style({ 'opacity': 0.08 });
       });
 
-      cy.on('mouseout', 'node', (evt: any) => {
-        const node = evt.target;
-        const importance = node.data('importance') || 0.5;
-        const baseSize = Math.max(35, 25 + importance * 50);
-        const recency = node.data('recency') || 0.5;
-
-        node.style({
-          'width': baseSize,
-          'height': baseSize,
-          'border-width': 2,
-          'border-color': 'rgba(255, 255, 255, 0.1)',
-          'border-opacity': 0.8,
-          'z-index': 1,
-        });
-
-        // Reset edges to their original width based on relationship type
-        node.connectedEdges().forEach((edge: any) => {
-          const relType = edge.data('type');
-          const relStyle = RELATION_STYLES[relType as keyof typeof RELATION_STYLES];
-          edge.style({
-            'width': relStyle?.width || 2.5,
-            'opacity': 0.75,
-            'z-index': 1,
-          });
-        });
-
-        // Restore all nodes and edges opacity
-        cy.nodes().style({
-          'opacity': (ele: any) => {
-            const nodeRecency = ele.data('recency') || 0.5;
-            return Math.max(0.5, 0.4 + nodeRecency * 0.6);
-          },
-        });
-
-        cy.edges().style({
-          'opacity': 0.75,
-        });
+      cy.on('mouseout', 'node', () => {
+        if (selectedNodeRef.current) return;
+        cy.elements().removeStyle();
       });
 
-    } catch (error) {
-      console.error('Failed to initialize graph:', error);
+    } catch (err) {
+      console.error('Failed to initialize graph:', err);
     }
 
     return () => {
+      if (pulseTimerRef.current) {
+        clearInterval(pulseTimerRef.current);
+        pulseTimerRef.current = null;
+      }
       if (layoutRef.current) {
         try { layoutRef.current.stop(); } catch (_) {}
         layoutRef.current = null;
@@ -371,199 +432,156 @@ export function EnhancedCytoscapeGraph({ elements, memories }: EnhancedCytoscape
         cyRef.current = null;
       }
     };
-  }, [elements, layout, memories]);
+  }, [elements, memories]);
 
-  // Minimap initialization
+  // React to depth filter changes
   useEffect(() => {
-    if (!minimapRef.current || !cyRef.current || !showMinimap || !elements || elements.length === 0) {
-      return;
+    if (selectedNode) {
+      applyDepthFilter(selectedNode.id, depthFilter);
     }
+  }, [depthFilter, selectedNode, applyDepthFilter]);
 
-    // Cleanup existing minimap
-    if (minimapCyRef.current) {
-      minimapCyRef.current.destroy();
-    }
+  // --- Handlers passed to controls ---
 
-    try {
-      // Create simplified minimap version
-      const minimapCy = cytoscape({
-        container: minimapRef.current,
-        elements: elements,
-        style: [
-          {
-            selector: 'node',
-            style: {
-              'background-color': (ele: any) => {
-                const type = ele.data('type');
-                return MEMORY_TYPE_COLORS[type as keyof typeof MEMORY_TYPE_COLORS] || '#0088FE';
-              },
-              'width': 8,
-              'height': 8,
-              'border-width': 0,
-            }
-          },
-          {
-            selector: 'edge',
-            style: {
-              'width': 1,
-              'line-color': '#999',
-              'opacity': 0.3,
-              'curve-style': 'bezier',
-            }
-          },
-        ],
-        layout: {
-          name: layout,
-          animate: false,
-          fit: true,
-          padding: 10,
-        } as any,
-        userZoomingEnabled: false,
-        userPanningEnabled: false,
-        boxSelectionEnabled: false,
-        autoungrabify: true,
-        minZoom: 0.1,
-        maxZoom: 1,
-      });
-
-      minimapCyRef.current = minimapCy;
-
-      // Sync viewport between main graph and minimap
-      const syncViewport = () => {
-        if (!cyRef.current || !minimapCyRef.current) return;
-
-        const mainPan = cyRef.current.pan();
-        const mainZoom = cyRef.current.zoom();
-        const mainExtent = cyRef.current.extent();
-
-        // Visual indicator of main viewport on minimap (could be enhanced with overlay)
-        minimapCyRef.current.fit(undefined, 10);
-      };
-
-      // Listen to viewport changes on main graph
-      cyRef.current.on('pan zoom', syncViewport);
-      syncViewport(); // Initial sync
-
-      return () => {
-        if (cyRef.current) {
-          cyRef.current.off('pan zoom', syncViewport);
-        }
-        if (minimapCyRef.current) {
-          minimapCyRef.current.destroy();
-          minimapCyRef.current = null;
-        }
-      };
-    } catch (error) {
-      console.error('Failed to initialize minimap:', error);
-    }
-  }, [cyRef.current, elements, layout, showMinimap]);
-
-  const handleLayoutChange = (newLayout: string) => {
-    setLayout(newLayout);
-    if (cyRef.current) {
-      cyRef.current.layout({
-        name: newLayout,
-        animate: true,
-        animationDuration: 800,
-        fit: true,
-        padding: 50,
-      }).run();
-    }
-  };
-
-  const handleZoom = (direction: 'in' | 'out' | 'fit') => {
-    if (!cyRef.current) return;
+  const handleZoom = useCallback((direction: 'in' | 'out' | 'fit') => {
+    const cy = cyRef.current;
+    if (!cy) return;
 
     if (direction === 'fit') {
-      cyRef.current.fit(undefined, 50);
+      cy.fit(undefined, 80);
     } else {
-      const zoom = cyRef.current.zoom();
-      const newZoom = direction === 'in' ? zoom * 1.2 : zoom / 1.2;
-      cyRef.current.zoom({
-        level: newZoom,
-        renderedPosition: {
-          x: cyRef.current.width() / 2,
-          y: cyRef.current.height() / 2,
-        },
+      const zoom = cy.zoom();
+      const level = direction === 'in' ? zoom * 1.3 : zoom / 1.3;
+      cy.animate({
+        zoom: { level, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } },
+        duration: 200,
+        easing: 'ease-out-cubic',
+      } as any);
+    }
+  }, []);
+
+  const handleFocusSelected = useCallback(() => {
+    const cy = cyRef.current;
+    if (!cy || !selectedNode) return;
+    const node = cy.getElementById(selectedNode.id);
+    if (node.length) {
+      cy.animate({
+        center: { eles: node },
+        zoom: 2,
+        duration: 400,
+        easing: 'ease-out-cubic',
+      } as any);
+    }
+  }, [selectedNode]);
+
+  const handleClearSelection = useCallback(() => {
+    const cy = cyRef.current;
+    if (cy) {
+      cy.elements().removeStyle();
+      cy.elements().unselect();
+      cy.elements().removeClass('dimmed highlighted depth-hidden');
+    }
+    setSelectedNode(null);
+    setSelectedNodeData(null);
+    setShowDetails(false);
+    setDepthFilter(0);
+  }, []);
+
+  const handleToggleLayout = useCallback(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    if (isLayoutRunning && layoutRef.current) {
+      layoutRef.current.stop();
+      layoutRef.current = null;
+      setIsLayoutRunning(false);
+    } else {
+      const layout = cy.layout({
+        name: 'cose',
+        animate: true,
+        animationDuration: 2000,
+        fit: true,
+        padding: 80,
+        nodeRepulsion: 8000,
+        edgeElasticity: 200,
+        gravity: 80,
+        numIter: 500,
+      } as any);
+
+      layoutRef.current = layout;
+      setIsLayoutRunning(true);
+
+      layout.on('layoutstop', () => {
+        setIsLayoutRunning(false);
+        layoutRef.current = null;
       });
+
+      layout.run();
     }
-  };
+  }, [isLayoutRunning]);
 
-  const handleSearch = (query: string) => {
-    if (!cyRef.current) return;
-
-    if (!query) {
-      cyRef.current.nodes().style('opacity', 1);
-      return;
-    }
-
-    cyRef.current.nodes().forEach((node: any) => {
-      const label = node.data('label')?.toLowerCase() || '';
-      const content = node.data('content')?.toLowerCase() || '';
-      const match = label.includes(query.toLowerCase()) || content.includes(query.toLowerCase());
-
-      node.style('opacity', match ? 1 : 0.2);
-    });
-  };
-
-  const handleExport = (format: 'png' | 'jpg') => {
-    if (!cyRef.current) return;
-
-    const imageData = cyRef.current[format]({
-      output: 'blob',
-      bg: '#0a0a0a',
-      full: true,
-      scale: 2,
-    });
-
-    const url = URL.createObjectURL(imageData);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `memory-graph-${Date.now()}.${format}`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const handleDepthChange = useCallback((depth: number) => {
+    setDepthFilter(depth);
+  }, []);
 
   return (
     <div className="relative w-full h-full">
-      <GraphControls
-        onLayoutChange={handleLayoutChange}
-        onZoom={handleZoom}
-        onSearch={handleSearch}
-        onExport={handleExport}
-        onToggleMinimap={() => setShowMinimap(!showMinimap)}
-        currentLayout={layout}
-        showMinimap={showMinimap}
-      />
+      {/* Cytoscape container */}
+      <div ref={containerRef} className="w-full h-full" style={{ background: 'transparent' }} />
 
-      <div
-        ref={containerRef}
-        className="w-full h-full rounded-lg bg-[#0a0a0a]"
-      />
-
+      {/* Selection info bar — top center */}
       {selectedNode && (
-        <NodeDetailsPanel
-          node={selectedNode}
-          onClose={() => setSelectedNode(null)}
-        />
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3
+          bg-[#0c0c14]/95 backdrop-blur-xl rounded-full px-4 py-2 border border-white/[0.08]
+          shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+          <div className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_BADGE_CLASS[selectedNode.type] || 'bg-white/10 text-white/60'}`}>
+            {selectedNode.type}
+          </div>
+          <span className="text-white/70 text-sm max-w-[300px] truncate">
+            {selectedNode.label || selectedNode.id?.substring(0, 20)}
+          </span>
+          {selectedNode.project && (
+            <span className="text-white/30 text-[11px]">{selectedNode.project}</span>
+          )}
+          <button
+            onClick={handleClearSelection}
+            className="ml-1 w-6 h-6 flex items-center justify-center rounded-full
+              text-white/30 hover:text-white hover:bg-white/[0.1] transition-all"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
 
-      {showMinimap && elements && elements.length > 0 && (
-        <div className="absolute bottom-4 right-4 w-56 h-40 bg-[#111] border border-white/[0.06] rounded-lg shadow-2xl overflow-hidden">
-          <div className="w-full h-6 bg-white/[0.04] flex items-center justify-between px-2 border-b border-white/[0.06]">
-            <span className="text-xs font-semibold text-white/60">Overview</span>
-            <button
-              onClick={() => setShowMinimap(false)}
-              className="text-white/40 hover:text-white/70 text-xs font-bold"
-            >
-              ×
-            </button>
-          </div>
-          <div
-            ref={minimapRef}
-            className="w-full h-[calc(100%-1.5rem)] bg-[#0a0a0a]"
-          />
+      {/* Controls — bottom right */}
+      <GraphControls
+        onZoom={handleZoom}
+        onFocusSelected={handleFocusSelected}
+        onClearSelection={handleClearSelection}
+        onToggleLayout={handleToggleLayout}
+        isLayoutRunning={isLayoutRunning}
+        hasSelection={!!selectedNode}
+        depthFilter={depthFilter}
+        onDepthChange={handleDepthChange}
+      />
+
+      {/* Expansion loading indicator */}
+      {isExpanding && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20
+          bg-[#0c0c14]/95 backdrop-blur-xl rounded-full px-4 py-2 border border-violet-500/20
+          text-violet-400 text-sm flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-500/30 border-t-violet-500 animate-spin" />
+          Expanding neighborhood&hellip;
         </div>
+      )}
+
+      {/* Node details panel */}
+      {showDetails && selectedNodeData && (
+        <NodeDetailsPanel
+          node={selectedNodeData}
+          onClose={() => setShowDetails(false)}
+          onExpandNeighborhood={() => selectedNode && expandNeighborhood(selectedNode.id)}
+        />
       )}
     </div>
   );

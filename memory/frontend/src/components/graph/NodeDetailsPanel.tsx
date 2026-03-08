@@ -1,4 +1,4 @@
-import { X, Pin, Archive, Trash2, ExternalLink } from 'lucide-react';
+import { X, Pin, Archive, Trash2, ExternalLink, Network } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { formatDistanceToNow } from 'date-fns';
@@ -7,6 +7,7 @@ import type { Memory } from '../../types/memory';
 interface NodeDetailsPanelProps {
   node: Memory | any;
   onClose: () => void;
+  onExpandNeighborhood?: () => void;
 }
 
 const MEMORY_TYPE_COLORS = {
@@ -18,7 +19,7 @@ const MEMORY_TYPE_COLORS = {
   context: 'bg-white/10 text-white/60 border border-white/10',
 };
 
-export function NodeDetailsPanel({ node, onClose }: NodeDetailsPanelProps) {
+export function NodeDetailsPanel({ node, onClose, onExpandNeighborhood }: NodeDetailsPanelProps) {
   const isFullMemory = 'content' in node && 'created_at' in node;
 
   return (
@@ -216,8 +217,21 @@ export function NodeDetailsPanel({ node, onClose }: NodeDetailsPanelProps) {
               </div>
             )}
 
+            {/* Relations count */}
+            {node.relations && node.relations.length > 0 && (
+              <div className="text-xs text-white/30">
+                {node.relations.length} relationship{node.relations.length !== 1 ? 's' : ''}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex gap-2 pt-4 border-t border-white/[0.06]">
+              {onExpandNeighborhood && (
+                <Button variant="outline" size="sm" className="flex-1" onClick={onExpandNeighborhood}>
+                  <Network className="h-4 w-4 mr-2" />
+                  Expand
+                </Button>
+              )}
               <Button variant="outline" size="sm" className="flex-1">
                 <Pin className="h-4 w-4 mr-2" />
                 {node.pinned ? 'Unpin' : 'Pin'}

@@ -632,6 +632,23 @@ async def list_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/memories/stale")
+async def get_stale_memories_endpoint(
+    threshold: float = Query(default=0.5, ge=0.0, le=1.0, description="Minimum staleness score"),
+    project: Optional[str] = Query(default=None, description="Filter by project"),
+    limit: int = Query(default=20, ge=1, le=100, description="Max results"),
+):
+    """Get memories flagged as potentially stale."""
+    from ..staleness import get_stale_memories
+
+    client = collections.get_client()
+    results = get_stale_memories(
+        client, collections.COLLECTION_NAME,
+        threshold=threshold, project=project, limit=limit,
+    )
+    return {"stale_memories": results, "count": len(results), "threshold": threshold}
+
+
 @router.get("/memories/{memory_id}", response_model=Memory)
 async def get_memory(memory_id: str):
     """Get a single memory by ID (tracks access and reinforces strength)."""

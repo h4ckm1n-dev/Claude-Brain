@@ -182,6 +182,24 @@ def get_scheduler():
                 replace_existing=True
             )
 
+            # Staleness sweep (proactive drift + access divergence detection)
+            _scheduler.add_job(
+                run_staleness_sweep_job,
+                trigger=IntervalTrigger(hours=12),
+                id="staleness_sweep_job",
+                name="Staleness Sweep (Drift + Access Divergence)",
+                replace_existing=True
+            )
+
+            # Flow detection (discover knowledge chains)
+            _scheduler.add_job(
+                run_flow_detection_job,
+                trigger=IntervalTrigger(hours=6),
+                id="flow_detection_job",
+                name="Flow Detection (Knowledge Chain Discovery)",
+                replace_existing=True
+            )
+
             logger.info(f"Scheduler initialized with {CONSOLIDATION_INTERVAL_HOURS}h consolidation + FULL BRAIN MODE + ADVANCED BRAIN MODE jobs")
 
         except ImportError:
@@ -806,3 +824,43 @@ def run_co_access_materialization():
         logger.info("Skipping co-access materialization - another graph job is running")
     except Exception as e:
         logger.error(f"Co-access materialization failed: {e}")
+
+
+def run_staleness_sweep_job():
+    """Run staleness sweep as a scheduled job."""
+    logger.info("Running scheduled staleness sweep...")
+
+    try:
+        from . import collections
+        from .staleness import run_staleness_sweep
+
+        client = collections.get_client()
+        result = run_staleness_sweep(
+            client,
+            collections.COLLECTION_NAME,
+        )
+        logger.info(
+            f"Staleness sweep complete: "
+            f"access_divergence={result['access_divergence']}, "
+            f"drift={result['drift']}, "
+            f"tag_gap={result['tag_gap']}, "
+            f"total={result['total_updated']}"
+        )
+    except Exception as e:
+        logger.error(f"Scheduled staleness sweep failed: {e}")
+
+
+def run_flow_detection_job():
+    """Run flow detection as a scheduled job."""
+    logger.info("Running scheduled flow detection...")
+
+    try:
+        from .flow_detection import detect_all_flows
+        result = detect_all_flows(max_flows=100)
+        logger.info(
+            f"Flow detection complete: "
+            f"entry_points={result.get('entry_points_found', 0)}, "
+            f"flows_created={result.get('flows_created', 0)}"
+        )
+    except Exception as e:
+        logger.error(f"Scheduled flow detection failed: {e}")

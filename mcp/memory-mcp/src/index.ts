@@ -19,6 +19,9 @@ import { readFileSync } from "node:fs";
 // Configuration
 const MEMORY_SERVICE_URL = process.env.MEMORY_SERVICE_URL || "http://localhost:8100";
 
+// Dedup: track memory IDs already sent to LLM this session to avoid cross-call redundancy
+const sentMemoryIds = new Set<string>();
+
 /**
  * Read session ID set by the SessionStart hook.
  * The MCP server process is spawned before hooks run, so process.env won't have it.
@@ -31,6 +34,21 @@ function getSessionId(): string | undefined {
   try {
     const sid = readFileSync("/tmp/.claude-memory-session-id", "utf-8").trim();
     if (sid) return sid;
+  } catch {
+    // File doesn't exist yet — hook hasn't run
+  }
+  return undefined;
+}
+
+/**
+ * Read project slug set by the SessionStart hook.
+ * The hook maps PWD → canonical project slug and writes it to /tmp/.claude-memory-project.
+ */
+function getProject(): string | undefined {
+  if (process.env.MEMORY_PROJECT) return process.env.MEMORY_PROJECT;
+  try {
+    const proj = readFileSync("/tmp/.claude-memory-project", "utf-8").trim();
+    if (proj) return proj;
   } catch {
     // File doesn't exist yet — hook hasn't run
   }
@@ -57,6 +75,9 @@ interface Memory {
   decision?: string;
   rationale?: string;
   alternatives?: string[];
+  pinned?: boolean;
+  archived?: boolean;
+  memory_strength?: number;
 }
 
 interface SearchResult {
@@ -799,6 +820,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["memory_id"],
         },
       },
+
+      // === Knowledge Flow Tools ===
+      {
+        name: "trace_flow",
+        description:
+          "Trace a knowledge flow from a memory — discover chains like ERROR→FIX→PATTERN or DECISION→SUPERSEDES→DECISION. " +
+          "Shows how knowledge evolved through related memories.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            memory_id: {
+              type: "string",
+              description: "Memory ID to trace flow from",
+            },
+            direction: {
+              type: "string",
+              enum: ["forward", "backward", "both"],
+              description: "Trace direction (default: both)",
+            },
+            max_depth: {
+              type: "number",
+              description: "Maximum traversal depth (1-20, default: 10)",
+            },
+          },
+          required: ["memory_id"],
+        },
+      },
     ],
   };
 });
@@ -811,11 +859,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       // === Core Memory Tools ===
       case "store_memory": {
-        // Inject session_id from environment (set by SessionStart hook)
+        // Inject session_id and project from environment (set by SessionStart hook)
         const storeArgs = { ...args as Record<string, unknown> };
         const sessionId = getSessionId();
         if (sessionId && !storeArgs.session_id) {
           storeArgs.session_id = sessionId;
+        }
+        const storeProject = getProject();
+        if (storeProject && !storeArgs.project) {
+          storeArgs.project = storeProject;
         }
         const memory = await apiCall<Memory>("/memories", {
           method: "POST",
@@ -848,14 +900,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const formatted = results
+        // Dedup: skip memories already sent via get_context
+        const deduped = results.filter((r) => !sentMemoryIds.has(r.memory.id));
+        // Filter low-relevance noise: only return results above 0.30 score
+        const toFormat = deduped.filter((r) => r.score >= 0.30);
+
+        if (toFormat.length === 0) {
+          const maxScore = deduped.length > 0
+            ? Math.max(...deduped.map(r => r.score)).toFixed(2)
+            : "0.00";
+          return {
+            content: [{
+              type: "text",
+              text: deduped.length > 0
+                ? `No relevant memories found (${deduped.length} candidates, best score: ${maxScore} — below 0.30 threshold).`
+                : results.length > 0
+                  ? `No new memories found (${results.length} matched but already in context).`
+                  : `No memories found matching your query.`
+            }],
+          };
+        }
+
+        // Track new IDs
+        toFormat.forEach((r) => sentMemoryIds.add(r.memory.id));
+
+        const formatted = toFormat
           .map(
-            (r, i) =>
-              `${i + 1}. [${r.memory.type}] (score: ${r.score.toFixed(2)})\n` +
-              `   ID: ${r.memory.id}\n` +
-              `   ${r.memory.content}\n` +
-              (r.memory.solution ? `   Solution: ${r.memory.solution}\n` : "") +
-              (r.memory.tags.length > 0 ? `   Tags: ${r.memory.tags.join(", ")}` : "")
+            (r, i) => {
+              const content = r.memory.content.length > 300 ? r.memory.content.substring(0, 300) + "..." : r.memory.content;
+              const sol = r.memory.solution && r.memory.solution.length > 200 ? r.memory.solution.substring(0, 200) + "..." : r.memory.solution;
+              return `${i + 1}. [${r.memory.type}] (score: ${r.score.toFixed(2)})\n` +
+                `   ID: ${r.memory.id}\n` +
+                `   ${content}\n` +
+                (sol ? `   Solution: ${sol}\n` : "") +
+                (r.memory.tags.length > 0 ? `   Tags: ${r.memory.tags.join(", ")}` : "");
+            }
           )
           .join("\n\n");
 
@@ -863,7 +942,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `Found ${results.length} memories:\n\n${formatted}`,
+              text: `Found ${toFormat.length} memories:\n\n${formatted}`,
             },
           ],
         };
@@ -879,17 +958,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const context = await apiCall<{
           memories: Memory[];
-          documents: Array<{
+          documents?: Array<{
             file_path: string;
             content: string;
             score: number;
             file_type?: string;
           }>;
-          combined_count: number;
-          has_documents: boolean;
+          count?: number;
+          combined_count?: number;
+          enrichment?: {
+            mode?: string;
+            graph_summary?: { enabled: boolean; total_memories?: number; total_relationships?: number };
+            hotspots?: Array<{ id: string; type: string; preview: string; connections: number }>;
+            alerts?: {
+              stale_memories?: Array<{ id: string; type: string; staleness_score: number; reasons: string[] }>;
+              knowledge_gaps?: Array<{ area: string; memory_count: number; avg_quality: number }>;
+            };
+            flows?: Array<{ id: string; label: string; flow_type: string; steps: number }>;
+            recent_activity?: { total_24h: number; by_type: Record<string, number> };
+            project_health?: { total_memories: number; avg_quality: number; avg_strength: number };
+            error?: string;
+          };
         }>(`/context/${project}?${params.toString()}`);
 
-        if (context.combined_count === 0) {
+        const memories = context.memories || [];
+        const documents = context.documents || [];
+        const totalCount = context.count ?? context.combined_count ?? (memories.length + documents.length);
+
+        if (totalCount === 0) {
           return {
             content: [
               {
@@ -900,25 +996,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        let formatted = `📚 Context (last ${hours}h): ${context.combined_count} items\n\n`;
+        // Track IDs for cross-call dedup
+        memories.forEach((m) => sentMemoryIds.add(m.id));
 
-        // Format memories
-        if (context.memories.length > 0) {
-          formatted += `=== MEMORIES (${context.memories.length}) ===\n\n`;
-          formatted += context.memories
+        let formatted = `📌 Project context: ${memories.length} key memories\n\n`;
+
+        // Format memories — compact summaries, only high-signal items
+        if (memories.length > 0) {
+          formatted += memories
             .map(
-              (m) =>
-                `[${m.type}] ${m.content}` +
-                (m.solution ? `\n  → Solution: ${m.solution}` : "") +
-                (m.resolved === false && m.type === "error" ? " (UNRESOLVED)" : "")
+              (m) => {
+                const truncated = m.content.length > 200 ? m.content.substring(0, 200) + "..." : m.content;
+                const solTrunc = m.solution && m.solution.length > 100 ? m.solution.substring(0, 100) + "..." : m.solution;
+                const prefix = m.pinned ? "📌" : "⚠";
+                return `${prefix} [${m.type}] ${truncated}` +
+                  (solTrunc ? `\n  → ${solTrunc}` : "") +
+                  `\n  ID: ${m.id}`;
+              }
             )
-            .join("\n\n");
+            .join("\n");
         }
 
-        // Format documents
-        if (context.documents.length > 0) {
-          formatted += `\n\n=== RELEVANT DOCUMENTS (${context.documents.length}) ===\n\n`;
-          formatted += context.documents
+        // Format documents (if present)
+        if (documents.length > 0) {
+          formatted += `\n\n=== RELEVANT DOCUMENTS (${documents.length}) ===\n\n`;
+          formatted += documents
             .map(
               (d) =>
                 `📄 ${d.file_path}${d.file_type ? ` (${d.file_type})` : ""}\n` +
@@ -926,6 +1028,57 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 `\n   Score: ${d.score.toFixed(3)}`
             )
             .join("\n\n");
+        }
+
+        // Format enrichment (graph stats, hotspots, alerts, flows)
+        const enrichment = context.enrichment;
+        if (enrichment && !enrichment.error) {
+          // Graph summary
+          if (enrichment.graph_summary?.enabled) {
+            formatted += `\n\n=== KNOWLEDGE GRAPH ===\n`;
+            formatted += `Memories: ${enrichment.graph_summary.total_memories} | Relationships: ${enrichment.graph_summary.total_relationships}`;
+          }
+
+          // Hotspots
+          if (enrichment.hotspots && enrichment.hotspots.length > 0) {
+            formatted += `\n\n=== HOTSPOTS (most connected) ===\n`;
+            formatted += enrichment.hotspots
+              .map((h) => `• [${h.type}] ${h.preview || "(no preview)"} (${h.connections} connections)`)
+              .join("\n");
+          }
+
+          // Staleness alerts
+          const stale = enrichment.alerts?.stale_memories;
+          if (stale && stale.length > 0) {
+            formatted += `\n\n⚠️ STALE MEMORIES (${stale.length}) ===\n`;
+            formatted += stale
+              .map((s) => `• ${s.id} [${s.type}] staleness: ${s.staleness_score.toFixed(2)} — ${s.reasons.join(", ")}`)
+              .join("\n");
+          }
+
+          // Knowledge gaps
+          const gaps = enrichment.alerts?.knowledge_gaps;
+          if (gaps && gaps.length > 0) {
+            formatted += `\n\n=== KNOWLEDGE GAPS ===\n`;
+            formatted += gaps
+              .map((g) => `• "${g.area}" — ${g.memory_count} memories, avg quality: ${g.avg_quality}`)
+              .join("\n");
+          }
+
+          // Active flows (full mode only)
+          if (enrichment.flows && enrichment.flows.length > 0) {
+            formatted += `\n\n=== ACTIVE FLOWS ===\n`;
+            formatted += enrichment.flows
+              .map((f) => `• [${f.flow_type}] ${f.label} (${f.steps} steps)`)
+              .join("\n");
+          }
+
+          // Project health (full mode only)
+          if (enrichment.project_health?.total_memories) {
+            const h = enrichment.project_health;
+            formatted += `\n\n=== PROJECT HEALTH ===\n`;
+            formatted += `Memories: ${h.total_memories} | Avg Quality: ${h.avg_quality} | Avg Strength: ${h.avg_strength}`;
+          }
         }
 
         return {
@@ -1164,11 +1317,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }>;
         };
 
-        // Inject session_id from environment into each memory (set by SessionStart hook)
+        // Inject session_id and project from environment into each memory (set by SessionStart hook)
         const bulkSessionId = getSessionId();
-        const enrichedMemories = bulkSessionId
-          ? memories.map((m) => m.session_id ? m : { ...m, session_id: bulkSessionId })
-          : memories;
+        const bulkProject = getProject();
+        const enrichedMemories = memories.map((m) => ({
+          ...m,
+          ...(bulkSessionId && !m.session_id ? { session_id: bulkSessionId } : {}),
+          ...(bulkProject && !m.project ? { project: bulkProject } : {}),
+        }));
 
         const bulkResult = await apiCall<{
           stored: number;
@@ -1313,13 +1469,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const suggestions = result.suggestions
           .map(
-            (s, i) =>
-              `${i + 1}. ${s.reason}\n` +
+            (s, i) => {
+              const content = s.content.length > 200 ? s.content.substring(0, 200) + "..." : s.content;
+              return `${i + 1}. ${s.reason}\n` +
               `   ID: ${s.id}\n` +
-              `   Content: ${s.content}\n` +
+              `   ${content}\n` +
               `   Tags: ${s.tags.join(", ") || "none"}\n` +
               `   Score: ${s.combined_score} (relevance: ${s.relevance_score}, decay: ${s.decay_score})\n` +
-              `   Accessed: ${s.access_count}x`
+              `   Accessed: ${s.access_count}x`;
+            }
           )
           .join("\n\n");
 
@@ -1966,6 +2124,68 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: `Recommendations for ${memory_id} (${result.count}):\n\n${formatted}`,
             },
           ],
+        };
+      }
+
+      // === Knowledge Flow Tools ===
+      case "trace_flow": {
+        const { memory_id, direction = "both", max_depth = 10 } = args as {
+          memory_id: string;
+          direction?: string;
+          max_depth?: number;
+        };
+
+        const params = new URLSearchParams({
+          direction,
+          max_depth: String(max_depth),
+        });
+
+        const result = await apiCall<{
+          chain: Array<{
+            memory_id: string;
+            type: string;
+            preview: string;
+            relationship: string | null;
+            is_origin?: boolean;
+            step: number;
+          }>;
+          total_steps: number;
+          flow_type: string;
+          origin_id: string;
+          error?: string;
+        }>(`/flows/trace/${memory_id}?${params.toString()}`);
+
+        if (result.error) {
+          return {
+            content: [{
+              type: "text",
+              text: `Flow trace failed: ${result.error}`,
+            }],
+          };
+        }
+
+        if (result.total_steps === 0) {
+          return {
+            content: [{
+              type: "text",
+              text: `No knowledge flow found from memory ${memory_id}`,
+            }],
+          };
+        }
+
+        const formatted = result.chain
+          .map((step) => {
+            const marker = step.is_origin ? "▶" : "→";
+            const rel = step.relationship ? ` [${step.relationship}]` : "";
+            return `${marker} Step ${step.step}: [${step.type}]${rel}\n  ${step.preview || "(no preview)"}\n  ID: ${step.memory_id}`;
+          })
+          .join("\n");
+
+        return {
+          content: [{
+            type: "text",
+            text: `Knowledge Flow (${result.flow_type}, ${result.total_steps} steps):\n\n${formatted}`,
+          }],
         };
       }
 

@@ -566,7 +566,7 @@ export function Sessions() {
                             e.stopPropagation();
                             if (
                               confirm(
-                                `Delete session ${session.session_id.slice(0, 12)}... and all its memories?`
+                                `Delete session ${session.session_id.slice(0, 12)}...? Memories will be kept.`
                               )
                             ) {
                               deleteSession.mutate(session.session_id);
@@ -618,7 +618,7 @@ export function Sessions() {
                         onClick={() => {
                           if (
                             confirm(
-                              `Delete session ${session.session_id.slice(0, 12)}... and all its memories?`
+                              `Delete session ${session.session_id.slice(0, 12)}...? Memories will be kept.`
                             )
                           ) {
                             deleteSession.mutate(session.session_id);

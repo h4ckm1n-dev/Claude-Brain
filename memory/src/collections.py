@@ -223,6 +223,7 @@ def _create_payload_indexes(client: QdrantClient) -> None:
         ("memory_tier", models.PayloadSchemaType.KEYWORD),
         ("archived", models.PayloadSchemaType.BOOL),
         ("session_id", models.PayloadSchemaType.KEYWORD),
+        ("staleness_score", models.PayloadSchemaType.FLOAT),
     ]
 
     for field_name, field_type in indexes:
@@ -436,6 +437,17 @@ def store_memory(data: MemoryCreate, deduplicate: bool = True) -> Memory:
     except Exception as e:
         logger.warning(f"Auto-supersede failed for {memory.id}: {e}")
 
+    # Staleness detection: check if new memory makes existing ones stale
+    try:
+        from .staleness import check_staleness_on_write
+        stale_updates = check_staleness_on_write(
+            client, COLLECTION_NAME, memory, embeddings["dense"]
+        )
+        if stale_updates:
+            logger.info(f"Staleness: flagged {len(stale_updates)} memories as potentially stale")
+    except Exception as e:
+        logger.warning(f"Staleness on-write check failed for {memory.id}: {e}")
+
     # Re-fetch so the returned object has the fresh quality_score
     # (recalc wrote it to Qdrant but the in-memory object still has 0.5)
     return get_memory(memory.id) or memory
@@ -558,6 +570,13 @@ def _auto_supersede(
         try:
             link_memories(new_memory.id, cid, RelationType.SUPERSEDES)
 
+            # Flag superseded memory as stale
+            try:
+                from .staleness import on_supersede
+                on_supersede(client, COLLECTION_NAME, cid)
+            except Exception:
+                pass
+
             # Archive the superseded memory (quality recalc not needed for archived)
             safe_set_payload(cid, {"archived": True}, recalc_quality=False)
 
@@ -626,23 +645,23 @@ def _apply_mmr_diversity(
     return [results[i] for i in selected]
 
 
-def _adaptive_score_threshold(scores: list[float], base_threshold: float = 0.10) -> float:
+def _adaptive_score_threshold(scores: list[float], base_threshold: float = 0.20) -> float:
     """Compute adaptive score threshold from result distribution.
 
     Strategy:
     - If top score is high (>0.7), use base_threshold (results are confident)
-    - If top score is low (<0.4), lower threshold to base * 0.5 (preserve scarce results)
-    - Drop results that are < 30% of the top score (relative gap filter)
+    - If top score is low (<0.3), lower threshold to base * 0.7 (still strict for weak results)
+    - Drop results that are < 45% of the top score (relative gap filter)
     """
     if not scores:
         return base_threshold
 
     top = max(scores)
-    if top < 0.4:
-        return base_threshold * 0.5  # Lenient for weak results
+    if top < 0.3:
+        return base_threshold * 0.7  # Still strict for weak results
 
-    # Relative gap: drop anything below 30% of top score
-    relative_threshold = top * 0.30
+    # Relative gap: drop anything below 45% of top score
+    relative_threshold = top * 0.45
     return max(base_threshold, relative_threshold)
 
 
@@ -828,6 +847,25 @@ def search_memories(
         if (r.composite_score or r.score) >= score_threshold
     ]
 
+    # Score gap detection: cut off where relevance drops sharply
+    if len(search_results) > 1:
+        sorted_scores = sorted(
+            [(r.composite_score or r.score) for r in search_results],
+            reverse=True
+        )
+        cutoff_idx = len(sorted_scores)
+        for i in range(1, len(sorted_scores)):
+            drop = sorted_scores[i - 1] - sorted_scores[i]
+            if drop > 0.15 and sorted_scores[i] < sorted_scores[0] * 0.5:
+                cutoff_idx = i
+                break
+        if cutoff_idx < len(search_results):
+            min_keep_score = sorted_scores[cutoff_idx - 1]
+            search_results = [
+                r for r in search_results
+                if (r.composite_score or r.score) >= min_keep_score
+            ]
+
     # Phase 2.1: Apply graph-based search expansion if enabled
     if use_graph_expansion and is_graph_enabled() and len(search_results) > 0:
         logger.debug(f"Expanding {len(search_results)} results using knowledge graph")
@@ -865,6 +903,15 @@ def search_memories(
     # Track access and reinforce strength for top results
     for result in search_results[:5]:
         track_access(result.memory.id)
+
+    # Reduce staleness for accessed memories (they're still relevant)
+    try:
+        from .staleness import reduce_staleness_on_access
+        for result in search_results[:5]:
+            if hasattr(result, 'memory') and result.memory:
+                reduce_staleness_on_access(client, COLLECTION_NAME, result.memory.id)
+    except Exception:
+        pass  # Non-critical
 
     # Phase 1.2: Track co-access for relationship inference
     # Memories accessed together in search results may be related
@@ -1481,14 +1528,11 @@ def get_context(
     include_documents: bool = True,
     document_limit: int = 5
 ) -> dict:
-    """Get relevant context memories and documents for a project.
+    """Get tier-1 context: pinned memories + unresolved errors for a project.
 
-    Args:
-        project: Optional project name to filter by
-        hours: Hours to look back (default: 24)
-        types: Optional memory types to filter
-        include_documents: Whether to include relevant documents (default: True)
-        document_limit: Maximum number of documents to return (default: 5)
+    This returns only high-signal memories that are always relevant regardless
+    of what the user is working on. Semantic search (search_memory) handles
+    query-specific retrieval separately.
 
     Returns:
         Dict with keys: memories (list[Memory]), documents (list[dict]),
@@ -1496,59 +1540,53 @@ def get_context(
     """
     client = get_client()
 
-    time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
-
-    # Build filter conditions (excluding time filter which needs client-side handling)
-    filter_conditions = [
-        models.FieldCondition(
-            key="archived",
-            match=models.MatchValue(value=False)
-        )
+    base_filter = [
+        models.FieldCondition(key="archived", match=models.MatchValue(value=False))
     ]
-
     if project:
-        filter_conditions.append(
-            models.FieldCondition(
-                key="project",
-                match=models.MatchValue(value=project)
-            )
+        base_filter.append(
+            models.FieldCondition(key="project", match=models.MatchValue(value=project))
         )
 
-    if types:
-        filter_conditions.append(
-            models.FieldCondition(
-                key="type",
-                match=models.MatchAny(any=[t.value for t in types])
-            )
-        )
-
-    results, _ = client.scroll(
+    # Tier 1a: Pinned memories (always relevant project knowledge)
+    pinned_filter = base_filter + [
+        models.FieldCondition(key="pinned", match=models.MatchValue(value=True))
+    ]
+    pinned_results, _ = client.scroll(
         collection_name=COLLECTION_NAME,
-        scroll_filter=models.Filter(must=filter_conditions),
-        limit=200,  # Get more to filter client-side
+        scroll_filter=models.Filter(must=pinned_filter),
+        limit=10,
         with_payload=True
     )
 
-    # Convert to memories and filter by time client-side
-    memories = [_point_to_memory(r) for r in results]
+    # Tier 1b: Unresolved errors (need attention)
+    error_filter = base_filter + [
+        models.FieldCondition(key="type", match=models.MatchValue(value="error")),
+        models.FieldCondition(key="resolved", match=models.MatchValue(value=False))
+    ]
+    error_results, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=models.Filter(must=error_filter),
+        limit=5,
+        with_payload=True
+    )
 
-    # Filter by time threshold
-    filtered = []
-    for m in memories:
-        created = m.created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        if created >= time_threshold:
-            filtered.append(m)
+    # Merge and deduplicate
+    seen_ids = set()
+    memories = []
+    for r in pinned_results + error_results:
+        m = _point_to_memory(r)
+        if m.id not in seen_ids:
+            seen_ids.add(m.id)
+            memories.append(m)
 
-    memories = filtered[:50]  # Limit to 50
+    # Sort: pinned first, then by importance
+    memories.sort(key=lambda m: (m.pinned, m.importance_score), reverse=True)
 
     # Search for relevant documents if requested
     documents = []
     if include_documents and project:
-        # Build a context query from the recent memory content
         context_query = f"{project} " + " ".join([m.content[:50] for m in memories[:3]])
-
         try:
             from . import documents as doc_module
             doc_results = doc_module.search_documents(
@@ -1561,12 +1599,24 @@ def get_context(
             logger.warning(f"Failed to fetch documents for context: {e}")
             documents = []
 
-    return {
+    # Enrich with adaptive context (graph stats, hotspots, alerts, flows)
+    enrichment = {}
+    try:
+        from .context_builder import build_enriched_context
+        enrichment = build_enriched_context(client, COLLECTION_NAME, project)
+    except Exception as e:
+        logger.warning(f"Context enrichment failed: {e}")
+
+    result = {
         "memories": memories,
         "documents": documents,
         "combined_count": len(memories) + len(documents),
-        "has_documents": len(documents) > 0
+        "has_documents": len(documents) > 0,
     }
+    if enrichment:
+        result["enrichment"] = enrichment
+
+    return result
 
 
 def get_stats() -> dict:

@@ -83,9 +83,9 @@ fi
 if [[ -f "$mem_cache" ]]; then
     IFS='|' read -r m_total m_graph m_errors < "$mem_cache"
     mem_segment=$(printf "\033[1;35m󰍉 %s\033[0m " "$m_total")
-    mem_segment+=$(printf "\033[1;34m󰛡 %s\033[0m" "$m_graph")
+    mem_segment+=$(printf "\033[1;34m󰛡 %s\033[0m " "$m_graph")
     if [[ "$m_errors" -gt 0 ]] 2>/dev/null; then
-        mem_segment+=$(printf " \033[1;31m %s\033[0m" "$m_errors")
+        mem_segment+=$(printf "\033[1;31m󰃤 %s\033[0m" "$m_errors")
     fi
     output+=$(printf "| %s " "$mem_segment")
 fi

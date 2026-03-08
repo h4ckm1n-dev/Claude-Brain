@@ -84,3 +84,17 @@ memory/data/
 memory/.env
 downloads/
 session-env/
+
+# Local MCP config and auth cache
+.mcp.json
+mcp-needs-auth-cache.json
+
+# Backups (local only)
+backups/
+
+# GSD plugin state
+gsd-file-manifest.json
+get-shit-done/
+
+# External MCP servers (separate repos)
+mcp-servers/

@@ -38,3 +38,6 @@ export const getGraphRecommendations = (memoryId: string, limit: number = 10) =>
   apiClient.get<GraphRecommendation[]>(`/graph/recommendations/${memoryId}`, {
     params: { limit }
   }).then(r => r.data);
+
+export const getGraphStats = () =>
+  apiClient.get('/graph/stats').then(r => r.data);
